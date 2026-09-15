@@ -24,6 +24,14 @@ public final class AppController: NSObject, NSApplicationDelegate {
     /// -- a leaked aggregate device outlives the window that wanted it.
     private let tap = AudioTap()
     private var tapFollow: AnyCancellable?
+    private var menuBar: MenuBarItem?
+    /// Stood down: no panel, no hover polling, no tap. Survives a relaunch,
+    /// because a user who hid this to get matchnotch's notch back does not
+    /// want it returning at login.
+    private var hidden = UserDefaults.standard.bool(forKey: AppController.hiddenKey) {
+        didSet { UserDefaults.standard.set(hidden, forKey: Self.hiddenKey) }
+    }
+    static let hiddenKey = "hiddenFromTheNotch"
 
     public init(preview: PreviewData.State? = nil, previewExpanded: Bool = false,
                 probe: Bool = false, offscreen: Bool = false,
@@ -57,13 +65,45 @@ public final class AppController: NSObject, NSApplicationDelegate {
 
         build()
         if preview == nil, !probe { service.start() }
+        // Live runs only. A capture or a preview is driven by a script and
+        // must not put anything in the user's menu bar.
+        if preview == nil, !probe, !captureServer {
+            menuBar = MenuBarItem(
+                summary: { [weak self] in
+                    guard let self else { return "SpotifyNotch" }
+                    return MenuBarItem.summary(now: service.now, permission: service.permission,
+                                               hidden: hidden)
+                },
+                hidden: { [weak self] in self?.hidden ?? false },
+                setHidden: { [weak self] in self?.setHidden($0) })
+        }
 
         NotificationCenter.default.addObserver(
             self, selector: #selector(screensChanged),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
     }
 
+    /// Stand down, or come back. The menu-bar item stays either way -- it is
+    /// the only way back, so it is the one thing that must not be hidden.
+    private func setHidden(_ value: Bool) {
+        guard value != hidden else { return }
+        hidden = value
+        if value { standDown() } else { build() }
+    }
+
+    /// Everything `build` turns on, turned off. Not just `orderOut`: a hidden
+    /// panel that is still polling the pointer and still holding an audio tap
+    /// open is hidden from the user and from nobody else.
+    private func standDown() {
+        expansion.stop()
+        tapFollow = nil
+        tap.stop()
+        panel?.orderOut(nil)
+        panel = nil
+    }
+
     private func build() {
+        guard !hidden else { return standDown() }
         guard let screen = Self.notchedScreen else {
             NSLog("SpotifyNotch: no notched display, drawing nothing")
             // Nothing is drawn in clamshell, so nothing needs listening to.
@@ -226,15 +266,20 @@ public final class AppController: NSObject, NSApplicationDelegate {
         watchdog = t
     }
 
+    /// A status item outlives the app that made it and leaves a dead icon in
+    /// the menu bar until the next login.
+    public func applicationWillTerminate(_ note: Notification) {
+        menuBar?.remove()
+        tap.stop()
+    }
+
     /// Tear the panel down and build it again.
     ///
     /// A rebuild rather than a reposition: notch metrics differ per screen and
     /// the SwiftUI tree captured the old geometry. Display changes are rare
     /// enough that a hammer is the right tool.
     @objc private func screensChanged() {
-        expansion.stop()
-        panel?.orderOut(nil)
-        panel = nil
+        standDown()
         build()
     }
 }

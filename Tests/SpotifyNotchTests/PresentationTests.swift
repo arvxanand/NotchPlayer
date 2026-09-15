@@ -99,3 +99,56 @@ final class PermissionViewTests: XCTestCase {
         XCTAssertTrue(ArtworkView.showsPlaceholderMark(url: stand.artworkURL, hasImage: false))
     }
 }
+
+/// The menu bar's one line of text. It is the only surface that says anything
+/// when the panel is hidden, so every state has to have an answer here too.
+final class MenuSummaryTests: XCTestCase {
+    private let song = Track(id: "x", name: "Comes and Goes", artist: "KETTAMA",
+                             album: "Comes and Goes", duration: 262, hasArtwork: true)
+
+    private func summary(_ now: Now, _ permission: Permission = .granted,
+                         hidden: Bool = false) -> String {
+        MenuBarItem.summary(now: now, permission: permission, hidden: hidden)
+    }
+
+    func testEveryStateSaysSomething() {
+        XCTAssertEqual(summary(.notRunning), "Spotify is not running")
+        XCTAssertEqual(summary(.stopped), "Nothing playing")
+        XCTAssertEqual(summary(.unknown("timeout")), "Reading Spotify\u{2026}")
+        XCTAssertEqual(summary(.track(song, state: .playing, position: 3)),
+                       "Comes and Goes \u{2014} KETTAMA")
+    }
+
+    func testPausedSaysSo() {
+        XCTAssertEqual(summary(.track(song, state: .paused, position: 3)),
+                       "Comes and Goes \u{2014} KETTAMA (paused)")
+    }
+
+    /// Hidden is the fact the user opened the menu to check. What Spotify is
+    /// doing while the panel is off the notch is beside the point.
+    func testHiddenOutranksEverything() {
+        for now in [Now.notRunning, .stopped, .track(song, state: .playing, position: 0)] {
+            XCTAssertEqual(summary(now, hidden: true), "Hidden from the notch")
+        }
+    }
+
+    /// Permission is tracked apart from `Now` for a reason: the notification
+    /// carries the track even when Apple Events are refused, so a refusal with
+    /// a known track still names the track.
+    func testARefusalWithATrackStillNamesTheTrack() {
+        XCTAssertEqual(summary(.track(song, state: .playing, position: 0), .denied),
+                       "Comes and Goes \u{2014} KETTAMA")
+        XCTAssertEqual(summary(.stopped, .denied), "Cannot read Spotify")
+    }
+
+    func testALongTitleIsCutRatherThanWideningTheMenu() {
+        let long = Track(id: "x", name: String(repeating: "verylongword ", count: 8),
+                         artist: String(repeating: "artist ", count: 8),
+                         album: "", duration: 1, hasArtwork: false)
+        let line = summary(.track(long, state: .playing, position: 0))
+        XCTAssertTrue(line.hasSuffix("\u{2026}"))
+        XCTAssertLessThanOrEqual(line.count, MenuBarItem.limit * 2 + 3)
+        // Short text is left alone entirely -- no ellipsis on a name that fits.
+        XCTAssertFalse(summary(.track(song, state: .playing, position: 0)).contains("\u{2026}"))
+    }
+}
