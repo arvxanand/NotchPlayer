@@ -79,6 +79,51 @@ if args.contains("--watch") {
     RunLoop.main.run()
 }
 
+/// Watch the real waveform without any UI: `--bands [seconds]`.
+///
+/// **This is the only way to tell the tap is working.** The fallback to
+/// synthetic bars is deliberately silent and deliberately convincing, so the
+/// peek looks alive whether or not a single sample ever arrived. Here the two
+/// are labelled.
+if args.contains("--bands") {
+    let seconds = args.firstIndex(of: "--bands").flatMap { i -> Double? in
+        i + 1 < args.count ? Double(args[i + 1]) : nil
+    } ?? 15
+    setvbuf(stdout, nil, _IONBF, 0)
+    MainActor.assumeIsolated {
+        guard let pid = AudioTap.spotifyPID else {
+            FileHandle.standardError.write(Data("Spotify is not running\n".utf8))
+            exit(1)
+        }
+        let tap = AudioTap()
+        print("tapping pid \(pid) -- play something")
+        tap.follow(pid: pid)
+        let meter = Array(" ▁▂▃▄▅▆▇█")
+        let start = Date()
+        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            MainActor.assumeIsolated {
+                let t = String(format: "%5.1fs", Date().timeIntervalSince(start))
+                guard let bands = tap.bands else {
+                    print("\(t)  no live audio  \(tap.status)")
+                    return
+                }
+                let row = bands.map { v -> Character in
+                    meter[max(0, min(meter.count - 1, Int(v * Float(meter.count - 1))))]
+                }
+                print("\(t)  |\(String(row))|  peak \(String(format: "%.2f", bands.max() ?? 0))")
+            }
+        }
+        Timer.scheduledTimer(withTimeInterval: seconds, repeats: false) { _ in
+            MainActor.assumeIsolated {
+                print("final: \(tap.status)")
+                tap.stop()
+                exit(0)
+            }
+        }
+    }
+    RunLoop.main.run()
+}
+
 /// `--render <subject> <path> [--side N]` -- see `Render`.
 if let i = args.firstIndex(of: "--render") {
     guard i + 2 < args.count, let subject = Render.Subject(rawValue: args[i + 1]) else {

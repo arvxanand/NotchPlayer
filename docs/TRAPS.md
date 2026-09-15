@@ -299,3 +299,42 @@ print nothing. Keep the `N.` at column zero or the check cannot see the entry.
     reparented to launchd. The capture server now exits after 30s with no
     input, so nobody can leave one on the notch by making a mistake in a shell
     script. **A process the user cannot quit must be able to quit itself.**
+
+30. **A process tap's permission belongs to the *responsible* process, not to
+    the binary you ran.** `M6` Run the app's own executable from a shell and
+    the terminal is responsible; a terminal has no
+    `NSAudioCaptureUsageDescription`, so TCC denies without ever prompting --
+    and denial does not look like denial. `AudioHardwareCreateProcessTap`
+    returns `noErr`, the aggregate is created, the IOProc fires forty times a
+    second with 1024 frames a time, and **every sample is exactly 0.0**. The
+    same binary in the same bundle, launched through LaunchServices, delivers
+    real audio immediately.
+
+    So: `open -a SpotifyNotch.app --args --bands 8`, never
+    `./SpotifyNotch.app/Contents/MacOS/SpotifyNotch --bands 8`. Use
+    `open --stdout FILE --stderr FILE` to see what it printed -- `open`
+    detaches stdout otherwise, and this is the whole reason an earlier attempt
+    to read the result out of `log show` came back empty and looked like a
+    failure of the tap.
+
+31. **`kAudioTapPropertyFormat` follows the current output device.** `M6` The
+    brief's probe measured 48000 Hz; an hour of the user's afternoon later,
+    with a USB output selected, the same call returned **44100 Hz**. Sizing
+    the log band edges for a hard-coded rate puts every bar ~9% off the
+    frequency it claims, and nothing on screen would ever reveal it. Ask the
+    tap, pass the answer to the analyzer (`docs/BUGS.md` #13).
+
+32. **Digital silence and no permission are the same bytes.** `M6` There is no
+    public API to check or request `NSAudioCaptureUsageDescription`, so the
+    only signal available is that the samples are all zero -- which is also
+    what a genuinely silent passage looks like. The rule has to be a timeout
+    (`AudioTap.hasGoneSilent`), and it has to be reversible: one non-zero
+    sample and the waveform is live again on the next frame.
+
+33. **A rebuilt ad-hoc-signed bundle can lose its Automation grant.** `M6`
+    `./make_app.sh release` re-signs, and the next launch logged
+    `Automation permission refused (-1743)` four times -- so `SpotifyService`
+    never reached `.track(playing)` and the tap it drives never started. The
+    app was not broken and the code had not changed. Check `--read` from the
+    **bundle** before concluding anything about the live app, and reach for
+    `tools/reset-permissions.sh` when the answer is -1743.

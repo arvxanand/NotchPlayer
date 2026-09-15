@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// Owns the panel and the one thing that can invalidate it wholesale: which
@@ -18,6 +19,11 @@ public final class AppController: NSObject, NSApplicationDelegate {
     private var stage: CaptureStage?
     private let service = SpotifyService()
     private let expansion = Expansion()
+    /// The live waveform. Owned here rather than by the view, because it holds
+    /// system audio objects that have to be torn down when the panel goes away
+    /// -- a leaked aggregate device outlives the window that wanted it.
+    private let tap = AudioTap()
+    private var tapFollow: AnyCancellable?
 
     public init(preview: PreviewData.State? = nil, previewExpanded: Bool = false,
                 probe: Bool = false, offscreen: Bool = false,
@@ -60,6 +66,10 @@ public final class AppController: NSObject, NSApplicationDelegate {
     private func build() {
         guard let screen = Self.notchedScreen else {
             NSLog("SpotifyNotch: no notched display, drawing nothing")
+            // Nothing is drawn in clamshell, so nothing needs listening to.
+            // Holding a process tap open to feed a waveform on no screen is
+            // the definition of a background app being a bad citizen.
+            tap.stop()
             return
         }
         let geometry = NotchGeometry(screen: screen)
@@ -88,8 +98,9 @@ public final class AppController: NSObject, NSApplicationDelegate {
                 RootView(geometry: geometry, now: .stopped, probe: true)
             }
         } else {
-            panel = NotchPanel(screen: screen) { [service, expansion] in
+            panel = NotchPanel(screen: screen) { [service, expansion, tap] in
                 Live(geometry: geometry, service: service, expansion: expansion)
+                    .environment(\.liveBands, tap)
             }
         }
         self.panel = panel
@@ -106,6 +117,17 @@ public final class AppController: NSObject, NSApplicationDelegate {
             // made while paused, and opening the panel is when that shows.
             expansion.onOpen = { [weak self] in self?.service.refresh() }
             expansion.start(geometry: geometry)
+
+            // The tap follows playback rather than running all day: a stopped
+            // stream delivers nothing, so an idle tap is a wakeup every 33ms
+            // to analyse silence. `follow` is idempotent per pid, so the
+            // several publishes a minute the service makes while playing cost
+            // one comparison each.
+            tapFollow = service.$now.sink { [weak self] now in
+                MainActor.assumeIsolated {
+                    self?.tap.follow(pid: now.isPlaying ? AudioTap.spotifyPID : nil)
+                }
+            }
         }
 
         // **Emitted so `tools/check_notch.sh` can capture *this window* rather

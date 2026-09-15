@@ -33,6 +33,13 @@ project's own `docs/TRAPS.md` has the ones it found for itself.
    say you have not seen it.
 4. **Never `pkill -f SpotifyNotch`** -- kill the pid you launched.
    `tools/sweep.sh` finds what you missed.
+5. **The audio tap only works when macOS launches the app.** Permission
+   belongs to the *responsible* process, so running the bundle's executable
+   from a shell makes the terminal responsible and TCC denies silently -- the
+   tap is created, buffers arrive, and every sample is zero. Use
+   `open --stdout FILE --stderr FILE -a SpotifyNotch.app --args ...`. See
+   `docs/TRAPS.md` #30, which cost an hour of debugging a tap that was
+   already correct.
 
 ## Verify
 
@@ -60,7 +67,7 @@ Run that after touching the panel's layout. It is the only thing that can see
 
 ## Current state
 
-**Milestones 0-5 complete.** 101 tests, `verify.sh` green on all six stages,
+**Milestones 0-6 complete.** 126 tests, `verify.sh` green on all six stages,
 19 footprint states clean.
 
 Verified by measurement, by capture, or by driving the real pointer:
@@ -82,11 +89,15 @@ Verified by measurement, by capture, or by driving the real pointer:
 - The System Settings deep link lands on the **Automation** pane -- opened and
   photographed, not assumed.
 - 66 deliberate mutations; 64 red. The two that stayed green were bad
-  mutations, not gaps (`docs/TRAPS.md` #19).
+  mutations, not gaps (`docs/TRAPS.md` #19). Milestone 6 added 13 more, all
+  red -- two only after the tests that missed them were fixed.
+- **The waveform is real.** A process tap on Spotify's pid, launched the way
+  macOS launches it, delivers audio and the bars follow it:
+  `|▆▅▂▃▂▃▃▃▂▂▃▁ ▁|  peak 0.83` and the shape moving with the music. The tap
+  reported **44100Hz**, not the 48000 the brief measured -- it follows the
+  output device, so the rate is read at runtime and handed to the analyzer.
 
-Not built: the Core Audio tap (milestone 6) and shipping (milestone 7). The
-waveform is synthetic (`Bands.synthetic`) behind the same
-`WaveformView(hold:)` the real tap will use.
+Not built: shipping (milestone 7).
 
 ## What has never been checked
 
@@ -97,8 +108,19 @@ Say so rather than implying otherwise:
 - **Whether a track change fires the notification.** It is the same name with
   a different `Track ID`, and every notification is handled identically, so
   it is moot by construction -- but nobody has watched one.
-- **Whether ad-hoc signing re-prompts for TCC on every build.**
+- **Whether ad-hoc signing re-prompts for TCC on every build.** Half answered:
+  a rebuilt bundle was *refused* Automation rather than re-prompted
+  (`docs/TRAPS.md` #33). Whether a reset produces a prompt is untested.
 - **Anything on an external display or in clamshell.** Nothing was attached.
+- **The live app drawing live bars.** Three hops, and only the first is
+  proven. The tap delivers real audio (`--bands`, via `open`). Whether
+  `AppController` starts it from published playback state has **not** run,
+  because the bundle is refused Automation and so never reaches `.playing`.
+  And whether `WaveformView` draws those numbers rather than the synthetic
+  ones cannot be told apart in a capture at all -- both move. Grant Automation
+  to the bundle and the first two become observable in one launch.
+- **An output-device change mid-track.** The rebuild path that handles it is
+  written and reasoned, and nobody has unplugged anything.
 - **The expand animation's real frame rate.** The arithmetic is a test
   (389pt/s against a measured-bad 940); the frames have not been counted, and
   must be on the **launchd-launched** build, because a terminal-launched
@@ -137,7 +159,13 @@ Anything about rendering asks `Presentation.draws`, never `Now.draws` --
 - `Expansion` -- hover to open, and the `setInteractive` flip.
 - `RootView` -> `PeekView` / `PanelView` -- a function of plain values, so
   every preview state renders through the production hierarchy.
-- `Bands` / `WaveformView` -- source-agnostic. Synthetic now, tap later.
+- `Bands` / `Spectrum` / `Analyzer` -- the waveform's arithmetic, pure and
+  tested against tones whose answer is known in advance. Hann window, 1024
+  samples, 14 log-spaced bands, peak per band, decibels, attack/decay.
+- `AudioTap` -- the part that cannot be tested: process object, tap, aggregate
+  device, IOProc. Fails quietly to synthetic bars in every direction.
+- `WaveformView` -- takes `hold` (a capture), then the environment's tap, then
+  synthetic. Only `LiveBars` rebuilds at 30Hz.
 
 ## Flags
 
@@ -154,6 +182,7 @@ Anything about rendering asks `Presentation.draws`, never `Now.draws` --
 | `--check-states` | what `check_notch.sh` should capture |
 | `--capture-server` | stay alive, take `<state> [expanded]` or `probe` on stdin, answer `ready`. Exits after 30s idle |
 | `--offscreen` | park the window at the bottom-right, out of the way of whoever is using the machine |
+| `--bands [seconds]` | the real tap as a text meter, labelled live or not. The only way to tell a working tap from the fallback |
 | `--audit` | the HIG check list as JSON |
 
 `--preview` and `--probe` also print `window`, `size`, `housing` and `shell`
@@ -194,15 +223,28 @@ can differ from the saved one by under a point.
 
 ## Next
 
-**Milestone 6: the Core Audio process tap**, replacing `Bands.synthetic`
-behind the same `WaveformView(hold:)`.
+**Milestone 7: ship.**
 
-The whole chain was probed on 14 Sep 2026 and works: PID ->
+- `tools/reset-permissions.sh` against the ad-hoc-signing risk, which is no
+  longer a risk but an observation (`docs/TRAPS.md` #33): the rebuilt bundle
+  is refused Automation and the user has to grant it once.
+- `ProcessType = Interactive` in the plist, then **measure the
+  launchd-launched process** -- a terminal build is a different scheduling
+  class, and every animation number so far was taken from one.
+- The duplicate-instance guard is already in `main.swift`; confirm it against
+  a real second launch.
+- Check `pmset -g | grep lowpowermode` before believing any measurement.
+
+The tap chain, for reference, all of it now verified working rather than
+probed:
+
+PID ->
 `kAudioHardwarePropertyTranslatePIDToProcessObject` -> `CATapDescription`
 (muteBehavior **unmuted** -- the user must still hear their music) ->
 `AudioHardwareCreateProcessTap` -> aggregate device with the tap UUID under
 `kAudioSubTapUIDKey` -> `AudioDeviceCreateIOProcIDWithBlock` ->
-`AudioDeviceStart`. Format came back **48000 Hz, 2ch, 32-bit float packed**.
+`AudioDeviceStart`. Format came back **44100 Hz, 2ch, 32-bit float packed** --
+the output device's rate, not a constant.
 
 Two things to hold on to:
 
@@ -214,10 +256,5 @@ Two things to hold on to:
   "the tap never delivered a buffer" is a normal state, not an error. Fall
   back to synthetic bars if nothing arrives within 2s.
 
-`Bands.envelope` is already written and tested; it is the smoothing the real
-magnitudes will need. FFT via `vDSP` from Accelerate -- a system framework, so
-still zero dependencies.
-
-Then milestone 7: ship. `ProcessType = Interactive`, the duplicate-instance
-guard, and the measurements that must be taken on the installed agent rather
-than a terminal build.
+FFT via `vDSP` from Accelerate -- a system framework, so still zero
+dependencies.
