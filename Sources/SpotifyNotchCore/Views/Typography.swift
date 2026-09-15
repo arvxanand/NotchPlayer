@@ -92,8 +92,36 @@ public enum Palette {
         ("progress-track-unfilled", trackLevel, false),
     ]
 
-    /// The only chromatic colour in the app, and it is allowed on the Spotify
-    /// mark and nowhere else. Everything else chromatic comes from the album
+    /// A hairline between rows, and the wash behind a row the pointer is on.
+    ///
+    /// **Both are deliberately under the 3:1 non-text floor**, which is
+    /// allowed only because neither carries any information: the divider is
+    /// decoration, and the hover wash is redundant beside text that brightens
+    /// at the same moment. The wash also backs the cover slot in `MenuPanel`,
+    /// so an album whose art has not arrived reads as an empty frame rather
+    /// than a hole in the panel.
+    public static let hairlineLevel: Double = 0.08
+    public static let washLevel: Double = 0.07
+    public static let hairline = Color.white.opacity(hairlineLevel)
+    public static let wash = Color.white.opacity(washLevel)
+
+    /// The levels that are under the floor on purpose.
+    ///
+    /// A second list rather than a flag on the first, so `levels` keeps
+    /// answering exactly one question -- is every colour that means something
+    /// audited -- and this one answers "and what about the rest". A grey that
+    /// appears in neither is the thing to look for; `PaletteTests` asserts
+    /// every entry here measures **under** 3:1, so a colour that carries state
+    /// cannot be parked here to dodge the check.
+    public static let decorationLevels: [(name: String, level: Double)] = [
+        ("menu-divider", hairlineLevel),
+        ("menu-row-wash", washLevel),
+    ]
+
+    /// The only chromatic colour in the app. Allowed on the Spotify mark, and
+    /// on the playing dot in `MenuPanel` -- which is the same claim made twice
+    /// (this is Spotify, this is live) rather than decoration borrowing a
+    /// meaning. It appears nowhere else, and specifically never on a control. Everything else chromatic comes from the album
     /// art itself. Spotify's own green, 8.12:1 on black.
     public static let spotify = Color(red: 0x1D / 255, green: 0xB9 / 255, blue: 0x54 / 255)
     public static let spotifyHex = "#1DB954"

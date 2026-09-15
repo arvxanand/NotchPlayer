@@ -10,14 +10,29 @@ public struct InverseCornerShape: Shape {
     public var topRadius: CGFloat      // the concave shoulders
     public var bottomRadius: CGFloat   // the ordinary convex bottom
 
-    public init(topRadius: CGFloat = 11, bottomRadius: CGFloat = 16) {
-        self.topRadius = topRadius; self.bottomRadius = bottomRadius
+    /// Report each animated value to `FrameProbe`. One shape per animation
+    /// may set this -- see the call site in `Shell`.
+    public var probed = false
+
+    public init(topRadius: CGFloat = 11, bottomRadius: CGFloat = 16, probed: Bool = false) {
+        self.topRadius = topRadius; self.bottomRadius = bottomRadius; self.probed = probed
     }
 
     /// Lets the shape morph smoothly as the panel expands.
+    ///
+    /// **And it is where the frame probe hooks in.** SwiftUI's animation
+    /// driver sets this once per rendered frame, which is the only place in
+    /// the view tree that knows how many frames there were: a `GeometryReader`
+    /// inside the animated `.frame()` sees the start and the end and nothing
+    /// between them (`docs/TRAPS.md` #35). The value reported is the corner
+    /// radius rather than the height, because that is what this shape
+    /// animates -- it rides the same spring, so the timing is the same.
     public var animatableData: AnimatablePair<CGFloat, CGFloat> {
         get { AnimatablePair(topRadius, bottomRadius) }
-        set { topRadius = newValue.first; bottomRadius = newValue.second }
+        set {
+            topRadius = newValue.first; bottomRadius = newValue.second
+            if probed { FrameProbe.shared.record(newValue.second) }
+        }
     }
 
     public func path(in rect: CGRect) -> Path {

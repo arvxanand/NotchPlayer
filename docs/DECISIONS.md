@@ -36,6 +36,9 @@ PID; show and control, no scrubbing in v1; zero third-party dependencies.
 - [Silence for two seconds means synthetic bars](#silence-for-two-seconds-means-synthetic-bars)
 - [Fourteen logarithmic bands, peak-held, in decibels](#fourteen-logarithmic-bands-peak-held-in-decibels)
 - [The tap follows playback rather than running all day](#the-tap-follows-playback-rather-than-running-all-day)
+- [The menu-bar item is a panel, not a menu](#the-menu-bar-item-is-a-panel-not-a-menu)
+- [Hide is a real stand-down, not `orderOut`](#hide-is-a-real-stand-down-not-orderout)
+- [What the waveform costs, and why it still runs at 30Hz](#what-the-waveform-costs-and-why-it-still-runs-at-30hz)
 - [`verify.sh` uses exit codes, not greps, for the test stage](#verifysh-uses-exit-codes-not-greps-for-the-test-stage)
 
 ## Copy matchnotch's `Notch/` rather than rewrite it
@@ -357,6 +360,58 @@ for three seconds gets the chain rebuilt, up to three times. That is the
 output-device change -- headphones plugged in mid-song -- which is the single
 most likely thing to happen to a laptop during a track. **Reasoned, not
 observed:** nobody has actually unplugged anything yet.
+
+## The menu-bar item is a panel, not a menu
+
+It was an `NSMenu` first -- a status line, Hide, Quit -- which is the right
+shape for a utility with nothing to show, and the wrong one for an app whose
+entire subject is an album cover.
+
+So: a popover in the app's own language. Black surface, the cover at 56pt, the
+track and artist, a dot that is Spotify green only while the music is actually
+running, and two rows that light on hover. The same rule the waveform follows:
+colour means live, or it means nothing.
+
+`MenuPanel` is a function of plain values like `RootView`, so it is rebuilt
+from a snapshot each time the popover opens rather than subscribing to the
+service -- a closed popover has nobody reading it.
+
+## Hide is a real stand-down, not `orderOut`
+
+Two notch apps share one notch, and the reason this item exists at all is that
+matchnotch and this app draw over each other. Hiding therefore stops the hover
+polling and tears down the audio tap as well. A panel hidden from the user and
+from nobody else is a background app lying about what it costs.
+
+The state persists: someone who hid this to get their other notch app back
+does not want it returning at login. The item stays in the menu bar either
+way, because it is the only way back -- quitting an `LSUIElement` app with no
+dock icon leaves Spotlight as the only route in.
+
+## What the waveform costs, and why it still runs at 30Hz
+
+Measured on the installed agent, with Low Power Mode **on**, which inflates
+every number here:
+
+| | |
+|---|---|
+| tap + FFT, no window (`--bands`) | **0.8%** of a core |
+| the whole agent, waveform at 30fps | **8.9%** |
+| the same at 20fps | **6.1%** |
+| bars drawn in an overlay so they cannot resize an ancestor | **8.0%** |
+
+So the arithmetic is free and the *drawing* is what costs: roughly 0.3% of a
+core per frame per second, near enough fixed whatever the frame contains. A
+`Canvas` instead of fourteen `Capsule`s changed nothing measurable, and
+neither did taking the bars out of the layout -- both were kept because they
+are the better structure, but neither is the lever.
+
+The lever is either fewer frames or a drawing path that does not involve
+SwiftUI's per-frame update at all -- a `CALayer` the tap writes into directly.
+That is the upgrade path if the cost ever matters. It is not taken now because
+the numbers above were taken under Low Power Mode on a throttled machine, and
+optimising against a measurement you know is distorted is how you end up with
+complexity that buys nothing.
 
 ## `verify.sh` uses exit codes, not greps, for the test stage
 

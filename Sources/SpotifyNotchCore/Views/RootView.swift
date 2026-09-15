@@ -122,8 +122,13 @@ struct Shell: View {
     static func bottomRadius(expanded: Bool) -> CGFloat { expanded ? 22 : 8 }
 
     var body: some View {
+        // `probed` on this one and not on the clip shape above: both animate
+        // the same value on the same spring, and counting both is how a probe
+        // reports a fake trajectory (matchnotch's `PageProbe` found exactly
+        // that confound).
         InverseCornerShape(topRadius: NotchGeometry.shoulderRadius,
-                           bottomRadius: Self.bottomRadius(expanded: expanded))
+                           bottomRadius: Self.bottomRadius(expanded: expanded),
+                           probed: true)
             .fill(fill)
             .frame(width: geometry.collapsedWidth,
                    height: expanded ? NotchGeometry.panelHeight : geometry.collapsedHeight)

@@ -124,6 +124,26 @@ if args.contains("--bands") {
     RunLoop.main.run()
 }
 
+/// Poke the running agent's frame probe: `--probe-signal start|report`.
+///
+/// Posting the notification from here rather than from the shell means the
+/// name lives in one place (`FrameProbe`) and a typo in a script cannot
+/// silently measure nothing.
+if let i = args.firstIndex(of: "--probe-signal") {
+    let which = i + 1 < args.count ? args[i + 1] : ""
+    let name: String
+    switch which {
+    case "start": name = FrameProbe.startNotification
+    case "report": name = FrameProbe.reportNotification
+    default:
+        FileHandle.standardError.write(Data("usage: --probe-signal start|report\n".utf8))
+        exit(1)
+    }
+    DistributedNotificationCenter.default().postNotificationName(
+        .init(name), object: nil, userInfo: nil, deliverImmediately: true)
+    exit(0)
+}
+
 /// `--render <subject> <path> [--side N]` -- see `Render`.
 if let i = args.firstIndex(of: "--render") {
     guard i + 2 < args.count, let subject = Render.Subject(rawValue: args[i + 1]) else {
@@ -198,14 +218,25 @@ if let i = args.firstIndex(of: "--preview") {
 /// `RootView.probe`.
 let probe = args.contains("--probe")
 
-// A second instance stacks a second panel on the same notch, and an
-// LSUIElement app has no dock icon, no menu bar item and no Quit -- so the
-// user cannot get rid of either. Bundled runs only, so `swift run` during
-// development is exempt.
-if let id = Bundle.main.bundleIdentifier,
-   NSRunningApplication.runningApplications(withBundleIdentifier: id).count > 1 {
-    FileHandle.standardError.write(Data("SpotifyNotch is already running\n".utf8))
-    exit(0)
+// A second instance stacks a second panel on the same notch. Bundled runs
+// only, so `swift run` during development is exempt -- a CLI binary has no
+// bundle identifier.
+//
+// **Count other processes, not all of them.** This was `count > 1` for five
+// milestones, on the assumption that the asking process is in the list. It is
+// not, or not yet: registration happens when `NSApplication` starts, and this
+// runs before that. So a real second launch saw exactly one instance, decided
+// that was fine, and put a second panel on the notch -- which is the bug the
+// guard exists to prevent, surviving because nobody had launched a second one
+// until milestone 7 asked. `docs/BUGS.md` #15.
+if let id = Bundle.main.bundleIdentifier {
+    let mine = ProcessInfo.processInfo.processIdentifier
+    let others = NSRunningApplication.runningApplications(withBundleIdentifier: id)
+        .filter { $0.processIdentifier != mine }
+    if !others.isEmpty {
+        FileHandle.standardError.write(Data("SpotifyNotch is already running\n".utf8))
+        exit(0)
+    }
 }
 
 let app = NSApplication.shared

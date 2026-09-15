@@ -27,6 +27,22 @@ final class PaletteTests: XCTestCase {
         }
     }
 
+    /// Decoration is under the floor *on purpose*. The test is the boundary
+    /// itself: anything here that measures 3:1 or better is not decoration, it
+    /// is a real level that has dodged the audit by being filed as scenery.
+    func testDecorationIsBelowTheNonTextFloorAndNotJustParkedThere() {
+        for entry in Palette.decorationLevels {
+            XCTAssertLessThan(contrastOnBlack(entry.level), 3.0,
+                              "\(entry.name) at \(entry.level) carries enough contrast to " +
+                              "mean something -- put it in Palette.levels and audit it")
+        }
+        let audited = Set(Palette.levels.map(\.level))
+        for entry in Palette.decorationLevels {
+            XCTAssertFalse(audited.contains(entry.level),
+                           "\(entry.name) is in both lists")
+        }
+    }
+
     func testTheProgressTrackIsDimmerThanTheTextOnIt() {
         // Or it stops reading as the empty part of the bar.
         XCTAssertLessThan(Palette.trackLevel, Palette.secondaryLevel)
