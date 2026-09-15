@@ -28,7 +28,14 @@ final class GeometryTests: XCTestCase {
         // Load-bearing, not cosmetic: a peek that hangs below the menu bar
         // overhangs a browser's tab bar, which is matchnotch's BUGS #73 and
         // the reason hover-to-expand ships off by default there.
-        XCTAssertEqual(builtIn.collapsedHeight, builtIn.notchHeight)
+        // It reaches a little past the menu-bar line, and only a little: the
+        // physical cutout is taller than the inset, so a shell sized to the
+        // inset exactly leaves the housing's edge showing (`housingOverhang`).
+        // What matters is that it is nowhere near matchnotch's 26pt.
+        XCTAssertEqual(builtIn.collapsedHeight,
+                       builtIn.notchHeight + NotchGeometry.housingOverhang)
+        XCTAssertLessThanOrEqual(NotchGeometry.housingOverhang, 4,
+                                 "past a few points this is a peek that hangs into windows")
         XCTAssertEqual(builtIn.collapsedScreenRect.maxY, builtIn.screenFrame.maxY)
     }
 
