@@ -161,3 +161,18 @@ entries here point at one.
     now has a **30s idle watchdog** so an abandoned one terminates itself
     regardless of what the driving script does, and anything that launches a
     window is now tested behind an explicit kill-timer rather than run loose.
+
+13. **The analyzer was sized for 48kHz while the tap ran at 44.1kHz.** `M6`
+
+    `AudioTap` read `kAudioTapPropertyFormat` -- and then built `Analyzer()`
+    with its default sample rate, which is the 48000 the brief's probe
+    measured in September. The band edges are computed from that rate, so
+    every bar would have been pointing at a frequency about 9% away from the
+    one it was drawing, permanently, with the bars still moving convincingly.
+
+    Found by printing the format in a scratch probe rather than by any test:
+    the numbers are internally consistent at either rate, and nothing on
+    screen distinguishes them. The fix is one argument
+    (`Analyzer(sampleRate: chain.format.mSampleRate)`), and the general rule is
+    `docs/TRAPS.md` #31 -- a format you asked for is only useful if you then
+    use it.

@@ -32,6 +32,10 @@ PID; show and control, no scrubbing in v1; zero third-party dependencies.
 - [The settings link was verified, not assumed](#the-settings-link-was-verified-not-assumed)
 - [`SuspendingClock` for progress interpolation](#suspendingclock-for-progress-interpolation)
 - [The progress line is a value and a rect](#the-progress-line-is-a-value-and-a-rect)
+- [The live tap reaches the waveform through the environment](#the-live-tap-reaches-the-waveform-through-the-environment)
+- [Silence for two seconds means synthetic bars](#silence-for-two-seconds-means-synthetic-bars)
+- [Fourteen logarithmic bands, peak-held, in decibels](#fourteen-logarithmic-bands-peak-held-in-decibels)
+- [The tap follows playback rather than running all day](#the-tap-follows-playback-rather-than-running-all-day)
 - [`verify.sh` uses exit codes, not greps, for the test stage](#verifysh-uses-exit-codes-not-greps-for-the-test-stage)
 
 ## Copy matchnotch's `Notch/` rather than rewrite it
@@ -289,6 +293,70 @@ observer on the right notification is not coverage.
 Scrubbing was deferred, not rejected, and `player position` is writable. Built
 as `(fraction, rect)` so the drag is a gesture plus one write rather than a
 rewrite.
+
+## The live tap reaches the waveform through the environment
+
+`RootView` and `PeekView` are functions of plain values, and that is what lets
+all nineteen footprint states render through the production view hierarchy
+rather than a parallel preview one. An `ObservableObject` in their
+initialisers would end that. So `AudioTap` is injected as an environment value
+in the one place that builds the live panel, and `WaveformView` -- the only
+view that wants it -- reads it.
+
+It also scopes the invalidation. The bars change 30 times a second; published
+through the root, every one of those would re-evaluate the panel, the artwork
+and the transport row. Through the environment, only `LiveBars` rebuilds.
+
+**`hold` still outranks it**, so a capture cannot be changed by whatever is
+coming out of the speakers while it is taken.
+
+## Silence for two seconds means synthetic bars
+
+There is no way to ask whether audio recording is permitted, and no error when
+it is not -- the tap simply delivers zeros forever (`docs/TRAPS.md` #30, #32).
+A flat row of dots over music the user can hear is worse than the synthetic
+generator, which at least looks like the app is alive.
+
+So two seconds of exact zeros drops `bands` to nil and the view falls back.
+The decision is reversible on the next frame: one non-zero sample and the
+waveform is live again, which is what makes the false-positive case -- a
+genuinely silent intro -- cost nothing.
+
+**The user is never told.** A waveform is decoration; a sentence about Core
+Audio permissions in the notch would be a worse bug than the one it explains.
+One line goes to the log for whoever is debugging it.
+
+## Fourteen logarithmic bands, peak-held, in decibels
+
+Three choices that each have an obvious wrong answer, and all three wrong
+answers still produce bars that move:
+
+- **Logarithmic edges.** Half of a linear spectrum is above 12kHz where music
+  has almost no energy, so linear bands leave two bars lit and twelve dead.
+- **Peak per band, not mean.** The top band spans 100+ bins; averaging one
+  loud partial against a hundred quiet ones reads as permanently half-lit.
+- **Decibels.** Loudness is logarithmic. A linear bar spends its height on the
+  top 10% of the range and sits flat for the rest.
+
+40Hz to 12kHz, floor at -60dB. `SpectrumTests` drives each of these with tones
+whose answer is known in advance, because a visualiser looks alive whatever
+the numbers mean.
+
+## The tap follows playback rather than running all day
+
+`AudioTap.follow(pid:)` is driven from the service's published state: a pid
+while playing, nil otherwise. A tap left open on a paused stream is a wakeup
+every 33ms to analyse silence, in a process that runs for weeks.
+
+`follow` is idempotent per pid, because the caller publishes several times a
+minute while playing and rebuilding the chain each time would glitch the
+user's audio.
+
+The counterpart is `staleTimeout`: a stream that *was* delivering and stops
+for three seconds gets the chain rebuilt, up to three times. That is the
+output-device change -- headphones plugged in mid-song -- which is the single
+most likely thing to happen to a laptop during a track. **Reasoned, not
+observed:** nobody has actually unplugged anything yet.
 
 ## `verify.sh` uses exit codes, not greps, for the test stage
 

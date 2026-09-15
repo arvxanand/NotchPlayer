@@ -22,6 +22,14 @@ debugging anything.
 .build/debug/SpotifyNotch --list-previews
 ```
 
+The waveform is the exception: the audio tap needs macOS to launch the app, or
+TCC silently hands it nothing but zeros (`docs/TRAPS.md` #30).
+
+```bash
+open --stdout /tmp/bands.txt --stderr /tmp/bands.txt \
+     -a SpotifyNotch.app --args --bands 8   # live bars, or "no live audio"
+```
+
 ## Checks
 
 | | |
