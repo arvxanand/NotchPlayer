@@ -176,3 +176,25 @@ entries here point at one.
     (`Analyzer(sampleRate: chain.format.mSampleRate)`), and the general rule is
     `docs/TRAPS.md` #31 -- a format you asked for is only useful if you then
     use it.
+
+14. **The bundle could never send an Apple Event, and it looked like the user
+    had said no.** `M6`
+
+    `make_app.sh` signed with `--options runtime` and no entitlements file, so
+    the hardened runtime refused every Apple Event with -1743 before it left
+    the process. Every read from the bundle failed; the app sat in the
+    `permissionNeeded` state forever.
+
+    It survived this long because nothing had needed the *bundle* to talk to
+    Spotify: the whole of milestones 1 through 5 was verified with the debug
+    binary, which is unsigned and runs under the terminal's identity. Milestone
+    6 was the first thing that needed the app launched the way macOS launches
+    it (`docs/TRAPS.md` #30), and the two failures compounded -- a tap that
+    only works when LaunchServices starts the app, and an app that only works
+    when it is not the one doing the asking.
+
+    Diagnosis cost more than the fix, because `tccutil reset` and a relaunch
+    are the obvious moves and both do nothing: there is no prompt to re-ask
+    (`docs/TRAPS.md` #34). One entitlement in the signing step, and the same
+    launch that had been refused four times a second came up with
+    `waveform live (44100Hz)` and real Spotify data.

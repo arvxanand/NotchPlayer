@@ -88,6 +88,17 @@ Verified by measurement, by capture, or by driving the real pointer:
   `artwork url` hands over).
 - The System Settings deep link lands on the **Automation** pane -- opened and
   photographed, not assumed.
+- **The shell is 2pt taller than `safeAreaInsets.top`** -- the physical cutout
+  is slightly taller than the inset, and a shell sized to the inset exactly
+  leaves the housing's bottom edge showing. Reported by the user looking at
+  the hardware; it does not appear in any capture, so
+  `NotchGeometry.housingOverhang` can only be changed the same way.
+- **The Automation grant survived a rebuild** -- one rebuild, one launch, no
+  -1743. Not many data points, but the first evidence either way.
+- **The installed bundle reads Spotify and starts the tap.** Which needed the
+  `com.apple.security.automation.apple-events` entitlement first: the hardened
+  runtime had been refusing every event with -1743 and no prompt
+  (`docs/BUGS.md` #14).
 - 66 deliberate mutations; 64 red. The two that stayed green were bad
   mutations, not gaps (`docs/TRAPS.md` #19). Milestone 6 added 13 more, all
   red -- two only after the tests that missed them were fixed.
@@ -108,17 +119,18 @@ Say so rather than implying otherwise:
 - **Whether a track change fires the notification.** It is the same name with
   a different `Track ID`, and every notification is handled identically, so
   it is moot by construction -- but nobody has watched one.
-- **Whether ad-hoc signing re-prompts for TCC on every build.** Half answered:
-  a rebuilt bundle was *refused* Automation rather than re-prompted
-  (`docs/TRAPS.md` #33). Whether a reset produces a prompt is untested.
+- **Whether ad-hoc signing re-prompts for TCC on every build.** The refusal
+  that prompted this question turned out not to be TCC at all: the hardened
+  runtime was blocking Apple Events for want of an entitlement
+  (`docs/BUGS.md` #14). With that fixed the bundle reads Spotify normally. How
+  a *rebuild* behaves after a genuine grant is still untested.
 - **Anything on an external display or in clamshell.** Nothing was attached.
-- **The live app drawing live bars.** Three hops, and only the first is
-  proven. The tap delivers real audio (`--bands`, via `open`). Whether
-  `AppController` starts it from published playback state has **not** run,
-  because the bundle is refused Automation and so never reaches `.playing`.
-  And whether `WaveformView` draws those numbers rather than the synthetic
-  ones cannot be told apart in a capture at all -- both move. Grant Automation
-  to the bundle and the first two become observable in one launch.
+- **`WaveformView` drawing the tap's numbers rather than the synthetic ones.**
+  The other two hops are done: the tap delivers real audio, and the installed
+  bundle reaches `.playing` and starts it -- one launch logged
+  `waveform live (44100Hz)` with Spotify playing. This last hop cannot be told
+  apart in a capture, because both sources move. It needs somebody watching
+  the notch while the music changes.
 - **An output-device change mid-track.** The rebuild path that handles it is
   written and reasoned, and nobody has unplugged anything.
 - **The expand animation's real frame rate.** The arithmetic is a test

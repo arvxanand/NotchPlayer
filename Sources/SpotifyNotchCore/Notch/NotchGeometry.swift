@@ -96,7 +96,25 @@ public struct NotchGeometry: Equatable, Sendable {
     /// The cutout plus a wing each side.
     public var collapsedWidth: CGFloat { notchWidth + Self.collapsedSideWidth * 2 }
 
-    /// **The peek is exactly menu-bar height and hangs nothing below it.**
+    /// How far the shell reaches below the menu-bar line.
+    ///
+    /// **The physical cutout is slightly taller than `safeAreaInsets.top`.**
+    /// A shell sized exactly to the inset leaves a sliver of the housing's
+    /// bottom edge showing under it, so the black does not quite meet the
+    /// hardware -- which is the one flaw that gives a notch app away.
+    ///
+    /// Two points, and it has to be small: every point past the cutout is
+    /// black drawn over whatever window is beneath, and the reason the peek
+    /// stays in the strip at all is below.
+    ///
+    /// **Reported from the machine, not measured here.** It is invisible in a
+    /// screen capture -- the capture has no camera housing in it -- so this
+    /// number came from somebody looking at the hardware, and changing it
+    /// needs the same.
+    public static let housingOverhang: CGFloat = 2
+
+    /// **The peek is menu-bar height plus `housingOverhang`, and nothing
+    /// more.**
     ///
     /// This is load-bearing rather than cosmetic. matchnotch's peek hangs 26pt
     /// below the menu bar, which is where a browser's tab bar lives -- so
@@ -105,7 +123,7 @@ public struct NotchGeometry: Equatable, Sendable {
     /// (TRAPS #73/#80). Staying inside the menu-bar strip makes that whole
     /// class of bug unreachable, which is what lets hover be this app's
     /// primary gesture.
-    public var collapsedHeight: CGFloat { notchHeight }
+    public var collapsedHeight: CGFloat { notchHeight + Self.housingOverhang }
 
     /// The cutout itself in screen coordinates (origin bottom-left, as
     /// `NSEvent.mouseLocation` reports).

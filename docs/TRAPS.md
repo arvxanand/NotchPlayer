@@ -338,3 +338,21 @@ print nothing. Keep the `N.` at column zero or the check cannot see the entry.
     app was not broken and the code had not changed. Check `--read` from the
     **bundle** before concluding anything about the live app, and reach for
     `tools/reset-permissions.sh` when the answer is -1743.
+
+34. **The hardened runtime blocks Apple Events unless the app is entitled to
+    send them, and the failure is indistinguishable from a denied user.** `M6`
+    `codesign --options runtime` without
+    `com.apple.security.automation.apple-events` makes every event fail with
+    **-1743**, the same `errAEEventNotPermitted` a refusal produces -- and
+    macOS **never prompts**, because there is no TCC decision to make. So
+    `tccutil reset AppleEvents` changes nothing, relaunching changes nothing,
+    and the app looks like one the user denied months ago.
+
+    The tell is that there was never a prompt. A real denial was preceded by a
+    dialog somebody clicked. If -1743 arrives on the very first event of a
+    freshly reset bundle, suspect the signature, not the user --
+    `codesign -d --entitlements - SpotifyNotch.app` settles it in a second.
+
+    Ad-hoc signing does not exempt anything: `--sign -` still applies the
+    hardened runtime's rules. `make_app.sh` writes the entitlement now
+    (`docs/BUGS.md` #14).

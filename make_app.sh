@@ -59,8 +59,24 @@ PLIST
 # The cost, and it is a real one: an ad-hoc signature changes on every build,
 # so macOS may treat each build as a new app and re-ask for Automation and
 # Audio Capture. `tools/reset-permissions.sh` is the way out when it does.
-codesign --force --sign - --options runtime "$APP" >/dev/null 2>&1 \
+# **The hardened runtime blocks Apple Events unless the app says it sends
+# them.** Without this entitlement every event fails with -1743 and macOS
+# never prompts -- so it looks exactly like a user who denied Automation, and
+# `tccutil reset` changes nothing because there was no TCC decision to reset.
+# Cost: an afternoon, and `docs/TRAPS.md` #34.
+ENTITLEMENTS="$(mktemp -t spotifynotch-entitlements).plist"
+cat > "$ENTITLEMENTS" <<'ENT'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.automation.apple-events</key><true/>
+</dict>
+</plist>
+ENT
+codesign --force --sign - --options runtime --entitlements "$ENTITLEMENTS" "$APP" >/dev/null 2>&1 \
     || echo "warn  codesign failed; the app will still run unsigned"
+rm -f "$ENTITLEMENTS"
 
 echo "built $APP"
 
