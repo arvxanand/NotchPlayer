@@ -25,8 +25,14 @@ public struct ArtworkView: View {
 
     @ObservedObject private var memory = ArtMemory.shared
 
-    public init(url: URL?, side: CGFloat, corner: CGFloat) {
-        self.url = url; self.side = side; self.corner = corner
+    /// The slot behind the cover. Black in the notch, where the shell is
+    /// black and an empty square must be invisible; `Palette.wash` in the menu
+    /// panel, where a 56pt black square reads as a hole rather than as a frame
+    /// waiting for art.
+    let fill: Color
+
+    public init(url: URL?, side: CGFloat, corner: CGFloat, fill: Color = Palette.background) {
+        self.url = url; self.side = side; self.corner = corner; self.fill = fill
     }
 
     private var image: NSImage? { memory.image(for: url) }
@@ -45,7 +51,7 @@ public struct ArtworkView: View {
 
     public var body: some View {
         RoundedRectangle(cornerRadius: corner, style: .continuous)
-            .fill(Palette.background)
+            .fill(fill)
             .overlay {
                 if let image {
                     Image(nsImage: image)

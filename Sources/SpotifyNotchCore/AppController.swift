@@ -69,10 +69,9 @@ public final class AppController: NSObject, NSApplicationDelegate {
         // must not put anything in the user's menu bar.
         if preview == nil, !probe, !captureServer {
             menuBar = MenuBarItem(
-                summary: { [weak self] in
-                    guard let self else { return "SpotifyNotch" }
-                    return MenuBarItem.summary(now: service.now, permission: service.permission,
-                                               hidden: hidden)
+                state: { [weak self] in
+                    guard let self else { return (.unknown("no controller"), .unknown) }
+                    return (service.now, service.permission)
                 },
                 hidden: { [weak self] in self?.hidden ?? false },
                 setHidden: { [weak self] in self?.setHidden($0) })
@@ -81,6 +80,23 @@ public final class AppController: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(
             self, selector: #selector(screensChanged),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
+
+        // The frame probe, driven from outside. A notification rather than a
+        // flag, because the measurement has to be taken from the **installed
+        // agent** -- a terminal build is a different scheduling class -- and
+        // the agent is already running by the time anyone wants a number.
+        if preview == nil, !probe, !captureServer {
+            let centre = DistributedNotificationCenter.default()
+            centre.addObserver(forName: .init(FrameProbe.startNotification),
+                               object: nil, queue: .main) { _ in
+                FrameProbe.shared.begin()
+                print("probe: recording")
+            }
+            centre.addObserver(forName: .init(FrameProbe.reportNotification),
+                               object: nil, queue: .main) { _ in
+                print(FrameProbe.shared.report())
+            }
+        }
     }
 
     /// Stand down, or come back. The menu-bar item stays either way -- it is

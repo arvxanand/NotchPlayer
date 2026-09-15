@@ -122,3 +122,39 @@ final class HoverRegionTests: XCTestCase {
                                                 inside: false).contains(inWing))
     }
 }
+
+/// The frame probe's arithmetic. The measurement is a deliverable of milestone
+/// 7, and an unchecked measurement is how this project has been wrong before.
+final class FrameProbeTests: XCTestCase {
+    private func samples(_ offsets: [Double], heights: [CGFloat])
+    -> [(at: Date, height: CGFloat)] {
+        let base = Date()
+        return zip(offsets, heights).map { (base.addingTimeInterval($0), $1) }
+    }
+
+    func testFramesPerSecondCountsIntervalsNotFrames() {
+        // Two frames a sixtieth apart is one interval of evidence: 60fps, not
+        // 120. Ten frames spanning 0.15s is nine intervals -> 60fps.
+        let ten = samples((0..<10).map { Double($0) * 0.0166667 },
+                          heights: (0..<10).map { 37 + CGFloat($0) * 16 })
+        let line = FrameProbe.describe(ten)
+        XCTAssertTrue(line.contains("10 frames"), line)
+        XCTAssertTrue(line.contains("60.0 fps"), line)
+    }
+
+    func testAnExpandAndACollapseAreTwoBurstsNotAnAverage() {
+        let two = samples([0, 0.02, 0.04, 2.0, 2.02, 2.04],
+                          heights: [37, 110, 185, 185, 110, 37])
+        let report = FrameProbe.describe(two)
+        XCTAssertEqual(report.split(separator: "\n").count, 2, report)
+        XCTAssertTrue(report.contains("37 -> 185"), report)
+        XCTAssertTrue(report.contains("185 -> 37"), report)
+    }
+
+    /// One layout pass is not an animation, and reporting it as "1 frame,
+    /// 0.000s" would read as a catastrophic result rather than as no result.
+    func testASingleLayoutPassIsNotReportedAsAnAnimation() {
+        XCTAssertEqual(FrameProbe.describe(samples([0], heights: [37])), "probe: no frames")
+        XCTAssertEqual(FrameProbe.describe([]), "probe: no frames")
+    }
+}

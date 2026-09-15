@@ -356,3 +356,23 @@ print nothing. Keep the `N.` at column zero or the check cannot see the entry.
     Ad-hoc signing does not exempt anything: `--sign -` still applies the
     hardened runtime's rules. `make_app.sh` writes the entitlement now
     (`docs/BUGS.md` #14).
+
+35. **A `GeometryReader` inside an animated `.frame()` never sees the
+    animation.** `M7` The frame probe's first version reported the drawn height
+    through a preference and counted the changes; it recorded exactly one
+    value per transition -- the destination -- for an animation that visibly
+    took 0.7 seconds. SwiftUI interpolates the *rendered* geometry without
+    re-running the layout pass that feeds a reader, so the reader sees the
+    start and the end and nothing in between.
+
+    The value SwiftUI's driver does set once per rendered frame is
+    `animatableData`. Hook that (matchnotch's `PageProbe` does the same), and
+    only on **one** shape per animation: two shapes animating the same value
+    double every count.
+
+36. **`open -a` will not start a second copy of an app that is running**, so a
+    measurement that needs two processes silently measures one twice. Both
+    `pgrep` lookups returned the same pid and the comparison read "tap only
+    8.90%, full agent 8.90%" -- a perfectly plausible wrong answer. `open -n`
+    is the flag. The tell was the two numbers being *identical* rather than
+    close.

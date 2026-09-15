@@ -67,8 +67,8 @@ Run that after touching the panel's layout. It is the only thing that can see
 
 ## Current state
 
-**Milestones 0-6 complete.** 126 tests, `verify.sh` green on all six stages,
-19 footprint states clean.
+**Milestones 0-7 complete.** 135 tests, `verify.sh` green on all six stages,
+19 footprint states clean. Installed as a LaunchAgent and running.
 
 Verified by measurement, by capture, or by driving the real pointer:
 
@@ -95,6 +95,16 @@ Verified by measurement, by capture, or by driving the real pointer:
   `NotchGeometry.housingOverhang` can only be changed the same way.
 - **The Automation grant survived a rebuild** -- one rebuild, one launch, no
   -1743. Not many data points, but the first evidence either way.
+- **58.3 fps expanding, 60.0 collapsing**, measured on the launchd-launched
+  agent with `ProcessType = Interactive` -- and with Low Power Mode **on**.
+  42 frames over 0.70s: the spring's tail is longer than its 0.38s nominal
+  response, which is what a spring does. `./tools/frame_probe.sh`.
+- **What it costs while music plays:** 0.8% of a core for the tap and the FFT,
+  8.9% for the whole agent with the waveform at 30fps. The drawing is the
+  cost, not the arithmetic -- see `docs/DECISIONS.md`. Every number here was
+  taken under Low Power Mode, which inflates them.
+- **A second launch is refused** -- the guard was broken until milestone 7
+  actually tried it (`docs/BUGS.md` #15).
 - **The installed bundle reads Spotify and starts the tap.** Which needed the
   `com.apple.security.automation.apple-events` entitlement first: the hardened
   runtime had been refusing every event with -1743 and no prompt
@@ -133,10 +143,9 @@ Say so rather than implying otherwise:
   the notch while the music changes.
 - **An output-device change mid-track.** The rebuild path that handles it is
   written and reasoned, and nobody has unplugged anything.
-- **The expand animation's real frame rate.** The arithmetic is a test
-  (389pt/s against a measured-bad 940); the frames have not been counted, and
-  must be on the **launchd-launched** build, because a terminal-launched
-  process is a different scheduling class.
+- **Anything with Low Power Mode off.** `pmset -g` says `lowpowermode 1`, so
+  every performance number above is of a throttled machine. The honest version
+  of the CPU figure needs it off.
 - **The permission states against a real refusal.** They render from preview
   data. `tools/reset-permissions.sh` then declining is the only way to confirm
   the app reaches them.
@@ -195,6 +204,7 @@ Anything about rendering asks `Presentation.draws`, never `Now.draws` --
 | `--capture-server` | stay alive, take `<state> [expanded]` or `probe` on stdin, answer `ready`. Exits after 30s idle |
 | `--offscreen` | park the window at the bottom-right, out of the way of whoever is using the machine |
 | `--bands [seconds]` | the real tap as a text meter, labelled live or not. The only way to tell a working tap from the fallback |
+| `--probe-signal start\|report` | drive the running agent's frame probe; `tools/frame_probe.sh` wraps it |
 | `--audit` | the HIG check list as JSON |
 
 `--preview` and `--probe` also print `window`, `size`, `housing` and `shell`
@@ -233,19 +243,36 @@ can differ from the saved one by under a point.
   Three separate times in this project the instrument has been the broken
   thing (`docs/TRAPS.md` #1, #19, #24).
 
-## Next
+## Running it
 
-**Milestone 7: ship.**
+Installed as a LaunchAgent (`./tools/install-agent.sh`), so it starts at login
+and `launchctl kickstart -k gui/$(id -u)/com.aravmanand.spotifynotch` brings it
+back after a Quit. `KeepAlive` is `SuccessfulExit: false` on purpose -- quitting
+from the menu stays quit.
 
-- `tools/reset-permissions.sh` against the ad-hoc-signing risk, which is no
-  longer a risk but an observation (`docs/TRAPS.md` #33): the rebuilt bundle
-  is refused Automation and the user has to grant it once.
-- `ProcessType = Interactive` in the plist, then **measure the
-  launchd-launched process** -- a terminal build is a different scheduling
-  class, and every animation number so far was taken from one.
-- The duplicate-instance guard is already in `main.swift`; confirm it against
-  a real second launch.
-- Check `pmset -g | grep lowpowermode` before believing any measurement.
+The **menu-bar item** (a waveform glyph) is the only user-facing control:
+what is playing, **Hide from the Notch** -- which stands the app fully down,
+panel, hover polling and audio tap -- and Quit. Hidden survives a relaunch.
+
+To remove it entirely: `launchctl bootout gui/$(id -u)/com.aravmanand.spotifynotch`
+and delete `~/Library/LaunchAgents/com.aravmanand.spotifynotch.plist`.
+
+## Was milestone 7
+
+**Shipped.**
+
+- `ProcessType = Interactive`, and the frame rate measured on the agent rather
+  than on a terminal build: **58.3 fps**.
+- The duplicate guard confirmed against a real second launch, which is how it
+  was found to have never worked (`docs/BUGS.md` #15).
+- The Automation entitlement, without which the bundle could not read Spotify
+  at all (`docs/BUGS.md` #14).
+- A menu-bar item, so the app can be stood down when it collides with the
+  user's other notch app.
+
+Still open, and deliberately: the CPU numbers were taken under Low Power Mode,
+and the waveform's drawing cost has an upgrade path nobody has needed yet
+(`docs/DECISIONS.md`).
 
 The tap chain, for reference, all of it now verified working rather than
 probed:

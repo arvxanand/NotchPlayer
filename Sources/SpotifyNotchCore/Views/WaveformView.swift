@@ -89,19 +89,47 @@ private struct SyntheticBars: View {
 /// goes through `Bands.envelope`. Animating a value that changes 30 times a
 /// second means every frame interrupts the last one's spring, which is how a
 /// waveform ends up looking like jelly rather than like audio.
+///
+/// **A `Canvas`, not fourteen `Capsule`s in an `HStack`.** It was the HStack
+/// first, and that cost 7.7% of a core continuously while music played: at
+/// 30Hz, SwiftUI was diffing, laying out and re-rendering fifteen views thirty
+/// times a second, for a picture that is fourteen rounded rectangles. A canvas
+/// is one view whose contents are drawn imperatively, so a new frame is a
+/// repaint rather than a tree update. Measured after the change: see
+/// `HANDOFF.md`.
 private struct Bars: View {
     let values: [Float]
     let barHeight: ClosedRange<CGFloat>
 
     var body: some View {
-        HStack(alignment: .center, spacing: WaveformView.gap) {
-            ForEach(values.indices, id: \.self) { i in
-                Capsule(style: .continuous)
-                    .fill(Palette.primary)
-                    .frame(width: WaveformView.barWidth, height: height(values[i]))
+        // **Drawn into an overlay of a fixed-size spacer, not laid out.** A
+        // view whose content can change its own size makes every ancestor
+        // stack re-run layout when it does -- thirty times a second, which a
+        // `sample` of the running agent showed as `StackLayout.sizeThatFits`
+        // and `LayoutEngineBox` at the top of the profile. An overlay cannot
+        // influence its parent's size, so the layout pass stops here.
+        Color.clear
+            .frame(width: WaveformView.width, height: barHeight.upperBound)
+            .overlay { canvas }
+    }
+
+    private var canvas: some View {
+        Canvas(opaque: false, rendersAsynchronously: false) { context, size in
+            let width = WaveformView.barWidth
+            let pitch = width + WaveformView.gap
+            for (index, value) in values.enumerated() {
+                let bar = height(value)
+                let rect = CGRect(x: CGFloat(index) * pitch,
+                                  y: (size.height - bar) / 2,
+                                  width: width, height: bar)
+                context.fill(Path(roundedRect: rect, cornerRadius: width / 2),
+                             with: .color(Palette.primary))
             }
         }
-        .frame(width: WaveformView.width, height: barHeight.upperBound)
+        // Decoration. A screen reader announcing fourteen bar heights thirty
+        // times a second is worse than silence, and the track is named in the
+        // panel and in the menu bar.
+        .accessibilityHidden(true)
     }
 
     private func height(_ value: Float) -> CGFloat {

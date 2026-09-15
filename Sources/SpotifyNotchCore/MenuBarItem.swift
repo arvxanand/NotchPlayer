@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// The menu-bar item: what is playing, a way to get the panel off the notch,
 /// and a way to quit.
@@ -11,25 +12,30 @@ import AppKit
 /// is the difference between standing down and disappearing: quitting a
 /// `LSUIElement` app that has no icon means the only way back is Spotlight.
 ///
-/// A plain `NSMenu`, not a popover. matchnotch's status item opens a SwiftUI
-/// panel because it has settings and a fixture list; this one has three lines,
-/// and a menu is what the system already draws well -- keyboard navigable,
-/// VoiceOver correct, and it costs nothing when closed.
+/// A popover, not an `NSMenu`. It was a menu first, and three lines of text
+/// were the wrong answer for an app whose subject is an album cover -- see
+/// `MenuPanel`. The cost of the change is this class having to do what AppKit
+/// does for free with a menu: close on a second click, and not reopen itself
+/// while dismissing (`closedAt` below).
 @MainActor
-public final class MenuBarItem: NSObject, NSMenuDelegate {
+public final class MenuBarItem: NSObject, NSPopoverDelegate {
     private let item: NSStatusItem
-    private let menu = NSMenu()
-    private let status = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let visibility = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let popover = NSPopover()
 
-    private let summary: () -> String
+    private let state: () -> (now: Now, permission: Permission)
     private let hidden: () -> Bool
     private let setHidden: (Bool) -> Void
+    /// When the popover last closed. A `.transient` popover is dismissed by
+    /// AppKit on *any* outside click, and the status item is outside it -- so
+    /// clicking the icon to close fires both AppKit's dismissal and the
+    /// button's action, in an order that is not guaranteed. matchnotch learned
+    /// this; without it the second click closes and immediately reopens.
+    private var closedAt: Date?
 
-    public init(summary: @escaping () -> String,
+    public init(state: @escaping () -> (now: Now, permission: Permission),
                 hidden: @escaping () -> Bool,
                 setHidden: @escaping (Bool) -> Void) {
-        self.summary = summary
+        self.state = state
         self.hidden = hidden
         self.setHidden = setHidden
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -47,35 +53,55 @@ public final class MenuBarItem: NSObject, NSMenuDelegate {
         item.button?.image = image
         item.button?.toolTip = "SpotifyNotch"
 
-        status.isEnabled = false
-        visibility.target = self
-        visibility.action = #selector(toggleHidden)
-        let quit = NSMenuItem(title: "Quit SpotifyNotch",
-                              action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-
-        menu.addItem(status)
-        menu.addItem(.separator())
-        menu.addItem(visibility)
-        menu.addItem(.separator())
-        menu.addItem(quit)
-        // Built when the menu opens rather than on every state change: a
-        // closed menu has nobody reading it, and the alternative is another
-        // subscriber redrawing text thirty times a minute for nothing.
-        menu.delegate = self
-        item.menu = menu
+        popover.contentSize = NSSize(width: MenuPanel.width, height: MenuPanel.height)
+        // Transient: clicking anywhere else dismisses it, the way a menu does.
+        popover.behavior = .transient
+        popover.delegate = self
+        item.button?.target = self
+        item.button?.action = #selector(toggle)
     }
+
+    /// Rebuilt on every open rather than subscribed to the service.
+    ///
+    /// A closed popover has nobody reading it, and the alternative is a second
+    /// observer re-rendering a hidden window every time the position ticks.
+    /// The panel is a function of plain values for the same reason `RootView`
+    /// is -- so this can hand it a snapshot.
+    private func rebuild() {
+        let (now, permission) = state()
+        let hidden = hidden()
+        popover.contentViewController = NSHostingController(rootView: MenuPanel(
+            track: now.track,
+            playing: now.isPlaying,
+            subtitle: Self.summary(now: now, permission: permission, hidden: hidden),
+            hidden: hidden,
+            toggleHidden: { [weak self] in
+                self?.setHidden(!hidden)
+                self?.popover.performClose(nil)
+            },
+            quit: { NSApp.terminate(nil) }))
+    }
+
+    @objc private func toggle() {
+        if popover.isShown { return popover.performClose(nil) }
+        // AppKit already closed it for this very click.
+        if let closedAt, Date().timeIntervalSince(closedAt) < 0.2 { return }
+        guard let button = item.button else { return }
+        rebuild()
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        // A status-item popover opens behind every other window otherwise --
+        // the app is `.accessory` and has never activated itself. This is the
+        // one place it may, because the user clicked the icon; the notch panel
+        // still never takes focus, which is the rule that is load-bearing.
+        popover.contentViewController?.view.window?.makeKey()
+    }
+
+    public func popoverDidClose(_ note: Notification) { closedAt = Date() }
 
     /// Remove the item when the app goes away. A status item outlives its
     /// owner otherwise and leaves a dead icon in the menu bar until the next
     /// login.
     public func remove() { NSStatusBar.system.removeStatusItem(item) }
-
-    public func menuWillOpen(_ menu: NSMenu) {
-        status.title = summary()
-        visibility.title = hidden() ? "Show in the Notch" : "Hide from the Notch"
-    }
-
-    @objc private func toggleHidden() { setHidden(!hidden()) }
 
     // MARK: - What the first line says
 

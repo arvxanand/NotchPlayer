@@ -198,3 +198,20 @@ entries here point at one.
     (`docs/TRAPS.md` #34). One entitlement in the signing step, and the same
     launch that had been refused four times a second came up with
     `waveform live (44100Hz)` and real Spotify data.
+
+15. **The duplicate-instance guard never fired, because it counted itself.**
+    `M7`
+
+    `runningApplications(withBundleIdentifier:).count > 1` assumed the asking
+    process is in that list. It is not, or not yet: registration happens when
+    `NSApplication` starts, and the guard runs before that. So a second launch
+    saw one instance, concluded all was well, and put a second panel on the
+    notch -- which is the exact thing the guard exists to prevent.
+
+    It survived five milestones because nobody had ever launched a second copy;
+    milestone 7 says to confirm it against a real second launch, and the first
+    real second launch broke it. Now it filters its own pid and asks whether
+    any *other* instance exists, which does not depend on registration timing
+    at all. Verified the same way it failed: with the agent running,
+    `./SpotifyNotch.app/Contents/MacOS/SpotifyNotch` prints "SpotifyNotch is
+    already running" and exits 0, and one instance remains.

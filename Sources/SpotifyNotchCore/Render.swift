@@ -13,7 +13,7 @@ public enum Render {
     /// Named so `--render` has a fixed vocabulary and a typo cannot silently
     /// produce something plausible.
     public enum Subject: String, CaseIterable, Sendable {
-        case mark, peek, artwork, waveform
+        case mark, peek, artwork, waveform, menu
     }
 
     @MainActor
@@ -33,6 +33,9 @@ public enum Render {
         case .mark, .artwork: return CGSize(width: side, height: side)
         case .waveform:       return CGSize(width: side * 3, height: side)
         case .peek:           return CGSize(width: side * 10, height: side)
+        // Its own fixed size: the popover is not scalable art, it is a window
+        // whose proportions are the thing being judged.
+        case .menu:           return CGSize(width: MenuPanel.width, height: MenuPanel.height)
         }
     }
 
@@ -43,6 +46,10 @@ public enum Render {
             switch subject {
             case .mark:
                 SpotifyMark().frame(width: side * 0.8, height: side * 0.8)
+            case .menu:
+                MenuPanel(track: PreviewData.named("playing")?.now.track,
+                          playing: true, subtitle: "Playing", hidden: false,
+                          toggleHidden: {}, quit: {})
             case .artwork, .peek, .waveform:
                 // Filled in as each view lands; a subject with no content is
                 // a black square, which is visibly nothing rather than

@@ -37,12 +37,23 @@ open --stdout /tmp/bands.txt --stderr /tmp/bands.txt \
 | `tools/verify.sh` | build, tests, notch footprint, contrast, hygiene, docs |
 | `tools/check_notch.sh` | nothing legible behind the camera housing, every state. One parked window, ~17s |
 | `tools/hit_probe.sh` | the transport targets are live across their whole 44pt. **Changes playback** |
+| `tools/frame_probe.sh` | how many frames the expand animation really renders, measured on the running agent |
 | `tools/sweep.sh` | nothing of ours left running; the reference agent is still up |
 | `tools/reset-permissions.sh` | make macOS re-ask for Automation and Audio Capture |
 | `tools/pixel_check.py` | assert about a window capture: `--unlit`, `--bounds` |
 | `tools/crop.py` | crop and enlarge a capture so a 37pt strip can be looked at |
 
 `verify.sh` runs everything except `hit_probe.sh`, which clicks real buttons.
+
+## Using it
+
+A waveform glyph in the menu bar: what is playing, **Hide from the Notch**
+(stands the app down without quitting -- for when it collides with another
+notch app), and Quit. After a Quit:
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.aravmanand.spotifynotch
+```
 
 ## Docs
 
