@@ -48,10 +48,18 @@ public struct ProgressLine: View {
     /// 7pt, not 9: a permanent dot is on screen the whole time the panel is
     /// open, and at 9 it read as a bead on a string rather than a playhead.
     public static let knobSide: CGFloat = 7
-    /// The draggable band. 20pt is a comfortable pointer target without
-    /// reaching the times below or the cover beside it; the 44pt rule is for
-    /// the transport buttons, which are the things a click can get wrong.
-    public static let hitHeight: CGFloat = 20
+    /// The draggable band, centred on the line.
+    ///
+    /// **30pt for a 3pt line.** Twenty was the first guess and it was not
+    /// enough in the hand: a pointer tip has to be within a few points of a
+    /// hairline, and missing feels like the control is broken rather than like
+    /// a miss. Thirty reaches from 14pt above the line to 14pt below, which
+    /// still clears the transport row's top edge by a comfortable margin --
+    /// `PanelTests` asserts that clearance rather than trusting this comment.
+    ///
+    /// Nothing else in that band is interactive: the elapsed and remaining
+    /// times sit under the line and are text.
+    public static let hitHeight: CGFloat = 30
 
     private var live: Bool { onScrub != nil }
 
@@ -59,47 +67,75 @@ public struct ProgressLine: View {
         GeometryReader { proxy in
             let width = proxy.size.width
             let filled = Self.filled(fraction, in: width)
-            // **Both capsules state their own height, and the knob is an
-            // overlay.** A `ZStack` sizes to its tallest child, and a shape
-            // inside one fills whatever that comes to -- so adding a 7pt knob
-            // to the stack quietly made the 3pt bar 7pt tall along its whole
-            // length. An outer `.frame` does not fix that: it positions the
-            // oversized content, it does not shrink it. Measured off a capture
-            // rather than noticed by eye.
-            ZStack(alignment: .leading) {
-                Capsule().fill(Palette.track).frame(height: barHeight)
-                Capsule().fill(Palette.primary).frame(width: filled, height: barHeight)
-            }
-            .frame(height: Self.thickness)
-            .overlay(alignment: .leading) {
-                if live {
-                    Circle()
-                        .fill(Palette.primary)
-                        .frame(width: Self.knobSide, height: Self.knobSide)
-                        // Centred on the playhead, and allowed past both ends,
-                        // so it marks the position rather than the edge of the
-                        // space it has to move in.
-                        .offset(x: filled - Self.knobSide / 2)
-                }
-            }
-            .animation(.easeOut(duration: 0.12), value: dragging)
-            .contentShape(Rectangle())
-            .gesture(live ? drag(width: width) : nil)
+            bar(filled: filled)
+                // **The gesture goes on the tall box, and this is the whole
+                // point of the tall box.** It was attached to the 3pt line
+                // with an enlarged `contentShape` on an outer view that had no
+                // gesture on it -- which does nothing at all, so only the 3pt
+                // line answered. Reported as "it works about half the time",
+                // which is exactly what aiming at three points feels like.
+                //
+                // The box overflows its 3pt layout slot equally above and
+                // below, so the line stays where it was drawn and only the
+                // target grows. `.contentShape` last, after every sizing
+                // modifier (`docs/TRAPS.md` #21).
+                // **Symmetric padding, then the shape, then the gesture, then
+                // the padding taken back off.** Two earlier attempts at the
+                // same band were both wrong in ways only a live probe showed:
+                // a `.contentShape` on an outer view with no gesture on it
+                // does nothing at all, and `.frame(height:)` plus `.offset`
+                // inside a `GeometryReader` left the band hanging below the
+                // line -- a click 11pt above was dead while one 22pt below,
+                // in the transport row's territory, seeked.
+                //
+                // Padding is symmetric by construction, so the band is centred
+                // on the line whatever the reader does with alignment; the
+                // negative padding afterwards keeps the row's layout at 3pt.
+                .padding(.vertical, Self.pad)
+                .contentShape(Rectangle())
+                .gesture(live ? drag(width: width) : nil)
+                .padding(.vertical, -Self.pad)
         }
         // The row's height never changes; only the band that answers the
         // pointer does.
         .frame(height: Self.thickness)
-        .padding(.vertical, (Self.hitHeight - Self.thickness) / 2)
-        .contentShape(Rectangle())
-        .padding(.vertical, -(Self.hitHeight - Self.thickness) / 2)
         .accessibilityElement()
         .accessibilityLabel("Playback position")
         .accessibilityValue("\(Int((min(1, max(0, fraction)) * 100).rounded())) percent")
     }
 
+    /// **Both capsules state their own height, and the knob is an overlay.** A
+    /// `ZStack` sizes to its tallest child, and a shape inside one fills
+    /// whatever that comes to -- so adding a 7pt knob to the stack quietly
+    /// made the 3pt bar 7pt tall along its whole length. An outer `.frame`
+    /// does not fix that: it positions oversized content, it does not shrink
+    /// it. Measured off a capture rather than noticed by eye.
+    private func bar(filled: CGFloat) -> some View {
+        ZStack(alignment: .leading) {
+            Capsule().fill(Palette.track).frame(height: barHeight)
+            Capsule().fill(Palette.primary).frame(width: filled, height: barHeight)
+        }
+        .frame(height: Self.thickness)
+        .overlay(alignment: .leading) {
+            if live {
+                Circle()
+                    .fill(Palette.primary)
+                    .frame(width: Self.knobSide, height: Self.knobSide)
+                    // Centred on the playhead, and allowed past both ends, so
+                    // it marks the position rather than the edge of the space
+                    // it has to move in.
+                    .offset(x: filled - Self.knobSide / 2)
+            }
+        }
+        .animation(.easeOut(duration: 0.12), value: dragging)
+    }
+
     /// Thickens while being dragged -- which works without an active app,
     /// because a drag is events rather than tracking.
     private var barHeight: CGFloat { dragging ? Self.activeThickness : Self.thickness }
+
+    /// Half the band, minus the line it is centred on.
+    static var pad: CGFloat { (hitHeight - thickness) / 2 }
 
     /// `minimumDistance: 0` so a plain click seeks to where it landed. A
     /// scrubber you have to drag is a scrubber that ignores half the clicks

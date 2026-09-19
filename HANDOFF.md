@@ -107,6 +107,10 @@ Verified by measurement, by capture, or by driving the real pointer:
   taken under Low Power Mode, which inflates them.
 - **A second launch is refused** -- the guard was broken until milestone 7
   actually tried it (`docs/BUGS.md` #15).
+- **The scrub band is 30pt tall and centred on the line** -- probed live: the
+  centre and 12pt either side seek, 17pt above and 19pt below do not, and the
+  transport row below is untouched. It was effectively 3pt at first, which is
+  unhittable (`docs/TRAPS.md` #41).
 - **The progress bar seeks.** Click or drag, on the live app: a click at 25.2%
   of a 230s track landed at 58s, a drag to 82.9% landed at 191s, and a drag
   released *outside* the panel still committed and did not collapse it. Needed

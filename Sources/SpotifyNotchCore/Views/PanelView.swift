@@ -179,12 +179,20 @@ public struct PanelView: View {
     public static func progressRect(_ geometry: NotchGeometry) -> CGRect {
         let left = geometry.screenFrame.midX - geometry.collapsedWidth / 2 + inset + artSide + gap
         let right = geometry.screenFrame.midX + geometry.collapsedWidth / 2 - inset
-        // Below the cover's top: title, artist, then the line, laid out in the
-        // details column. `detailsFixedHeight` is the same total the view uses.
-        let top = geometry.notchExclusionTop + topGap + 21 + 2 + 16 + 4
-        return CGRect(x: left, y: top - (ProgressLine.hitHeight - ProgressLine.thickness) / 2,
+        let centre = geometry.notchExclusionTop + Self.progressCentreBelowNotch
+        return CGRect(x: left, y: centre - ProgressLine.hitHeight / 2,
                       width: right - left, height: ProgressLine.hitHeight)
     }
+
+    /// How far below the notch the progress line's centre sits.
+    ///
+    /// **Measured off a capture, not derived.** Adding up the nominal sizes of
+    /// the rows above it -- title 21, gap 2, artist 16, gap 4 -- gives 95, and
+    /// the line is at **103**: SwiftUI lays text out from font metrics, which
+    /// are taller than the point sizes they are named for. Eight points is
+    /// most of a hit band, and a probe aimed with the derived number reported
+    /// a dead control that was working.
+    public static let progressCentreBelowNotch: CGFloat = 66
 
     public static func transportRects(_ geometry: NotchGeometry)
         -> [(name: String, rect: CGRect)] {
