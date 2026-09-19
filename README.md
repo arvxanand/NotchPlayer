@@ -63,3 +63,4 @@ launchctl kickstart -k gui/$(id -u)/com.aravmanand.spotifynotch
 | `docs/TRAPS.md` | classes of mistake, with the fix |
 | `docs/BUGS.md` | specific defects, what they cost |
 | `docs/DECISIONS.md` | why things are the way they are |
+| `docs/WANTED.md` | what we chose not to build yet, and why |
