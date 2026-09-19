@@ -410,3 +410,25 @@ print nothing. Keep the `N.` at column zero or the check cannot see the entry.
     line, which drew its resting state. So no control here can use hover as its
     only affordance: the scrub knob is drawn whenever the line is draggable
     rather than revealed by pointing at it.
+
+41. **An enlarged hit area is three separate mistakes, and only a live probe
+    tells you which one you made.** `M8` The scrub band was wrong twice before
+    it was right, and both wrong versions looked correct in the code and in a
+    capture:
+
+    - `.contentShape(Rectangle())` on an outer view whose **gesture is on an
+      inner one** does nothing. The shape and the gesture have to be on the
+      same view. Only the 3pt line answered, which the user reported as "it
+      works about half the time".
+    - `.frame(height: 30)` on a child of a `GeometryReader` does **not** centre
+      it -- the reader pins children to its top-leading corner -- and a
+      `.offset` to correct that moved the drawing without moving the band. The
+      result hung entirely below the line: dead 11pt above it, live 22pt below
+      it, reaching into the transport row.
+    - Symmetric `.padding` is the version that works, because it cannot be
+      asymmetric: pad, shape, gesture, then negative padding to give the layout
+      back. `docs/TRAPS.md` #21's ordering rule, with the gesture in the middle.
+
+    The probe is three clicks at the band's centre and both edges, checking
+    whether `player position` moved. Reasoning about which of the three is
+    wrong, from the code, is how two of them shipped.

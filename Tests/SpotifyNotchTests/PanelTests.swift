@@ -256,9 +256,26 @@ final class ScrubTests: XCTestCase {
 
     /// The hit band is far taller than the line, or nobody can grab it -- and
     /// it must stay clear of the transport row, which owns the clicks below.
-    func testTheDraggableBandIsBiggerThanTheLineAndSmallerThanTheGapBelowIt() {
-        XCTAssertGreaterThan(ProgressLine.hitHeight, ProgressLine.thickness * 4)
-        XCTAssertLessThan(ProgressLine.hitHeight, NotchGeometry.minimumHitHeight)
+    /// The band has to be big enough to hit without aiming, and it must stop
+    /// short of the transport row, which owns the clicks below it.
+    func testTheDraggableBandIsGenerousAndStillClearsTheTransportRow() {
+        let geometry = NotchGeometry(screenFrame: CGRect(x: 0, y: 0, width: 1920, height: 1243),
+                                     notchWidth: 208, notchHeight: 37, hasNotch: true)
+        XCTAssertGreaterThanOrEqual(ProgressLine.hitHeight, 28,
+                                    "20pt was measurably too small in the hand")
+
+        let band = PanelView.progressRect(geometry)
+        // The capture says the line's centre is 103pt from the top of the
+        // window. A probe that aims anywhere else tests nothing.
+        XCTAssertEqual(band.midY, 103, accuracy: 0.5)
+        let transportTop = PanelView.transportRects(geometry).map(\.rect.minY).min() ?? 0
+        XCTAssertLessThan(band.maxY, transportTop,
+                          "the scrub band reaches into the transport buttons")
+        XCTAssertGreaterThan(transportTop - band.maxY, 8, "no margin between the two targets")
+        // Centred on the line, not hanging off it. Probed live at both edges:
+        // 12pt either side seeks, 17 above and 19 below do not.
+        XCTAssertEqual(band.midY - band.minY, band.maxY - band.midY, accuracy: 0.01)
+        XCTAssertEqual(ProgressLine.pad, (ProgressLine.hitHeight - ProgressLine.thickness) / 2)
     }
 
     // MARK: - The panel staying open
