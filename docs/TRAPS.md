@@ -376,3 +376,37 @@ print nothing. Keep the `N.` at column zero or the check cannot see the entry.
     8.90%, full agent 8.90%" -- a perfectly plausible wrong answer. `open -n`
     is the flag. The tell was the two numbers being *identical* rather than
     close.
+
+37. **A `Button` survives a non-key window; a `DragGesture` does not.** `M8`
+    The panel never activates the app, so it is almost never the key window,
+    and AppKit hands an inactive window's first click to the window rather than
+    to the view under it -- unless that view returns `acceptsFirstMouse`. A
+    SwiftUI `Button` acts on mouse-**up** and works anyway, which is why the
+    transport row worked for four milestones and hid this completely. A drag
+    needs the mouse-**down** that was being eaten: the progress line could not
+    be grabbed at all, with no error and no gesture, the pointer just sliding
+    over it. Host the content in an `NSHostingView` subclass that returns true
+    (matchnotch needed the same subclass for its popover).
+
+38. **A `ZStack` is as tall as its tallest child, and a shape inside one fills
+    that.** `M8` Adding a 7pt knob to the stack holding the 3pt progress bar
+    made the *bar* 7pt along its whole length. The outer `.frame(height: 3)`
+    did not stop it: a frame positions content it cannot shrink. Give each
+    shape its own height and put the knob in an `.overlay`, which cannot
+    influence the size of what it sits on. Found by measuring a capture --
+    at 3pt against 7pt on a black panel, the eye does not notice.
+
+39. **A window probe must not run while the installed agent is up.** `M8`
+    `hit_probe.sh` launches its own panel, and the agent's panel is at the same
+    coordinates on the same window level -- so the clicks land on whichever is
+    on top and the probe reports the transport row as dead. It looks exactly
+    like a regression in the panel, which is an hour spent hunting one that is
+    not there. The probe now refuses to run when the app is up, and the same
+    caution applies to anything else that drives the real pointer at the notch.
+
+40. **`.onHover` never fires on this panel.** `M8` Tracking areas want an
+    active application, and this one is `.accessory` and never activates --
+    verified by capturing the panel with the pointer sitting on the progress
+    line, which drew its resting state. So no control here can use hover as its
+    only affordance: the scrub knob is drawn whenever the line is draggable
+    rather than revealed by pointing at it.

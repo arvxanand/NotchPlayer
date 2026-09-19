@@ -33,6 +33,15 @@ public final class Expansion: ObservableObject {
     /// cutout while nothing is playing opens an empty panel.
     public var hasContent: () -> Bool = { false }
 
+    /// Set while the user is dragging something in the panel -- today, the
+    /// progress line.
+    ///
+    /// A drag that starts on the bar and continues past the bottom of the
+    /// panel is an ordinary thing to do, and without this the watcher sees the
+    /// pointer leave, collapses the panel, and takes the control out from
+    /// under the hand holding it.
+    private var holding = false
+
     /// Optional rather than defaulted, because a default argument expression
     /// is evaluated nonisolated and `HoverWatcher` is main-actor bound.
     public init(watcher: HoverWatcher? = nil) {
@@ -53,6 +62,7 @@ public final class Expansion: ObservableObject {
     }
 
     public func stop() {
+        holding = false
         watcher.stop()
         bag.removeAll()
         collapse()
@@ -67,13 +77,28 @@ public final class Expansion: ObservableObject {
     /// out. A test should not have to hop actors to ask a question about
     /// arithmetic.
     public nonisolated static func shouldExpand(inside: Bool, hasContent: Bool,
-                                                expanded: Bool) -> Bool {
-        inside && (hasContent || expanded)
+                                                expanded: Bool, holding: Bool = false) -> Bool {
+        // Holding keeps an open panel open; it cannot open a closed one. A
+        // drag has to start somewhere, and that somewhere is the open panel.
+        if holding, expanded { return true }
+        return inside && (hasContent || expanded)
+    }
+
+    /// Hold the panel open through a drag, and re-decide when it ends.
+    ///
+    /// **The re-decide is the whole reason this is a method and not a flag.**
+    /// `$inside` is `removeDuplicates`d, so if the pointer left during the
+    /// drag there is no further event to act on -- releasing outside the panel
+    /// would leave it open until the pointer went back in and out again.
+    public func hold(_ on: Bool) {
+        guard on != holding else { return }
+        holding = on
+        if !on { hover(watcher.inside) }
     }
 
     private func hover(_ inside: Bool) {
         let wanted = Self.shouldExpand(inside: inside, hasContent: hasContent(),
-                                       expanded: expanded)
+                                       expanded: expanded, holding: holding)
         guard wanted != expanded else { return }
         if wanted { open() } else { collapse() }
     }

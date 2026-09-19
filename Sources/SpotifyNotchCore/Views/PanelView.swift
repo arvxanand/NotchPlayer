@@ -19,11 +19,21 @@ public struct PanelView: View {
     let controllable: Bool
     let send: (SpotifyBridge.Command) -> Void
 
+    /// Raised while the pointer is dragging the progress line, so the panel
+    /// is held open. Without it the watcher collapses the panel the moment the
+    /// drag leaves the drawn frame, which is easy to do and takes the thing
+    /// you are dragging with it.
+    let onScrubbing: (Bool) -> Void
+
+    @State private var scrub: Double?
+
     public init(geometry: NotchGeometry, track: Track, progress: Interpolator?,
                 playing: Bool, controllable: Bool = true,
+                onScrubbing: @escaping (Bool) -> Void = { _ in },
                 send: @escaping (SpotifyBridge.Command) -> Void = { _ in }) {
         self.geometry = geometry; self.track = track; self.progress = progress
-        self.playing = playing; self.controllable = controllable; self.send = send
+        self.playing = playing; self.controllable = controllable
+        self.onScrubbing = onScrubbing; self.send = send
     }
 
     public var body: some View {
@@ -91,9 +101,16 @@ public struct PanelView: View {
             // how often the smallest thing on screen -- the seconds digit --
             // actually changes (#66).
             TimelineView(.periodic(from: .now, by: 1)) { _ in
-                let position = progress?.position(at: .now, duration: track.duration) ?? 0
+                // While a drag is in flight the finger is the truth, not the
+                // clock: the times count with the knob, which is the feedback
+                // that makes a 280pt bar precise enough to land on a verse.
+                let played = progress?.position(at: .now, duration: track.duration) ?? 0
+                let position = scrub.map { $0 * track.duration } ?? played
                 VStack(spacing: 4) {
-                    ProgressLine(fraction: track.duration > 0 ? position / track.duration : 0)
+                    ProgressLine(
+                        fraction: track.duration > 0 ? position / track.duration : 0,
+                        onScrub: seekable ? { scrub = $0; onScrubbing(true) } : nil,
+                        onCommit: seekable ? { commit($0) } : nil)
                     HStack(spacing: 0) {
                         Text(Clock.mmss(position))
                         Spacer(minLength: 8)
@@ -105,6 +122,20 @@ public struct PanelView: View {
             }
         }
         .frame(height: Self.artSide, alignment: .top)
+    }
+
+    /// A track of zero length has no position to seek to, and a refused
+    /// Automation permission means the write would fail -- in both cases the
+    /// line draws, and does not pretend to be a control.
+    private var seekable: Bool { controllable && track.duration > 0 }
+
+    private func commit(_ fraction: Double) {
+        // Send before clearing, so the service has already taken the new
+        // position as true by the time the view stops drawing the drag. The
+        // other order shows one frame of the old position.
+        send(.seek(fraction * track.duration))
+        scrub = nil
+        onScrubbing(false)
     }
 
     // MARK: - Metrics
@@ -138,6 +169,23 @@ public struct PanelView: View {
     /// clicks empty space and reports no effect -- so the duplication checks
     /// itself rather than drifting silently, which is the failure mode when
     /// arithmetic quietly replaces a layout guide.
+    /// The draggable band of the progress line, in the same top-left screen
+    /// coordinates as `transportRects`, so a probe can put a real pointer on
+    /// it. Emitted by `--hit-rects`.
+    ///
+    /// Derived from the same constants the view lays out with rather than
+    /// measured from a capture: a probe that aims at hand-copied numbers
+    /// stops testing the panel the first time the panel moves.
+    public static func progressRect(_ geometry: NotchGeometry) -> CGRect {
+        let left = geometry.screenFrame.midX - geometry.collapsedWidth / 2 + inset + artSide + gap
+        let right = geometry.screenFrame.midX + geometry.collapsedWidth / 2 - inset
+        // Below the cover's top: title, artist, then the line, laid out in the
+        // details column. `detailsFixedHeight` is the same total the view uses.
+        let top = geometry.notchExclusionTop + topGap + 21 + 2 + 16 + 4
+        return CGRect(x: left, y: top - (ProgressLine.hitHeight - ProgressLine.thickness) / 2,
+                      width: right - left, height: ProgressLine.hitHeight)
+    }
+
     public static func transportRects(_ geometry: NotchGeometry)
         -> [(name: String, rect: CGRect)] {
         let side = NotchGeometry.minimumHitHeight

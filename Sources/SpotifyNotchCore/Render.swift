@@ -13,7 +13,7 @@ public enum Render {
     /// Named so `--render` has a fixed vocabulary and a typo cannot silently
     /// produce something plausible.
     public enum Subject: String, CaseIterable, Sendable {
-        case mark, peek, artwork, waveform, menu
+        case mark, peek, artwork, waveform, menu, progress
     }
 
     @MainActor
@@ -36,6 +36,9 @@ public enum Render {
         // Its own fixed size: the popover is not scalable art, it is a window
         // whose proportions are the thing being judged.
         case .menu:           return CGSize(width: MenuPanel.width, height: MenuPanel.height)
+        // The real width it is drawn at, so the knob is judged at its real
+        // proportion to the line rather than at a flattering one.
+        case .progress:       return CGSize(width: 234, height: 40)
         }
     }
 
@@ -50,6 +53,11 @@ public enum Render {
                 MenuPanel(track: PreviewData.named("playing")?.now.track,
                           playing: true, subtitle: "Playing", hidden: false,
                           toggleHidden: {}, quit: {})
+            case .progress:
+                // Handlers passed, because the knob only exists when the line
+                // is actually draggable.
+                ProgressLine(fraction: 0.62, onScrub: { _ in }, onCommit: { _ in })
+                    .frame(width: 234)
             case .artwork, .peek, .waveform:
                 // Filled in as each view lands; a subject with no content is
                 // a black square, which is visibly nothing rather than

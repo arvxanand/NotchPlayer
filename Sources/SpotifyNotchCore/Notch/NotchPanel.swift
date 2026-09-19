@@ -32,7 +32,7 @@ public final class NotchPanel: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .stationary,
                               .fullScreenAuxiliary, .ignoresCycle]
 
-        let host = NSHostingView(rootView: content())
+        let host = FirstMouseHostingView(rootView: content())
         host.frame = CGRect(origin: .zero, size: geometry.panelFrame().size)
         host.autoresizingMask = [.width, .height]
         contentView = host
@@ -81,4 +81,25 @@ public final class NotchPanel: NSPanel {
         setFrame(geometry.panelFrame(), display: true)
         orderFrontRegardless()
     }
+}
+
+/// A hosting view that takes the *first* click in a window that is not key.
+///
+/// **This is what a drag needs and a button does not.** The panel never
+/// activates the app, so it is rarely the key window; AppKit gives an inactive
+/// window's first click to the window itself unless the view under it says
+/// otherwise. A `Button` survives that, because it acts on mouse-**up** -- so
+/// the transport worked for three milestones and hid the problem. A
+/// `DragGesture` needs the mouse-down that was being eaten, and without this
+/// the progress line could not be grabbed at all: no error, no gesture, the
+/// pointer simply slid over it.
+///
+/// matchnotch needed the same subclass for its popover, for the same reason.
+private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    /// `NSHostingView` declares this initialiser as required, and a subclass
+    /// has to restate it. Never used -- there are no nibs in this app.
+    @MainActor required init?(coder: NSCoder) { nil }
+    @MainActor required init(rootView: Content) { super.init(rootView: rootView) }
 }

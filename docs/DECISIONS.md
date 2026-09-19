@@ -39,6 +39,7 @@ PID; show and control, no scrubbing in v1; zero third-party dependencies.
 - [The menu-bar item is a panel, not a menu](#the-menu-bar-item-is-a-panel-not-a-menu)
 - [Hide is a real stand-down, not `orderOut`](#hide-is-a-real-stand-down-not-orderout)
 - [What the waveform costs, and why it still runs at 30Hz](#what-the-waveform-costs-and-why-it-still-runs-at-30hz)
+- [Scrubbing: click or drag, written once, on release](#scrubbing-click-or-drag-written-once-on-release)
 - [`verify.sh` uses exit codes, not greps, for the test stage](#verifysh-uses-exit-codes-not-greps-for-the-test-stage)
 
 ## Copy matchnotch's `Notch/` rather than rewrite it
@@ -412,6 +413,34 @@ That is the upgrade path if the cost ever matters. It is not taken now because
 the numbers above were taken under Low Power Mode on a throttled machine, and
 optimising against a measurement you know is distorted is how you end up with
 complexity that buys nothing.
+
+## Scrubbing: click or drag, written once, on release
+
+The write goes to Spotify when the finger lifts, not while the drag moves. A
+seek is an Apple Event at about 3.34ms, and a drag produces one event per
+frame -- sixty writes a second to make one change the user asked for once.
+During the drag the panel draws the dragged position and the times count with
+it, which is the feedback that makes a 234pt bar precise enough to land on a
+verse; the track only moves at the end.
+
+`minimumDistance: 0`, so a plain click seeks to where it landed. A scrubber you
+have to drag ignores half the clicks aimed at it.
+
+**The service takes the new position as true immediately.** Spotify publishes
+`PlaybackStateChanged` when the *state* changes, and moving the playhead is not
+a state change -- so without that the bar springs back to where it was and only
+corrects on the next reconcile, seconds later. That is not optimism: we are the
+ones who wrote it, and the reconcile still checks.
+
+**A drag holds the panel open** (`Expansion.hold`). Running the pointer past the
+bottom edge mid-drag is an ordinary thing to do, and the watcher would collapse
+the panel and take the control out from under the hand holding it. Holding
+cannot *open* a panel, only keep an open one open -- a drag has to start
+somewhere.
+
+**The knob is always drawn, not revealed on hover**, because `.onHover` never
+fires here (`docs/TRAPS.md` #40). 7pt on a 3pt line: enough to say "draggable",
+small enough to live on screen the whole time the panel is open.
 
 ## `verify.sh` uses exit codes, not greps, for the test stage
 

@@ -22,6 +22,20 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# **Refuse to run while the installed agent is up.** Both panels sit at the
+# same place on the same window level, so the clicks this posts land on
+# whichever is on top -- and the answer comes back as a dead hit target rather
+# than as an error. That looked exactly like a regression in the panel, and
+# cost an hour of hunting one. With the agent stopped the same probe passes
+# every check.
+if pgrep -f 'SpotifyNotch\.app/Contents/MacOS/SpotifyNotch' >/dev/null; then
+    echo "the installed app is running, and its panel is in the way."
+    echo "Hide it from the menu bar item, or:"
+    echo "    launchctl bootout gui/\$(id -u)/com.aravmanand.spotifynotch"
+    echo "    ./tools/hit_probe.sh && ./tools/install-agent.sh"
+    exit 1
+fi
+
 BIN=".build/debug/SpotifyNotch"
 [ -n "$(find Sources -name '*.swift' -newer "$BIN" -print -quit 2>/dev/null)" ] && swift build >/dev/null
 [ -x "$BIN" ] || { echo "swift build first"; exit 1; }

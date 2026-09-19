@@ -246,6 +246,16 @@ public final class SpotifyService: ObservableObject {
         switch bridge.send(command) {
         case .success:
             permission = .granted
+            // **A seek publishes nothing.** Spotify sends `PlaybackStateChanged`
+            // when the state changes, and moving the playhead is not a state
+            // change -- so without this the bar springs back to where it was
+            // and only corrects on the next reconcile, seconds later. Taking
+            // the position we just wrote as true is not optimism: we are the
+            // ones who set it, and the reconcile below still checks.
+            if case .seek(let seconds) = command {
+                progress = Interpolator(position: seconds, stamped: .now,
+                                        advancing: now.isPlaying)
+            }
             // Spotify answers with a notification of its own, so there is
             // nothing to read here -- but a command that produced no
             // notification within a moment means the optimistic state and the
@@ -256,7 +266,7 @@ public final class SpotifyService: ObservableObject {
         case .failure(.denied):
             permission = .denied
         case .failure(let other):
-            NSLog("SpotifyNotch: %@ failed: %@", command.rawValue, String(describing: other))
+            NSLog("SpotifyNotch: %@ failed: %@", command.name, String(describing: other))
         }
     }
 }
