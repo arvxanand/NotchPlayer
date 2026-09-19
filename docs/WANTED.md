@@ -5,8 +5,9 @@ left out, so picking it up later is a decision and not an excavation.
 
 Nothing here is a bug. `docs/BUGS.md` is for those.
 
-**Done since this list was written:** dragging the progress bar to scrub, which
-was deferred in v1 and built in milestone 8.
+**Done since this list was written:** dragging the progress bar to scrub, and
+making the waveform cheap to draw -- 8.9% of a core down to 1.7%, by taking
+SwiftUI out of the per-frame path.
 
 ## 1. A switch to turn off the album-art download
 
@@ -18,20 +19,7 @@ If you want literally nothing outbound, this is a menu toggle plus a
 `UserDefaults` flag. The fallback already exists: the Spotify mark stands in
 whenever there is no cover.
 
-## 2. Make the waveform cheaper to draw
-
-Measured: the tap and the FFT cost 0.8% of a core; the whole app costs ~8.9%
-while the bars move at 30fps. The arithmetic is free, the drawing is not.
-
-Two things that did **not** help, both measured: a `Canvas` instead of
-fourteen views, and taking the bars out of the layout. The real fix is a
-`CALayer` the tap writes into, skipping SwiftUI's per-frame work entirely.
-
-Not taken because every number above was measured with Low Power Mode on, and
-tuning against a distorted measurement buys complexity and nothing else.
-**Re-measure with it off before touching this.**
-
-## 3. Show something for ads, podcasts and local files
+## 2. Show something for ads, podcasts and local files
 
 Nobody has seen what Spotify reports for any of them. A podcast is probably
 just a track with a different artist line, and an ad probably has no artwork
@@ -41,14 +29,14 @@ marked `CONSTRUCTED`.
 Watch `--watch` while an ad plays, then decide. Guessing at a vendor's ad
 metadata is how you ship a boolean that is wrong six months later.
 
-## 4. External display and clamshell
+## 3. External display and clamshell
 
 Explicitly out of scope: built-in display only, nothing drawn with the lid
 shut. The code already behaves correctly by construction -- it looks for a
 screen with a notch and draws nothing when there isn't one -- but it has never
 been run with a monitor attached.
 
-## 5. Launch at login as a toggle
+## 4. Launch at login as a toggle
 
 Installing and removing the LaunchAgent is two shell commands
 (`tools/install-agent.sh`, `launchctl bootout`). A checkbox in the menu panel

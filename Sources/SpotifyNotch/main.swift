@@ -103,7 +103,7 @@ if args.contains("--bands") {
         Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
             MainActor.assumeIsolated {
                 let t = String(format: "%5.1fs", Date().timeIntervalSince(start))
-                guard let bands = tap.bands else {
+                guard let bands = tap.frame() else {
                     print("\(t)  no live audio  \(tap.status)")
                     return
                 }
