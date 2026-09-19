@@ -167,9 +167,12 @@ if args.contains("--hit-rects") {
         FileHandle.standardError.write(Data("no notched display\n".utf8))
         exit(1)
     }
-    for (name, r) in PanelView.transportRects(NotchGeometry(screen: screen)) {
+    let geometry = NotchGeometry(screen: screen)
+    for (name, r) in PanelView.transportRects(geometry) {
         print("\(name) \(Int(r.midX)) \(Int(r.midY)) \(Int(r.width)) \(Int(r.height))")
     }
+    let p = PanelView.progressRect(geometry)
+    print("progress \(Int(p.midX)) \(Int(p.midY)) \(Int(p.width)) \(Int(p.height))")
     exit(0)
 }
 

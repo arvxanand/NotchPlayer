@@ -63,11 +63,13 @@ Two checks are deliberately **not** in it, because both change real state:
 ```
 
 Run that after touching the panel's layout. It is the only thing that can see
-`docs/TRAPS.md` #21.
+`docs/TRAPS.md` #21 -- and it **refuses to run while the installed app is up**,
+because two panels at the same coordinates make it measure the wrong one
+(`docs/TRAPS.md` #39).
 
 ## Current state
 
-**Milestones 0-7 complete.** 135 tests, `verify.sh` green on all six stages,
+**Milestones 0-7 complete, plus scrubbing.** 145 tests, `verify.sh` green on all six stages,
 19 footprint states clean. Installed as a LaunchAgent and running.
 
 Verified by measurement, by capture, or by driving the real pointer:
@@ -105,6 +107,11 @@ Verified by measurement, by capture, or by driving the real pointer:
   taken under Low Power Mode, which inflates them.
 - **A second launch is refused** -- the guard was broken until milestone 7
   actually tried it (`docs/BUGS.md` #15).
+- **The progress bar seeks.** Click or drag, on the live app: a click at 25.2%
+  of a 230s track landed at 58s, a drag to 82.9% landed at 191s, and a drag
+  released *outside* the panel still committed and did not collapse it. Needed
+  `acceptsFirstMouse` first -- a non-key window never delivered the mouse-down
+  a drag begins with (`docs/TRAPS.md` #37).
 - **The installed bundle reads Spotify and starts the tap.** Which needed the
   `com.apple.security.automation.apple-events` entitlement first: the hardened
   runtime had been refusing every event with -1743 and no prompt

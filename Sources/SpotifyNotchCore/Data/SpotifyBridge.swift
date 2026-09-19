@@ -32,8 +32,26 @@ public final class SpotifyBridge {
         case other(Int, String)
     }
 
-    public enum Command: String, CaseIterable, Sendable {
+    public enum Command: Equatable, Sendable {
         case playpause, previous, next
+        /// Seconds from the start of the track. `player position` has no
+        /// `access="r"` in Spotify's dictionary -- it is writable, checked
+        /// before anything was built on it.
+        case seek(TimeInterval)
+
+        /// The three that take no argument. Not `CaseIterable`, which an enum
+        /// with an associated value cannot be, so the tests that sweep every
+        /// command sweep this and `seek` explicitly.
+        public static let simple: [Command] = [.playpause, .previous, .next]
+
+        public var name: String {
+            switch self {
+            case .playpause: return "playpause"
+            case .previous: return "previous"
+            case .next: return "next"
+            case .seek: return "seek"
+            }
+        }
 
         var source: String {
             switch self {
@@ -43,7 +61,27 @@ public final class SpotifyBridge {
             case .playpause: return #"tell application "Spotify" to playpause"#
             case .previous:  return #"tell application "Spotify" to previous track"#
             case .next:      return #"tell application "Spotify" to next track"#
+            case .seek(let seconds):
+                // **Three decimals and `String(format:)`, not interpolation.**
+                // `"\(seconds)"` on a Double can produce `4.2e+01`, which
+                // AppleScript does not parse, and a locale-aware formatter can
+                // produce `42,5`, which it parses as a list. This is a
+                // program's source code, so it gets C formatting.
+                return #"tell application "Spotify" to set player position to "#
+                    + String(format: "%.3f", max(0, seconds))
             }
+        }
+
+        /// Whether the compiled script is worth keeping.
+        ///
+        /// Every other script in this file is one fixed string compiled once
+        /// and held for the life of the process. A seek's source carries its
+        /// argument, so caching it would add an entry per distinct position --
+        /// an unbounded dictionary of near-identical scripts in a process that
+        /// runs for weeks.
+        var cacheable: Bool {
+            if case .seek = self { return false }
+            return true
         }
     }
 
@@ -101,7 +139,7 @@ public final class SpotifyBridge {
 
     @discardableResult
     public func send(_ command: Command) -> Result<Void, Failure> {
-        run(command.source).map { _ in () }
+        run(command.source, cache: command.cacheable).map { _ in () }
     }
 
     // MARK: - Plumbing
@@ -121,14 +159,14 @@ public final class SpotifyBridge {
         }
     }
 
-    private func run(_ source: String) -> Result<NSAppleEventDescriptor, Failure> {
+    private func run(_ source: String, cache: Bool = true) -> Result<NSAppleEventDescriptor, Failure> {
         // Asked before the event is sent, because "Spotify is closed" is a
         // fact we can establish without an Apple Event, and the error code for
         // it (-600) is easy to confuse with a permissions problem.
         guard isRunning else { return .failure(.notRunning) }
 
         let script: NSAppleScript
-        if let cached = compiled[source] {
+        if cache, let cached = compiled[source] {
             script = cached
         } else {
             guard let fresh = NSAppleScript(source: source) else {
@@ -139,7 +177,7 @@ public final class SpotifyBridge {
             if let compileError {
                 return .failure(.other(0, "compile: \(compileError)"))
             }
-            compiled[source] = fresh
+            if cache { compiled[source] = fresh }
             script = fresh
         }
 

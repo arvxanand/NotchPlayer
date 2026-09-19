@@ -13,6 +13,9 @@ public struct RootView: View {
     /// peek is otherwise unmeasurable -- a black shape on a dark menu bar is
     /// the same pixels as no shape, in a capture and to the eye.
     let probe: Bool
+    /// Raised while the progress line is being dragged; the panel is held open
+    /// for as long as it is.
+    let onScrubbing: (Bool) -> Void
     /// A no-op in previews, so a capture cannot control the user's playback.
     let send: (SpotifyBridge.Command) -> Void
 
@@ -20,6 +23,7 @@ public struct RootView: View {
                 expanded: Bool = false,
                 progress: Interpolator? = nil, holdBands: [Float]? = nil,
                 probe: Bool = false,
+                onScrubbing: @escaping (Bool) -> Void = { _ in },
                 send: @escaping (SpotifyBridge.Command) -> Void = { _ in }) {
         self.geometry = geometry
         self.now = now
@@ -28,6 +32,7 @@ public struct RootView: View {
         self.progress = progress
         self.holdBands = holdBands
         self.probe = probe
+        self.onScrubbing = onScrubbing
         self.send = send
     }
 
@@ -99,7 +104,8 @@ public struct RootView: View {
         switch presentation {
         case .track(let track, let playing, let controllable):
             PanelView(geometry: geometry, track: track, progress: progress,
-                      playing: playing, controllable: controllable, send: send)
+                      playing: playing, controllable: controllable,
+                      onScrubbing: onScrubbing, send: send)
         case .permissionNeeded:
             PermissionPanel(geometry: geometry)
         case .nothing:

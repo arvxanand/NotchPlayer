@@ -229,3 +229,94 @@ final class TransportTests: XCTestCase {
                        + PanelView.artSide + PanelView.transportGap)
     }
 }
+
+/// Dragging the progress line to seek. The arithmetic and the two rules that
+/// keep a drag from being taken away mid-gesture.
+final class ScrubTests: XCTestCase {
+
+    // MARK: - Where a pointer lands
+
+    func testAPointerLandsWhereItIsInTheTrack() {
+        XCTAssertEqual(ProgressLine.fraction(atX: 0, width: 280), 0, accuracy: 0.0001)
+        XCTAssertEqual(ProgressLine.fraction(atX: 140, width: 280), 0.5, accuracy: 0.0001)
+        XCTAssertEqual(ProgressLine.fraction(atX: 280, width: 280), 1, accuracy: 0.0001)
+    }
+
+    /// A drag that carries on past either end means the start or the end,
+    /// which is what the hand doing it intends.
+    func testADragPastTheEndsClampsRatherThanOvershooting() {
+        XCTAssertEqual(ProgressLine.fraction(atX: -300, width: 280), 0)
+        XCTAssertEqual(ProgressLine.fraction(atX: 9000, width: 280), 1)
+    }
+
+    func testAZeroWidthTrackCannotProduceANaN() {
+        XCTAssertEqual(ProgressLine.fraction(atX: 40, width: 0), 0)
+        XCTAssertEqual(ProgressLine.fraction(atX: .nan, width: 280), 0)
+    }
+
+    /// The hit band is far taller than the line, or nobody can grab it -- and
+    /// it must stay clear of the transport row, which owns the clicks below.
+    func testTheDraggableBandIsBiggerThanTheLineAndSmallerThanTheGapBelowIt() {
+        XCTAssertGreaterThan(ProgressLine.hitHeight, ProgressLine.thickness * 4)
+        XCTAssertLessThan(ProgressLine.hitHeight, NotchGeometry.minimumHitHeight)
+    }
+
+    // MARK: - The panel staying open
+
+    /// A drag that leaves the panel is ordinary: the pointer runs past the
+    /// bottom edge while the hand keeps going. Collapsing then would take the
+    /// control out from under it.
+    func testADragHoldsTheOpenPanelOpenWhenThePointerLeaves() {
+        XCTAssertTrue(Expansion.shouldExpand(inside: false, hasContent: true,
+                                             expanded: true, holding: true))
+        // And the moment it is released, leaving means leaving again.
+        XCTAssertFalse(Expansion.shouldExpand(inside: false, hasContent: true,
+                                              expanded: true, holding: false))
+    }
+
+    /// Holding cannot *open* anything. A drag has to start on the panel, so a
+    /// stuck flag must not be able to pin an empty notch open.
+    func testHoldingCannotOpenAClosedPanel() {
+        XCTAssertFalse(Expansion.shouldExpand(inside: false, hasContent: true,
+                                              expanded: false, holding: true))
+        XCTAssertFalse(Expansion.shouldExpand(inside: true, hasContent: false,
+                                              expanded: false, holding: true))
+    }
+
+    // MARK: - The command
+
+    func testSeekWritesThePositionInSecondsWithADecimalPoint() {
+        let source = SpotifyBridge.Command.seek(42.5).source
+        XCTAssertTrue(source.contains("set player position to 42.500"), source)
+        XCTAssertFalse(source.contains(","), "a comma decimal parses as an AppleScript list")
+        XCTAssertFalse(source.contains("e+"), "exponent notation does not parse")
+    }
+
+    /// Doubles print as exponents past a certain size, and AppleScript cannot
+    /// read that. A 90-minute DJ set is a real track length.
+    func testALongTrackStillProducesPlainDigits() {
+        for seconds in [0.0, 0.0001, 5400.0, 99999.5] {
+            let source = SpotifyBridge.Command.seek(seconds).source
+            XCTAssertFalse(source.contains("e+"), source)
+            XCTAssertFalse(source.contains("-"), "negative positions are clamped: \(source)")
+        }
+        // `contains("0.000")` passed "-10.000" here, which is the string this
+        // assertion exists to reject. Anchor it to the end.
+        XCTAssertTrue(SpotifyBridge.Command.seek(-10).source.hasSuffix("position to 0.000"),
+                      SpotifyBridge.Command.seek(-10).source)
+    }
+
+    /// Every other script is compiled once and held forever. A seek carries
+    /// its argument in its source, so caching it would grow a dictionary of
+    /// near-identical scripts for the life of the process.
+    func testSeekScriptsAreNotCachedAndTheFixedOnesAre() {
+        XCTAssertFalse(SpotifyBridge.Command.seek(1).cacheable)
+        for command in SpotifyBridge.Command.simple { XCTAssertTrue(command.cacheable) }
+    }
+
+    func testEveryCommandHasAName() {
+        for command in SpotifyBridge.Command.simple + [.seek(1)] {
+            XCTAssertFalse(command.name.isEmpty)
+        }
+    }
+}
