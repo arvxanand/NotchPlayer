@@ -38,7 +38,7 @@ PID; show and control, no scrubbing in v1; zero third-party dependencies.
 - [The tap follows playback rather than running all day](#the-tap-follows-playback-rather-than-running-all-day)
 - [The menu-bar item is a panel, not a menu](#the-menu-bar-item-is-a-panel-not-a-menu)
 - [Hide is a real stand-down, not `orderOut`](#hide-is-a-real-stand-down-not-orderout)
-- [What the waveform costs, and why it still runs at 30Hz](#what-the-waveform-costs-and-why-it-still-runs-at-30hz)
+- [What the waveform costs, and why it is drawn in CALayers](#what-the-waveform-costs-and-why-it-is-drawn-in-calayers)
 - [Scrubbing: click or drag, written once, on release](#scrubbing-click-or-drag-written-once-on-release)
 - [`verify.sh` uses exit codes, not greps, for the test stage](#verifysh-uses-exit-codes-not-greps-for-the-test-stage)
 
@@ -389,30 +389,37 @@ does not want it returning at login. The item stays in the menu bar either
 way, because it is the only way back -- quitting an `LSUIElement` app with no
 dock icon leaves Spotlight as the only route in.
 
-## What the waveform costs, and why it still runs at 30Hz
+## What the waveform costs, and why it is drawn in CALayers
 
-Measured on the installed agent, with Low Power Mode **on**, which inflates
-every number here:
+Measured on the installed agent with music playing, Low Power Mode **on** both
+times, so the two numbers are comparable even though both are inflated:
 
 | | |
 |---|---|
 | tap + FFT, no window (`--bands`) | **0.8%** of a core |
-| the whole agent, waveform at 30fps | **8.9%** |
-| the same at 20fps | **6.1%** |
-| bars drawn in an overlay so they cannot resize an ancestor | **8.0%** |
+| SwiftUI at 30fps, `HStack` of `Capsule`s | **8.9%** |
+| the same, as a `Canvas` | 8.4% |
+| the same, with the bars out of the layout | 8.0% |
+| the same, at 20fps | 6.1% |
+| **fourteen `CALayer`s, 30fps** | **1.7%** |
 
-So the arithmetic is free and the *drawing* is what costs: roughly 0.3% of a
-core per frame per second, near enough fixed whatever the frame contains. A
-`Canvas` instead of fourteen `Capsule`s changed nothing measurable, and
-neither did taking the bars out of the layout -- both were kept because they
-are the better structure, but neither is the lever.
+The arithmetic was never the cost. Neither was the drawing, exactly: it was
+SwiftUI's per-frame update, at roughly 0.3% of a core per frame per second
+whatever the frame contained -- which is why a `Canvas` and a layout-neutral
+overlay each bought about half a percent and nothing more.
 
-The lever is either fewer frames or a drawing path that does not involve
-SwiftUI's per-frame update at all -- a `CALayer` the tap writes into directly.
-That is the upgrade path if the cost ever matters. It is not taken now because
-the numbers above were taken under Low Power Mode on a throttled machine, and
-optimising against a measurement you know is distorted is how you end up with
-complexity that buys nothing.
+So the per-frame path goes around SwiftUI: `BarsLayer` sets fourteen layer
+frames inside one transaction with implicit animation off, and SwiftUI builds
+that view once when the peek appears and is not involved again until it goes
+away. Memory came down with it, 51MB to 42MB.
+
+**The bars are pulled, not published.** `AudioTap` no longer has `@Published`
+values or a timer of its own: the view asks for a frame when it is about to
+draw one, the tap does its arithmetic then, and a tap nobody is drawing from
+does nothing at all. One timer for the whole feature.
+
+The still version stays SwiftUI. A capture draws fixed values once, and
+nothing that does not animate needs to leave the framework.
 
 ## Scrubbing: click or drag, written once, on release
 

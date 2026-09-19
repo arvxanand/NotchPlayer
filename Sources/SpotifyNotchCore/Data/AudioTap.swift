@@ -18,12 +18,17 @@ import os
 /// way; what happens without permission is that no buffer ever arrives. So
 /// "nothing arrived" is a normal outcome and not an error -- see
 /// `Self.deadline`.
+/// **Pulled, not published.** `@Published` bar values put SwiftUI in the path
+/// of every frame: thirty view-tree updates a second, which measured 8.8% of a
+/// core while the arithmetic behind them measured 0.8%. The waveform now asks
+/// this object for a frame when it is about to draw one, and nothing observes
+/// it -- see `BarsLayer`.
 @MainActor
-public final class AudioTap: ObservableObject {
-    /// Live bar heights, or nil when there is no live audio -- which is the
-    /// signal the waveform uses to fall back to the synthetic generator.
-    @Published public private(set) var bands: [Float]?
-    @Published public private(set) var status: Status = .stopped
+public final class AudioTap {
+    /// The last frame handed out. Not a publisher: reading it changes nothing
+    /// and invalidates nothing.
+    public private(set) var bands: [Float]?
+    public private(set) var status: Status = .stopped
 
     public enum Status: Equatable, Sendable {
         case stopped
@@ -68,7 +73,6 @@ public final class AudioTap: ObservableObject {
     private var chain: Chain?
     private var ring: AudioRing?
     private var analyzer: Analyzer?
-    private var timer: Timer?
     private var followedPID: pid_t?
     private var startedAt: Date?
     private var rate: Double = Bands.sampleRate
@@ -102,7 +106,6 @@ public final class AudioTap: ObservableObject {
     }
 
     public func stop() {
-        timer?.invalidate(); timer = nil
         chain?.tearDown(); chain = nil
         ring = nil; analyzer = nil
         followedPID = nil
@@ -137,14 +140,6 @@ public final class AudioTap: ObservableObject {
             self.startedAt = Date()
             self.status = .listening
             self.reported = false
-            // `.common` so the bars keep moving while a menu is open -- the
-            // default mode stops during tracking, and a frozen waveform reads
-            // as a crashed app.
-            let timer = Timer(timeInterval: 1 / Self.frameRate, repeats: true) { [weak self] _ in
-                MainActor.assumeIsolated { self?.tick() }
-            }
-            RunLoop.main.add(timer, forMode: .common)
-            self.timer = timer
         } catch {
             fail("\(error)")
         }
@@ -153,10 +148,22 @@ public final class AudioTap: ObservableObject {
     private func fail(_ reason: String) {
         chain?.tearDown(); chain = nil
         ring = nil; analyzer = nil
-        timer?.invalidate(); timer = nil
         bands = nil
         status = .unavailable(reason)
         NSLog("SpotifyNotch: no live waveform (%@)", reason)
+    }
+
+    /// One frame of bar heights, or nil when there is no live audio and the
+    /// caller should draw synthetic bars instead.
+    ///
+    /// Called by whatever is about to draw, at its own rate. Everything the
+    /// tap has to notice over time -- a stream that never delivered, one that
+    /// stopped, digital silence -- is noticed here, because a tap nobody is
+    /// drawing from has nothing to notice.
+    @discardableResult
+    public func frame() -> [Float]? {
+        tick()
+        return bands
     }
 
     private func tick() {

@@ -101,10 +101,11 @@ Verified by measurement, by capture, or by driving the real pointer:
   agent with `ProcessType = Interactive` -- and with Low Power Mode **on**.
   42 frames over 0.70s: the spring's tail is longer than its 0.38s nominal
   response, which is what a spring does. `./tools/frame_probe.sh`.
-- **What it costs while music plays:** 0.8% of a core for the tap and the FFT,
-  8.9% for the whole agent with the waveform at 30fps. The drawing is the
-  cost, not the arithmetic -- see `docs/DECISIONS.md`. Every number here was
-  taken under Low Power Mode, which inflates them.
+- **What it costs while music plays: 1.7% of a core**, of which 0.8% is the tap
+  and the FFT. It was 8.9% until the bars moved from SwiftUI to `CALayer`s --
+  SwiftUI's per-frame update was the whole cost, at about 0.3% per frame per
+  second whatever the frame contained (`docs/DECISIONS.md`). Still measured
+  under Low Power Mode, which inflates both numbers.
 - **A second launch is refused** -- the guard was broken until milestone 7
   actually tried it (`docs/BUGS.md` #15).
 - **The scrub band is 30pt tall and centred on the line** -- probed live: the
@@ -196,8 +197,9 @@ Anything about rendering asks `Presentation.draws`, never `Now.draws` --
   samples, 14 log-spaced bands, peak per band, decibels, attack/decay.
 - `AudioTap` -- the part that cannot be tested: process object, tap, aggregate
   device, IOProc. Fails quietly to synthetic bars in every direction.
-- `WaveformView` -- takes `hold` (a capture), then the environment's tap, then
-  synthetic. Only `LiveBars` rebuilds at 30Hz.
+- `WaveformView` / `BarsLayer` -- a capture draws fixed values in SwiftUI;
+  anything that moves is fourteen `CALayer`s driven by one timer that pulls a
+  frame from the tap, or synthetic bars when the tap has nothing.
 
 ## Flags
 
