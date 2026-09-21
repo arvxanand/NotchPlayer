@@ -114,6 +114,28 @@ done <<< "$(grep -ohE '(TRAPS|BUGS)\.md` #[0-9]+' docs/*.md *.md 2>/dev/null \
 if [ -z "$missing" ]; then ok "every cross-reference resolves"
 else bad "dangling cross-references:$missing"; fi
 
+# DECISIONS.md carries its own index, and an index nobody checks is an index
+# that rots: one entry pointed at an anchor two characters different from the
+# heading it names, and a heading added without an index line is invisible.
+index_report=$(/usr/bin/python3 - <<'PYCHECK'
+import pathlib, re, sys
+text = pathlib.Path('docs/DECISIONS.md').read_text()
+index = re.findall(r'^- \[(.+?)\]\(#(.+?)\)$', text, re.M)
+titles = re.findall(r'^## (.+)$', text, re.M)
+# GitHub's rule: lowercase, drop everything but word characters, spaces and
+# hyphens, then spaces to hyphens. Backticks go; leading hyphens stay.
+def anchor(t):
+    return re.sub(r'[^a-z0-9 _-]', '', t.lower()).replace(' ', '-')
+problems  = ["index link -> #%s names no heading" % a for _, a in index
+             if a not in {anchor(t) for t in titles}]
+problems += ["heading %r is missing from the index" % t for t in titles
+             if t not in {label for label, _ in index}]
+print("\n".join(problems) if problems else "ok %d entries" % len(index))
+PYCHECK
+)
+if [[ "$index_report" == ok* ]]; then ok "DECISIONS.md index matches its headings (${index_report#ok })"
+else bad "DECISIONS.md index: $index_report"; fi
+
 if [ "$fail" -eq 0 ]; then
     printf "\n\033[32mAll automated checks passed.\033[0m Anything visual still needs eyes.\n"
 else

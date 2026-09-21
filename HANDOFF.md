@@ -19,11 +19,17 @@ project's own `docs/TRAPS.md` has the ones it found for itself.
 
 ## The rules that break a new notch app
 
-1. **The collapsed peek is click-through.** `ignoresMouseEvents = true`, so
-   `.onHover` and `.onTapGesture` silently never fire. Hover is *polled* from
-   `NSEvent.mouseLocation` against rects computed in `NotchGeometry` -- see
-   `HoverWatcher`. `Expansion` flips `setInteractive` only once the panel is
-   open and wants the click.
+1. **The panel is click-through until it opens, and never active.** Collapsed,
+   `ignoresMouseEvents = true`, so hover is *polled* from
+   `NSEvent.mouseLocation` against rects in `NotchGeometry` -- see
+   `HoverWatcher`; `Expansion` flips `setInteractive` once the panel is open
+   and wants the click. Two consequences for anything you add to the panel:
+   **`.onHover` never fires at all** (tracking areas want an active app, and
+   this one never activates -- `docs/TRAPS.md` #40), so no control may use
+   hover as its only affordance; and a **drag needs `acceptsFirstMouse`**,
+   which is why the content is hosted in `FirstMouseHostingView`. A `Button`
+   works without it because it acts on mouse-up, which hid that for four
+   milestones (#37).
 2. **`swift build` does not update the running agent.** `./make_app.sh
    release` does, and kickstarts the agent itself if one is loaded.
 3. **`screencapture -R` does not contain the panel; `-o -l <windowid>`
@@ -69,13 +75,18 @@ because two panels at the same coordinates make it measure the wrong one
 
 ## Current state
 
-**Milestones 0-7 complete, plus scrubbing.** 145 tests, `verify.sh` green on all six stages,
-19 footprint states clean. Installed as a LaunchAgent and running.
+**Shipped, and running as a LaunchAgent.** All eight milestones: the skeleton,
+the Spotify bridge, the peek, the panel, the transport, the five states, the
+Core Audio tap, shipping -- plus what came after it: a menu-bar item,
+drag-to-seek, and a waveform that costs a fifth of what it used to.
+
+145 tests, `verify.sh` green on all six stages, 19 footprint states clean.
 
 Verified by measurement, by capture, or by driving the real pointer:
 
-- Shell is **352 x 37 pt** collapsed, **352 x 185 pt** expanded, in every
-  state. Concave top shoulders overhang ~8pt each side.
+- Shell is **352 x 39 pt** collapsed, **352 x 185 pt** expanded, in every
+  state. Concave top shoulders overhang ~8pt each side. The 39 is 37pt of
+  menu-bar inset plus 2pt of `housingOverhang`, below.
 - Nothing behind the camera housing in any of the 19 states -- every drawing
   state, collapsed *and* expanded.
 - **Hover opens the panel on the live app**, with real Spotify data.
@@ -83,7 +94,8 @@ Verified by measurement, by capture, or by driving the real pointer:
   the frontmost application.
 - **The whole 44pt target is live, and only the target** -- proved by
   `hit_probe.sh`, and proved to be a real check by breaking `.contentShape`
-  on purpose and watching it fail while all 88 unit tests stayed green.
+  on purpose and watching it fail while every unit test of the day stayed
+  green.
 - `PlaybackStateChanged` fires and carries the whole track payload;
   `player position` is writable.
 - Cold cache downloads the **300px** cover variant (35KB, not the 226KB
@@ -121,16 +133,21 @@ Verified by measurement, by capture, or by driving the real pointer:
   `com.apple.security.automation.apple-events` entitlement first: the hardened
   runtime had been refusing every event with -1743 and no prompt
   (`docs/BUGS.md` #14).
-- 66 deliberate mutations; 64 red. The two that stayed green were bad
-  mutations, not gaps (`docs/TRAPS.md` #19). Milestone 6 added 13 more, all
-  red -- two only after the tests that missed them were fixed.
+- **92 deliberate mutations; 90 red.** The two that stayed green were bad
+  mutations rather than gaps (`docs/TRAPS.md` #19). Four of the ninety only
+  went red after the tests that missed them were fixed -- including one where
+  the assertion `contains("0.000")` happily accepted `"-10.000"`.
+- **The live waveform draws from the tap.** Three captures half a second
+  apart, with music playing: fourteen bass-tilted bars at different heights
+  each time, and `waveform live (44100Hz)` in the log. Both sources move, so
+  this is the only way to tell them apart.
 - **The waveform is real.** A process tap on Spotify's pid, launched the way
   macOS launches it, delivers audio and the bars follow it:
   `|▆▅▂▃▂▃▃▃▂▂▃▁ ▁|  peak 0.83` and the shape moving with the music. The tap
   reported **44100Hz**, not the 48000 the brief measured -- it follows the
   output device, so the rate is read at runtime and handed to the analyzer.
-
-Not built: shipping (milestone 7).
+- **The menu-bar item stands the app down.** Hide stops the panel, the hover
+  polling and the tap; the item stays, because it is the only way back.
 
 ## What has never been checked
 
@@ -147,12 +164,6 @@ Say so rather than implying otherwise:
   (`docs/BUGS.md` #14). With that fixed the bundle reads Spotify normally. How
   a *rebuild* behaves after a genuine grant is still untested.
 - **Anything on an external display or in clamshell.** Nothing was attached.
-- **`WaveformView` drawing the tap's numbers rather than the synthetic ones.**
-  The other two hops are done: the tap delivers real audio, and the installed
-  bundle reaches `.playing` and starts it -- one launch logged
-  `waveform live (44100Hz)` with Spotify playing. This last hop cannot be told
-  apart in a capture, because both sources move. It needs somebody watching
-  the notch while the music changes.
 - **An output-device change mid-track.** The rebuild path that handles it is
   written and reasoned, and nobody has unplugged anything.
 - **Anything with Low Power Mode off.** `pmset -g` says `lowpowermode 1`, so
@@ -189,9 +200,15 @@ Anything about rendering asks `Presentation.draws`, never `Now.draws` --
   Event at all. A 5s reconcile tick **only while playing**, a wake observer,
   and launch/terminate observers.
 - `Presentation` / `Now` / `Permission` -- what is true, and what to draw.
-- `Expansion` -- hover to open, and the `setInteractive` flip.
+- `Expansion` -- hover to open, the `setInteractive` flip, and `hold`, which
+  keeps the panel open through a drag that wanders out of it.
 - `RootView` -> `PeekView` / `PanelView` -- a function of plain values, so
   every preview state renders through the production hierarchy.
+- `ProgressLine` -- click or drag to seek. Writes once, on release; the
+  service takes the new position as true immediately, because Spotify
+  publishes nothing for a seek.
+- `MenuBarItem` / `MenuPanel` -- the only user-facing control: what is
+  playing, Hide, Quit.
 - `Bands` / `Spectrum` / `Analyzer` -- the waveform's arithmetic, pure and
   tested against tones whose answer is known in advance. Hann window, 1024
   samples, 14 log-spaced bands, peak per band, decibels, attack/decay.
@@ -210,9 +227,9 @@ Anything about rendering asks `Presentation.draws`, never `Now.draws` --
 | `--preview <state>` | pin a fixed state; `--list-previews` names them |
 | `--expanded` | with `--preview`, pin the panel open |
 | `--probe` | fill the shell white so its geometry can be captured |
-| `--render <subject> <path> [--side N]` | one view offscreen to a PNG, large enough to judge |
+| `--render <subject> <path> [--side N]` | one view offscreen to a PNG, large enough to judge: `mark`, `peek`, `artwork`, `waveform`, `menu`, `progress` |
 | `--notchrect` | the camera housing in `screencapture -R` coordinates |
-| `--hit-rects` | the transport targets in screen coordinates, for the probe |
+| `--hit-rects` | the transport targets **and the scrub band** in screen coordinates, for the probes |
 | `--check-states` | what `check_notch.sh` should capture |
 | `--capture-server` | stay alive, take `<state> [expanded]` or `probe` on stdin, answer `ready`. Exits after 30s idle |
 | `--offscreen` | park the window at the bottom-right, out of the way of whoever is using the machine |
@@ -222,6 +239,12 @@ Anything about rendering asks `Presentation.draws`, never `Now.draws` --
 
 `--preview` and `--probe` also print `window`, `size`, `housing` and `shell`
 to stdout, which is how the scripts find the window to capture.
+
+## Next
+
+`docs/WANTED.md` -- four things deliberately not built, each with the reason.
+The one to read first is the note on Low Power Mode: every performance number
+in this file was taken with it on.
 
 ## Looking at it
 
