@@ -21,16 +21,21 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-BIN=".build/release/SpotifyNotch"
-[ -x "$BIN" ] || BIN=".build/debug/SpotifyNotch"
+# **Rebuild the configuration this binary belongs to.** The guard below used
+# to run a plain `swift build`, which builds *debug* -- so with a release
+# binary present it rebuilt one binary and captured another. It reported
+# "19/19 clean" for three states that did not exist in the binary it ran, and
+# the only tell was a count that should have been 22. See docs/BUGS.md.
+BIN=".build/release/SpotifyNotch"; CONFIG=release
+[ -x "$BIN" ] || { BIN=".build/debug/SpotifyNotch"; CONFIG=debug; }
 [ -x "$BIN" ] || { echo "build first: swift build"; exit 1; }
 
 # A stale binary is rule 2 in a new costume, and it bit here once already: a
 # flag was added, the script run without rebuilding, and it hung waiting on
 # output from a binary that did not know the flag.
 if [ -n "$(find Sources -name '*.swift' -newer "$BIN" -print -quit)" ]; then
-    echo "sources are newer than $BIN -- building"
-    swift build >/dev/null 2>&1 || { echo "build failed"; exit 1; }
+    echo "sources are newer than $BIN -- building $CONFIG"
+    swift build -c "$CONFIG" >/dev/null 2>&1 || { echo "build failed"; exit 1; }
 fi
 
 OUT="$(mktemp -d)"

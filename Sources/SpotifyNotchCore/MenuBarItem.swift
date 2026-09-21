@@ -22,7 +22,7 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
     private let item: NSStatusItem
     private let popover = NSPopover()
 
-    private let state: () -> (now: Now, permission: Permission)
+    private let state: () -> (now: Now, permission: Permission, source: AudioSource?)
     private let hidden: () -> Bool
     private let setHidden: (Bool) -> Void
     /// When the popover last closed. A `.transient` popover is dismissed by
@@ -32,7 +32,7 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
     /// this; without it the second click closes and immediately reopens.
     private var closedAt: Date?
 
-    public init(state: @escaping () -> (now: Now, permission: Permission),
+    public init(state: @escaping () -> (now: Now, permission: Permission, source: AudioSource?),
                 hidden: @escaping () -> Bool,
                 setHidden: @escaping (Bool) -> Void) {
         self.state = state
@@ -68,12 +68,13 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
     /// The panel is a function of plain values for the same reason `RootView`
     /// is -- so this can hand it a snapshot.
     private func rebuild() {
-        let (now, permission) = state()
+        let (now, permission, source) = state()
         let hidden = hidden()
         popover.contentViewController = NSHostingController(rootView: MenuPanel(
             track: now.track,
-            playing: now.isPlaying,
-            subtitle: Self.summary(now: now, permission: permission, hidden: hidden),
+            playing: now.isPlaying || (source.map { !$0.isSpotify } ?? false),
+            subtitle: Self.summary(now: now, permission: permission, hidden: hidden,
+                                   source: source),
             hidden: hidden,
             toggleHidden: { [weak self] in
                 self?.setHidden(!hidden)
@@ -114,8 +115,12 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
     /// the fact the user opened this menu to check, and what Spotify happens
     /// to be playing is beside the point.
     public nonisolated static func summary(now: Now, permission: Permission,
-                                           hidden: Bool) -> String {
+                                           hidden: Bool,
+                                           source: AudioSource? = nil) -> String {
         if hidden { return "Hidden from the notch" }
+        // Whatever the notch is showing is what this line reports, or the two
+        // disagree about the same moment.
+        if let source, !source.isSpotify { return "\(shorten(source.name)) \u{2014} playing audio" }
         if permission == .denied, now.track == nil { return "Cannot read Spotify" }
         switch now {
         case .notRunning: return "Spotify is not running"

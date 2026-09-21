@@ -60,7 +60,9 @@ public struct CaptureStageView: View {
     public var body: some View {
         RootView(geometry: geometry, now: stage.state.now,
                  permission: stage.state.permission, expanded: stage.expanded,
+                 source: stage.state.source,
                  progress: stage.state.progress, holdBands: stage.state.bands,
+                 sourceIcon: PreviewData.stubIcon,
                  probe: stage.probe)
     }
 }
