@@ -129,6 +129,13 @@ Verified by measurement, by capture, or by driving the real pointer:
   released *outside* the panel still committed and did not collapse it. Needed
   `acceptsFirstMouse` first -- a non-key window never delivered the mouse-down
   a drag begins with (`docs/TRAPS.md` #37).
+- **The notch follows whatever is playing**, not just Spotify: the peek
+  draws that app's icon and the waveform is its audio. Verified against a
+  real browser video -- detected through its helper process, `waveform live
+  (44100Hz)`, and bars at different heights half a second apart.
+- **"Producing output" is not "making a sound"** (`docs/TRAPS.md` #42), which
+  is why a source that goes quiet for 5s is stood down and why Spotify's own
+  answer about itself outranks listening to it.
 - **The installed bundle reads Spotify and starts the tap.** Which needed the
   `com.apple.security.automation.apple-events` entitlement first: the hardened
   runtime had been refusing every event with -1743 and no prompt

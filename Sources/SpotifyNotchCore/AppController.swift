@@ -27,6 +27,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
     /// than Spotify's pid.
     private let audio = AudioSources()
     private var tapFollow: AnyCancellable?
+    private var spotifyState: AnyCancellable?
     private var menuBar: MenuBarItem?
     /// Stood down: no panel, no hover polling, no tap. Survives a relaunch,
     /// because a user who hid this to get matchnotch's notch back does not
@@ -116,6 +117,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
     private func standDown() {
         expansion.stop()
         tapFollow = nil
+        spotifyState = nil
         audio.stop()
         tap.stop()
         panel?.orderOut(nil)
@@ -194,6 +196,12 @@ public final class AppController: NSObject, NSApplicationDelegate {
             audio.start()
             tapFollow = audio.$current.sink { [weak self] source in
                 MainActor.assumeIsolated { self?.tap.follow(source) }
+            }
+            // Spotify's own answer about itself, which beats listening to it:
+            // a paused Spotify holds its audio stream open and would
+            // otherwise outrank a video that started later.
+            spotifyState = service.$now.sink { [weak self] now in
+                MainActor.assumeIsolated { self?.audio.spotifyPlaying = now.isPlaying }
             }
         }
 

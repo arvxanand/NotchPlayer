@@ -58,6 +58,9 @@ public final class AudioSources: ObservableObject {
     /// Sources that were tapped and turned out to be silent, and when to
     /// reconsider them. See `skip`.
     private var quiet: [AudioObjectID: Date] = [:]
+    /// What Spotify says about itself. Set by the owner; `true` until told
+    /// otherwise, so nothing depends on the service having answered yet.
+    public var spotifyPlaying = true { didSet { if spotifyPlaying != oldValue { refresh() } } }
 
     public init() {}
 
@@ -102,6 +105,21 @@ public final class AudioSources: ObservableObject {
         excluded.contains(bundleID)
     }
 
+    /// How long the chosen source may be silent before the notch gives
+    /// someone else a turn.
+    ///
+    /// **`kAudioProcessPropertyIsRunningOutput` means "has an audio stream
+    /// open", not "is making sound".** Measured: Spotify reported output
+    /// continuously *through* a four-second pause, and a browser keeps its
+    /// stream open for about a minute after a video is paused. So a source
+    /// that has gone quiet has to be stood down by listening to it, which is
+    /// the one thing that can tell the difference.
+    ///
+    /// Five seconds, not the two the waveform uses to fall back to synthetic
+    /// bars: a quiet passage in a song should change the bars, not the app
+    /// the notch is following.
+    public nonisolated static let followSilence: TimeInterval = 5
+
     /// How long a source that turned out to be silent is passed over.
     ///
     /// **An app can hold an audio stream open without making a sound**, and
@@ -130,22 +148,34 @@ public final class AudioSources: ObservableObject {
     /// started is what you just chose to watch -- and if you pause it while
     /// music is still going, the older source is still in the list and takes
     /// the notch straight back.
+    /// `spotifyPlaying` is what Spotify itself says, over Apple Events.
+    ///
+    /// **Spotify is the one source whose state we know without listening**,
+    /// so a paused Spotify is not a candidate at all -- it keeps its audio
+    /// stream open while paused, and without this it outranks a video that
+    /// started afterwards purely because its stream is older. That is the bug
+    /// the user saw: a video kept the notch for a minute after they started
+    /// their music.
     public nonisolated static func chosen(from candidates: [(AudioSource, Date)],
                                           now: Date,
-                                          quiet: [AudioObjectID: Date] = [:]) -> AudioSource? {
+                                          quiet: [AudioObjectID: Date] = [:],
+                                          spotifyPlaying: Bool = true) -> AudioSource? {
         candidates
             .filter { source, started in
                 !isExcluded(source.bundleID)
                     && adopted(started: started, now: now, isSpotify: source.isSpotify)
                     && !isQuiet(source, now: now, quiet: quiet)
+                    && (spotifyPlaying || !source.isSpotify)
             }
             .max { $0.1 < $1.1 }?.0
     }
 
-    /// Spotify is never passed over for being quiet: we know what it is
-    /// playing without listening to it, so a silent tap costs it nothing. It
-    /// also keeps the app working when audio recording is refused, where
-    /// *every* source looks silent.
+    /// Spotify is never passed over for being quiet *by the tap*: we know
+    /// what it is playing without listening to it, so a silent tap costs it
+    /// nothing. It also keeps the app working when audio recording is
+    /// refused, where every source looks silent. A *paused* Spotify is
+    /// excluded by `spotifyPlaying` above instead, which is a fact rather
+    /// than an inference.
     nonisolated static func isQuiet(_ source: AudioSource, now: Date,
                                     quiet: [AudioObjectID: Date]) -> Bool {
         guard !source.isSpotify, let until = quiet[source.object] else { return false }
@@ -200,7 +230,8 @@ public final class AudioSources: ObservableObject {
 
         quiet = quiet.filter { live.contains($0.key) && $0.value > now }
         let candidates = found.map { ($0, startedAt[$0.object] ?? now) }
-        let chosen = Self.chosen(from: candidates, now: now, quiet: quiet)
+        let chosen = Self.chosen(from: candidates, now: now, quiet: quiet,
+                                 spotifyPlaying: spotifyPlaying)
         if chosen != current { current = chosen }
 
         // If something is still waiting out its dwell, come back exactly when
@@ -226,6 +257,8 @@ public final class AudioSources: ObservableObject {
     /// it over and pick something else.
     public func skip(_ source: AudioSource) {
         guard !source.isSpotify else { return }
+        // `refresh` below re-chooses; without clearing this the same source
+        // would be picked again on the strength of its old start time.
         quiet[source.object] = Date().addingTimeInterval(Self.quietRetry)
         refresh()
         // Come back when the skip expires, in case it is the only source.
