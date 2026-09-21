@@ -86,6 +86,7 @@ if args.contains("--sources") {
         i + 1 < args.count ? Double(args[i + 1]) : nil
     } ?? 20
     setvbuf(stdout, nil, _IONBF, 0)
+    nonisolated(unsafe) var keepAlive: [Any] = []
     MainActor.assumeIsolated {
         let sources = AudioSources()
         let start = Date()
@@ -100,15 +101,27 @@ if args.contains("--sources") {
                       + (s.isSpotify ? "  <- Spotify" : "") + why)
             }
         }
-        var chosenBag: Any?
-        chosenBag = sources.$current.sink { chosen in
+        // **Both cancellables have to outlive this block.** `_ = chosenBag`
+        // at the end of a scope does not extend a lifetime, so the subscription
+        // was torn down the moment setup finished and the tool printed one
+        // line and went quiet -- which read as "the dwell never fired".
+        let chosenBag = sources.$current.sink { chosen in
             let t = String(format: "%6.2fs", Date().timeIntervalSince(start))
             print("\(t)  chosen: \(chosen?.name ?? "nothing")")
         }
-        _ = chosenBag
+        keepAlive.append(chosenBag)
+        if let bag { keepAlive.append(bag) }
         sources.start()
+        // Poll-print as well as subscribe, so "the rule never fired" and "the
+        // subscription died" cannot be confused for each other.
+        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            MainActor.assumeIsolated {
+                let t = String(format: "%6.2fs", Date().timeIntervalSince(start))
+                print("\(t)  [poll] current = \(sources.current?.name ?? "nothing")")
+            }
+        }
         Timer.scheduledTimer(withTimeInterval: seconds, repeats: false) { _ in
-            MainActor.assumeIsolated { _ = bag; exit(0) }
+            MainActor.assumeIsolated { _ = keepAlive; exit(0) }
         }
     }
     RunLoop.main.run()
@@ -125,15 +138,19 @@ if args.contains("--bands") {
         i + 1 < args.count ? Double(args[i + 1]) : nil
     } ?? 15
     setvbuf(stdout, nil, _IONBF, 0)
+    nonisolated(unsafe) var held: [Any] = []
     MainActor.assumeIsolated {
         let tap = AudioTap()
         let sources = AudioSources()
-        var bag: Any?
-        bag = sources.$current.sink { source in
+        // Held in a box that outlives this scope. `_ = bag` at the end of a
+        // block does not extend a lifetime -- the subscription died at setup,
+        // the tool followed nothing, and it reported "no live audio" about a
+        // tap it had never started.
+        let following = sources.$current.sink { source in
             print("following: \(source?.name ?? "nothing")")
             tap.follow(source)
         }
-        _ = bag
+        held.append(following)
         sources.start()
         let meter = Array(" ▁▂▃▄▅▆▇█")
         let start = Date()
@@ -152,6 +169,7 @@ if args.contains("--bands") {
         }
         Timer.scheduledTimer(withTimeInterval: seconds, repeats: false) { _ in
             MainActor.assumeIsolated {
+                _ = held
                 print("final: \(tap.status)")
                 tap.stop()
                 exit(0)
