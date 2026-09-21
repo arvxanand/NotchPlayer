@@ -188,7 +188,11 @@ public final class AudioTap {
                                            startedAt: startedAt ?? now, now: now)
             bands = quiet ? nil : values
             status = quiet ? .silent : .listening
-            if quiet, lastSignal == nil, let followed { onSilence?(followed) }
+            // **Quiet for long enough means stopped, whether or not it ever
+            // played.** A paused video keeps its stream open and reports as
+            // producing output for about a minute, so waiting for the stream
+            // to close means the notch follows something that stopped.
+            if let followed, silentLongEnoughToStandDown(now) { onSilence?(followed) }
             if !reported, quiet || lastSignal != nil {
                 reported = true
                 NSLog("SpotifyNotch: waveform %@ (%.0fHz)",
@@ -220,6 +224,14 @@ public final class AudioTap {
     public nonisolated static func hasGoneSilent(lastSignal: Date?, startedAt: Date,
                                                  now: Date) -> Bool {
         now.timeIntervalSince(lastSignal ?? startedAt) > deadline
+    }
+
+    /// True once the source has been silent for `AudioSources.followSilence`
+    /// -- measured from its last sound, or from the start if it never made
+    /// one.
+    private func silentLongEnoughToStandDown(_ now: Date) -> Bool {
+        let since = lastSignal ?? startedAt ?? now
+        return now.timeIntervalSince(since) >= AudioSources.followSilence
     }
 
     private func rebuild() {

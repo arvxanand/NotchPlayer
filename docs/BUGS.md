@@ -215,3 +215,28 @@ entries here point at one.
     at all. Verified the same way it failed: with the agent running,
     `./SpotifyNotch.app/Contents/MacOS/SpotifyNotch` prints "SpotifyNotch is
     already running" and exits 0, and one instance remains.
+
+16. **A paused video kept the notch for a minute after the user started their
+    music.** `M9`
+
+    Reported from use, not from a test: "it still says I'm playing from
+    Aside... oh, now it fixed itself after about a minute". Exactly a minute
+    is the tell -- that is how long the browser held its audio stream open
+    after the video was paused.
+
+    `AudioSources` ranked candidates by when their stream appeared, and a
+    stream that is open but silent looks identical to one that is playing
+    (`docs/TRAPS.md` #42). The browser's stream was newer than Spotify's, so
+    it kept winning until it closed on its own.
+
+    Fixed from both ends. Spotify's own state now decides whether Spotify is a
+    candidate, because we can ask it rather than infer it -- a paused Spotify
+    no longer holds a place in the ranking at all. And the tap stands a source
+    down after five seconds of silence rather than only when it never made a
+    sound, so a paused anything releases the notch in about five seconds
+    instead of whenever its stream happens to close.
+
+    The measurement that found it: `--sources` running across a deliberate
+    four-second pause, showing `chosen: Spotify` unbroken the whole way
+    through -- the state never changed, because as far as Core Audio was
+    concerned nothing had.

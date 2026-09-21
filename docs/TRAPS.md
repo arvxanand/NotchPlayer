@@ -432,3 +432,25 @@ print nothing. Keep the `N.` at column zero or the check cannot see the entry.
     The probe is three clicks at the band's centre and both edges, checking
     whether `player position` moved. Reasoning about which of the three is
     wrong, from the code, is how two of them shipped.
+
+42. **`kAudioProcessPropertyIsRunningOutput` means "has an audio stream
+    open", not "is making sound".** `M9` Measured on this machine: Spotify
+    reported output *continuously through a four-second pause*, and a browser
+    keeps reporting it for about a minute after a video is paused. Claude
+    Desktop reports it while playing nothing at all.
+
+    So the property answers "could this app make a noise right now", and
+    anything built on it as though it meant "is audible" is wrong in a way
+    that looks right in a list. Two consequences, both of which bit:
+
+    - A source's **stream age is not evidence that it is playing**, so
+      ranking "most recent wins" by it made a paused video outrank music that
+      started afterwards. It corrected itself only when the browser finally
+      closed the stream, about a minute later.
+    - The only thing that can tell playing from paused is **listening**, so a
+      chosen source that goes quiet for `AudioSources.followSilence` is stood
+      down and something else gets a turn.
+
+    Where a better answer exists, use it instead of listening: Spotify says
+    whether it is playing over Apple Events, and a paused Spotify is
+    therefore not a candidate at all.

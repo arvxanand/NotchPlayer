@@ -153,3 +153,49 @@ extension SourceTests {
         XCTAssertEqual(chosen?.name, "Spotify")
     }
 }
+
+/// The bug the user hit: a video kept the notch for a minute after they
+/// started their music.
+///
+/// `IsRunningOutput` means "has an audio stream open", not "is making sound"
+/// -- measured, with Spotify reporting output continuously through a
+/// four-second pause. So a stream's age is not evidence that it is playing.
+extension SourceTests {
+    func testAPausedSpotifyDoesNotOutrankAVideoThatStartedLater() {
+        let spotify = source("com.spotify.client", name: "Spotify", object: 1)
+        let video = source(chrome, name: "Google Chrome", object: 2)
+        // Spotify's stream is older, the video started after it, and Spotify
+        // is paused: the video must win.
+        let chosen = AudioSources.chosen(
+            from: [(spotify, now.addingTimeInterval(-600)), (video, now.addingTimeInterval(-20))],
+            now: now, spotifyPlaying: false)
+        XCTAssertEqual(chosen?.name, "Google Chrome")
+    }
+
+    /// And the case the user actually reported, which is the same rule from
+    /// the other side: the video's stream is newer, but it is Spotify that is
+    /// playing.
+    func testAStaleVideoStreamDoesNotKeepTheNotchFromPlayingMusic() {
+        let spotify = source("com.spotify.client", name: "Spotify", object: 1)
+        let video = source(chrome, name: "Google Chrome", object: 2)
+        // The video is paused, so the tap has stood it down -- that is what
+        // `quiet` records. Spotify is playing.
+        let chosen = AudioSources.chosen(
+            from: [(spotify, now.addingTimeInterval(-600)), (video, now.addingTimeInterval(-20))],
+            now: now, quiet: [video.object: now.addingTimeInterval(10)], spotifyPlaying: true)
+        XCTAssertEqual(chosen?.name, "Spotify")
+    }
+
+    func testAPausedSpotifyIsNotChosenEvenAsTheOnlySource() {
+        let spotify = source("com.spotify.client", name: "Spotify", object: 1)
+        XCTAssertNil(AudioSources.chosen(from: [(spotify, now.addingTimeInterval(-60))],
+                                         now: now, spotifyPlaying: false))
+    }
+
+    /// Standing a source down has to be slower than the waveform's fallback,
+    /// or a quiet passage in a song changes which app the notch follows
+    /// rather than just the height of the bars.
+    func testStandingASourceDownIsSlowerThanFallingBackToSyntheticBars() {
+        XCTAssertGreaterThan(AudioSources.followSilence, AudioTap.deadline)
+    }
+}
