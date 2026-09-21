@@ -1,13 +1,16 @@
 # SpotifyNotch
 
-Spotify now-playing in the MacBook notch. Swift 6 / SwiftUI + AppKit, no
-dependencies.
+Now-playing in the MacBook notch. Swift 6 / SwiftUI + AppKit, no dependencies.
 
-Collapsed, while music plays: the album cover and a live waveform -- a real
-FFT of Spotify's own audio -- either side of the camera housing. Hover the
-cutout and it expands into a panel with the cover, the track, a progress bar
-you can drag to seek, and play/pause/prev/next. Idle, it draws nothing and the
-notch looks like a notch.
+Collapsed, while something plays: a cover and a live waveform -- a real FFT of
+the audio itself -- either side of the camera housing. Hover the cutout and it
+expands into a panel. Idle, it draws nothing and the notch looks like a notch.
+
+**Spotify** gets the full panel: cover, track, artist, a progress bar you can
+drag to seek, and transport addressed to Spotify by name. **Anything else
+making sound** -- a video, a stream -- gets its app's icon, its name, a real
+waveform of its audio, and transport over system media keys. Not a title:
+macOS gated the API that would give one (`docs/DECISIONS.md`).
 
 Read `HANDOFF.md` before writing any code, and `docs/TRAPS.md` before
 debugging anything.
@@ -25,6 +28,7 @@ debugging anything.
 ```bash
 .build/debug/SpotifyNotch --read        # what Spotify is actually saying
 .build/debug/SpotifyNotch --watch 30    # every state change, stamped, no UI
+.build/debug/SpotifyNotch --sources 20  # who is making sound, and which one wins
 .build/debug/SpotifyNotch --list-previews
 ```
 
@@ -53,7 +57,7 @@ open --stdout /tmp/bands.txt --stderr /tmp/bands.txt \
 
 ## Using it
 
-Hover the notch to open the panel. Click or drag the progress bar to seek --
+Hover the notch to open the panel. Click or drag Spotify's progress bar to seek --
 the target is the 30pt band around the line, not the line itself. Move the
 pointer away and it closes.
 
@@ -75,3 +79,12 @@ launchctl kickstart -k gui/$(id -u)/com.aravmanand.spotifynotch
 | `docs/BUGS.md` | specific defects, what they cost |
 | `docs/DECISIONS.md` | why things are the way they are |
 | `docs/WANTED.md` | what we chose not to build yet, and why |
+
+## Privacy
+
+The audio is read into a 93ms ring, turned into fourteen numbers, and
+overwritten. Nothing is recorded, nothing is sent: the app makes exactly one
+network call, for the album cover, to Spotify's own CDN. App names and track
+titles are never written to the logs, and conferencing apps are never tapped
+at all -- not hidden from the display, never chosen, so their audio is never
+read. `HANDOFF.md` has the details.
