@@ -10,7 +10,7 @@ PID; show and control, no scrubbing in v1; zero third-party dependencies.
 - [The peek stays inside the menu-bar strip](#the-peek-stays-inside-the-menu-bar-strip)
 - [No global hotkey and no media-key registration](#no-global-hotkey-and-no-media-key-registration)
 - [No app icon](#no-app-icon)
-- [`--probe` exists because the peek is otherwise unmeasurable](#probe-exists-because-the-peek-is-otherwise-unmeasurable)
+- [`--probe` exists because the peek is otherwise unmeasurable](#--probe-exists-because-the-peek-is-otherwise-unmeasurable)
 - [Hardened runtime, ad-hoc signed, unsandboxed](#hardened-runtime-ad-hoc-signed-unsandboxed)
 - [The notification is the data source, not just the trigger](#the-notification-is-the-data-source-not-just-the-trigger)
 - [`Permission` is tracked separately from `Now`](#permission-is-tracked-separately-from-now)
@@ -307,9 +307,11 @@ initialisers would end that. So `AudioTap` is injected as an environment value
 in the one place that builds the live panel, and `WaveformView` -- the only
 view that wants it -- reads it.
 
-It also scopes the invalidation. The bars change 30 times a second; published
-through the root, every one of those would re-evaluate the panel, the artwork
-and the transport row. Through the environment, only `LiveBars` rebuilds.
+It also scopes what the bars can touch. They change 30 times a second, and
+through the root every one of those would re-evaluate the panel, the artwork
+and the transport row. Through the environment only the waveform sees the tap
+at all -- and since the bars moved to `BarsLayer`, SwiftUI is not involved in
+those frames either way.
 
 **`hold` still outranks it**, so a capture cannot be changed by whatever is
 coming out of the speakers while it is taken.
