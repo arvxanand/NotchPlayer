@@ -73,7 +73,7 @@ public final class AudioTap {
     private var chain: Chain?
     private var ring: AudioRing?
     private var analyzer: Analyzer?
-    private var followedPID: pid_t?
+    private var followed: AudioSource?
     private var startedAt: Date?
     private var rate: Double = Bands.sampleRate
     private var lastBuffer: Date?
@@ -87,28 +87,34 @@ public final class AudioTap {
     /// outside the process -- the fallback is deliberately convincing.
     private var reported = false
 
+    /// Called once when a source turns out to deliver nothing but digital
+    /// silence, so whoever chose it can choose something else. An app can
+    /// hold an audio stream open without playing anything, and Core Audio
+    /// reports that as producing output.
+    public var onSilence: ((AudioSource) -> Void)?
+
     public init() {}
 
     deinit { chain?.tearDown() }
 
-    /// Follow one process, or nothing.
+    /// Follow one source, or nothing.
     ///
-    /// Idempotent for the same pid, because the caller is a state observer and
-    /// will say "still playing, still this pid" several times a minute.
-    /// Rebuilding the whole chain each time would glitch the user's audio.
-    public func follow(pid: pid_t?) {
-        guard pid != followedPID else { return }
+    /// Idempotent for the same source, because the caller is a state observer
+    /// and will republish the same answer several times a minute. Rebuilding
+    /// the chain each time would glitch the user's audio.
+    public func follow(_ source: AudioSource?) {
+        guard source != followed else { return }
         stop()
         rebuilds = 0
-        guard let pid else { return }
-        followedPID = pid
-        start(pid: pid)
+        guard let source else { return }
+        followed = source
+        start(source)
     }
 
     public func stop() {
         chain?.tearDown(); chain = nil
         ring = nil; analyzer = nil
-        followedPID = nil
+        followed = nil
         startedAt = nil
         lastBuffer = nil
         lastSignal = nil
@@ -118,9 +124,9 @@ public final class AudioTap {
 
     // MARK: - Building the chain
 
-    private func start(pid: pid_t) {
+    private func start(_ source: AudioSource) {
         do {
-            let chain = try Chain(pid: pid)
+            let chain = try Chain(object: source.object)
             // **The rate the tap actually reports, not the one the probe saw
             // once.** It follows the current output device: measured 48000 on
             // this machine in September and 44100 an hour later with a
@@ -182,6 +188,7 @@ public final class AudioTap {
                                            startedAt: startedAt ?? now, now: now)
             bands = quiet ? nil : values
             status = quiet ? .silent : .listening
+            if quiet, lastSignal == nil, let followed { onSilence?(followed) }
             if !reported, quiet || lastSignal != nil {
                 reported = true
                 NSLog("SpotifyNotch: waveform %@ (%.0fHz)",
@@ -196,11 +203,11 @@ public final class AudioTap {
         if let lastBuffer {
             if now.timeIntervalSince(lastBuffer) > Self.staleTimeout { rebuild() }
         } else if let startedAt, now.timeIntervalSince(startedAt) > Self.deadline {
-            let pid = followedPID
+            let source = followed
             fail("no audio in \(Int(Self.deadline))s -- audio recording permission, most likely")
-            // Keep the pid so the observer's next publish is a no-op rather
+            // Keep the source so the observer's next publish is a no-op rather
             // than a rebuild of the same doomed chain every few seconds.
-            followedPID = pid
+            followed = source
         }
     }
 
@@ -216,16 +223,16 @@ public final class AudioTap {
     }
 
     private func rebuild() {
-        guard rebuilds < Self.rebuildLimit, let pid = followedPID else {
-            let pid = followedPID
+        guard rebuilds < Self.rebuildLimit, let source = followed else {
+            let source = followed
             fail("stream stopped delivering")
-            followedPID = pid
+            followed = source
             return
         }
         rebuilds += 1
         stop()
-        followedPID = pid
-        start(pid: pid)
+        followed = source
+        start(source)
     }
 }
 
@@ -246,9 +253,7 @@ extension AudioTap {
         private var ioProcID: AudioDeviceIOProcID?
         let format: AudioStreamBasicDescription
 
-        init(pid: pid_t) throws {
-            let processObject = try Chain.processObject(for: pid)
-
+        init(object processObject: AudioObjectID) throws {
             let description = CATapDescription(stereoMixdownOfProcesses: [processObject])
             description.uuid = UUID()
             description.name = "SpotifyNotch"
@@ -326,21 +331,6 @@ extension AudioTap {
             }
             AudioHardwareDestroyAggregateDevice(aggregateID)
             AudioHardwareDestroyProcessTap(tapID)
-        }
-
-        private static func processObject(for pid: pid_t) throws -> AudioObjectID {
-            var address = AudioObjectPropertyAddress(
-                mSelector: kAudioHardwarePropertyTranslatePIDToProcessObject,
-                mScope: kAudioObjectPropertyScopeGlobal,
-                mElement: kAudioObjectPropertyElementMain)
-            var input = pid
-            var object = AudioObjectID(kAudioObjectUnknown)
-            var size = UInt32(MemoryLayout<AudioObjectID>.size)
-            try check(AudioObjectGetPropertyData(
-                AudioObjectID(kAudioObjectSystemObject), &address,
-                UInt32(MemoryLayout<pid_t>.size), &input, &size, &object), "translate pid")
-            guard object != kAudioObjectUnknown else { throw Failure("translate pid", -1) }
-            return object
         }
 
         /// Asked rather than assumed. The probe saw 48kHz stereo float, and
@@ -441,14 +431,4 @@ final class AudioRing: @unchecked Sendable {
 
 // MARK: - Finding Spotify
 
-extension AudioTap {
-    public static let spotifyBundleID = "com.spotify.client"
 
-    /// nil when Spotify is not running, which is also the "stop the tap"
-    /// signal.
-    public static var spotifyPID: pid_t? {
-        NSRunningApplication
-            .runningApplications(withBundleIdentifier: spotifyBundleID)
-            .first?.processIdentifier
-    }
-}

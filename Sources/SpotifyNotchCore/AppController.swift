@@ -23,6 +23,9 @@ public final class AppController: NSObject, NSApplicationDelegate {
     /// system audio objects that have to be torn down when the panel goes away
     /// -- a leaked aggregate device outlives the window that wanted it.
     private let tap = AudioTap()
+    /// Who is making sound, whoever they are. The tap follows this rather
+    /// than Spotify's pid.
+    private let audio = AudioSources()
     private var tapFollow: AnyCancellable?
     private var menuBar: MenuBarItem?
     /// Stood down: no panel, no hover polling, no tap. Survives a relaunch,
@@ -70,8 +73,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
         if preview == nil, !probe, !captureServer {
             menuBar = MenuBarItem(
                 state: { [weak self] in
-                    guard let self else { return (.unknown("no controller"), .unknown) }
-                    return (service.now, service.permission)
+                    guard let self else { return (.unknown("no controller"), .unknown, nil) }
+                    return (service.now, service.permission, audio.current)
                 },
                 hidden: { [weak self] in self?.hidden ?? false },
                 setHidden: { [weak self] in self?.setHidden($0) })
@@ -113,6 +116,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
     private func standDown() {
         expansion.stop()
         tapFollow = nil
+        audio.stop()
         tap.stop()
         panel?.orderOut(nil)
         panel = nil
@@ -125,6 +129,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
             // Nothing is drawn in clamshell, so nothing needs listening to.
             // Holding a process tap open to feed a waveform on no screen is
             // the definition of a background app being a bad citizen.
+            tapFollow = nil
+            audio.stop()
             tap.stop()
             return
         }
@@ -146,7 +152,9 @@ public final class AppController: NSObject, NSApplicationDelegate {
             panel = NotchPanel(screen: screen) {
                 RootView(geometry: geometry, now: preview.now,
                          permission: preview.permission, expanded: open,
+                         source: preview.source,
                          progress: preview.progress, holdBands: preview.bands,
+                         sourceIcon: PreviewData.stubIcon,
                          probe: probing)
             }
         } else if probing {
@@ -154,8 +162,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
                 RootView(geometry: geometry, now: .stopped, probe: true)
             }
         } else {
-            panel = NotchPanel(screen: screen) { [service, expansion, tap] in
-                Live(geometry: geometry, service: service, expansion: expansion)
+            panel = NotchPanel(screen: screen) { [service, expansion, tap, audio] in
+                Live(geometry: geometry, service: service, expansion: expansion, audio: audio)
                     .environment(\.liveBands, tap)
             }
         }
@@ -167,22 +175,25 @@ public final class AppController: NSObject, NSApplicationDelegate {
             expansion.setInteractive = { [weak panel] on in panel?.setInteractive(on) }
             expansion.hasContent = { [weak self] in
                 guard let self else { return false }
-                return Presentation.of(now: service.now, permission: service.permission).draws
+                return Presentation.of(now: service.now, permission: service.permission,
+                                       source: audio.current).draws
             }
             // See `Expansion.onOpen`: the position can be stale after a seek
             // made while paused, and opening the panel is when that shows.
             expansion.onOpen = { [weak self] in self?.service.refresh() }
             expansion.start(geometry: geometry)
 
-            // The tap follows playback rather than running all day: a stopped
-            // stream delivers nothing, so an idle tap is a wakeup every 33ms
-            // to analyse silence. `follow` is idempotent per pid, so the
-            // several publishes a minute the service makes while playing cost
-            // one comparison each.
-            tapFollow = service.$now.sink { [weak self] now in
-                MainActor.assumeIsolated {
-                    self?.tap.follow(pid: now.isPlaying ? AudioTap.spotifyPID : nil)
-                }
+            // The tap follows whatever is actually producing audio -- Spotify,
+            // a video, a stream -- and nothing when the machine is quiet, so
+            // there is no tap open analysing silence. `AudioSources` decides
+            // which one; `follow` is idempotent, so a repeated answer costs a
+            // comparison.
+            // A source that holds a stream open without playing anything is
+            // put aside so the next one can have the notch.
+            tap.onSilence = { [weak self] source in self?.audio.skip(source) }
+            audio.start()
+            tapFollow = audio.$current.sink { [weak self] source in
+                MainActor.assumeIsolated { self?.tap.follow(source) }
             }
         }
 
@@ -211,7 +222,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
             // still draws, so keying off `now.draws` reported a 37pt shell for
             // a 185pt panel and the bounds check failed for the wrong reason.
             let draws = preview.map {
-                Presentation.of(now: $0.now, permission: $0.permission).draws
+                Presentation.of(now: $0.now, permission: $0.permission, source: $0.source).draws
             } ?? false
             let drawnHeight = previewExpanded && draws
                 ? NotchGeometry.panelHeight : geometry.collapsedHeight
@@ -245,8 +256,14 @@ public final class AppController: NSObject, NSApplicationDelegate {
                         }
                         stage.show(parsed.state, expanded: parsed.expanded,
                                    probe: parsed.probe)
+                        // **The same question, asked in two places.** The
+                        // preview path above and this one both work out how
+                        // tall the shell will be, and updating one and not the
+                        // other made the check expect a 39pt peek for a 185pt
+                        // panel -- reported as a failure of the panel.
                         let drawn = Presentation.of(now: parsed.state.now,
-                                                    permission: parsed.state.permission).draws
+                                                    permission: parsed.state.permission,
+                                                    source: parsed.state.source).draws
                         let height = parsed.expanded && drawn && !parsed.probe
                             ? NotchGeometry.panelHeight : geometry.collapsedHeight
                         // One runloop turn for SwiftUI to lay out and draw,
@@ -308,10 +325,12 @@ private struct Live: View {
     let geometry: NotchGeometry
     @ObservedObject var service: SpotifyService
     @ObservedObject var expansion: Expansion
+    @ObservedObject var audio: AudioSources
 
     var body: some View {
         RootView(geometry: geometry, now: service.now, permission: service.permission,
-                 expanded: expansion.expanded, progress: service.progress,
+                 expanded: expansion.expanded, source: audio.current,
+                 progress: service.progress,
                  onScrubbing: { expansion.hold($0) },
                  send: { service.send($0) })
     }

@@ -58,7 +58,7 @@ public struct PanelView: View {
             // in the footprint check, and no second animation to tune.
             Group {
                 if controllable {
-                    TransportRow(playing: playing, send: send)
+                    TransportRow(playing: playing) { send(Self.command(for: $0)) }
                 } else {
                     PermissionNote().padding(.horizontal, Self.inset)
                 }
@@ -122,6 +122,16 @@ public struct PanelView: View {
             }
         }
         .frame(height: Self.artSide, alignment: .top)
+    }
+
+    /// One intent, one Apple Event. Spotify is addressed by name, so unlike a
+    /// media key this cannot land on the wrong app.
+    public static func command(for transport: Transport) -> SpotifyBridge.Command {
+        switch transport {
+        case .previous: return .previous
+        case .playpause: return .playpause
+        case .next: return .next
+        }
     }
 
     /// A track of zero length has no position to seek to, and a refused

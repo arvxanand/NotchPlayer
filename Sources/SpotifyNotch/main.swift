@@ -79,6 +79,41 @@ if args.contains("--watch") {
     RunLoop.main.run()
 }
 
+/// What the app thinks is making sound: `--sources [seconds]`, printed as it
+/// changes. The `--read` of the any-audio half.
+if args.contains("--sources") {
+    let seconds = args.firstIndex(of: "--sources").flatMap { i -> Double? in
+        i + 1 < args.count ? Double(args[i + 1]) : nil
+    } ?? 20
+    setvbuf(stdout, nil, _IONBF, 0)
+    MainActor.assumeIsolated {
+        let sources = AudioSources()
+        let start = Date()
+        var bag: Any?
+        bag = sources.$all.sink { list in
+            let t = String(format: "%6.2fs", Date().timeIntervalSince(start))
+            if list.isEmpty { print("\(t)  (silence)"); return }
+            for s in list {
+                let why = AudioSources.isExcluded(s.bundleID) ? "  EXCLUDED, never tapped" : ""
+                print("\(t)  \(s.name)  [\(s.bundleID)]  audio pid \(s.pid)"
+                      + (s.pid == s.appPID ? "" : " via helper, app pid \(s.appPID)")
+                      + (s.isSpotify ? "  <- Spotify" : "") + why)
+            }
+        }
+        var chosenBag: Any?
+        chosenBag = sources.$current.sink { chosen in
+            let t = String(format: "%6.2fs", Date().timeIntervalSince(start))
+            print("\(t)  chosen: \(chosen?.name ?? "nothing")")
+        }
+        _ = chosenBag
+        sources.start()
+        Timer.scheduledTimer(withTimeInterval: seconds, repeats: false) { _ in
+            MainActor.assumeIsolated { _ = bag; exit(0) }
+        }
+    }
+    RunLoop.main.run()
+}
+
 /// Watch the real waveform without any UI: `--bands [seconds]`.
 ///
 /// **This is the only way to tell the tap is working.** The fallback to
@@ -91,13 +126,15 @@ if args.contains("--bands") {
     } ?? 15
     setvbuf(stdout, nil, _IONBF, 0)
     MainActor.assumeIsolated {
-        guard let pid = AudioTap.spotifyPID else {
-            FileHandle.standardError.write(Data("Spotify is not running\n".utf8))
-            exit(1)
-        }
         let tap = AudioTap()
-        print("tapping pid \(pid) -- play something")
-        tap.follow(pid: pid)
+        let sources = AudioSources()
+        var bag: Any?
+        bag = sources.$current.sink { source in
+            print("following: \(source?.name ?? "nothing")")
+            tap.follow(source)
+        }
+        _ = bag
+        sources.start()
         let meter = Array(" ▁▂▃▄▅▆▇█")
         let start = Date()
         Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
