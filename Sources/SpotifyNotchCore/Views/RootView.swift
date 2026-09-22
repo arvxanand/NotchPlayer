@@ -6,20 +6,12 @@ public struct RootView: View {
     let now: Now
     let permission: Permission
     let expanded: Bool
-    /// Whatever is making sound, chosen by `AudioSources`. nil in previews
-    /// and captures unless a state supplies one.
-    let source: AudioSource?
     let progress: Interpolator?
     /// Fixed bar values for a reproducible capture; nil animates.
     let holdBands: [Float]?
     /// `--probe`: fill the shell white so its geometry can be measured. The
     /// peek is otherwise unmeasurable -- a black shape on a dark menu bar is
     /// the same pixels as no shape, in a capture and to the eye.
-    /// The app's own icon, when the source is not Spotify. Resolved by the
-    /// caller so `RootView` stays a function of plain values -- the live app
-    /// passes `source.icon`, a preview passes a fixed image, and a capture is
-    /// reproducible either way.
-    let sourceIcon: NSImage?
     let probe: Bool
     /// Raised while the progress line is being dragged; the panel is held open
     /// for as long as it is.
@@ -29,9 +21,7 @@ public struct RootView: View {
 
     public init(geometry: NotchGeometry, now: Now, permission: Permission = .granted,
                 expanded: Bool = false,
-                source: AudioSource? = nil,
                 progress: Interpolator? = nil, holdBands: [Float]? = nil,
-                sourceIcon: NSImage? = nil,
                 probe: Bool = false,
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
                 send: @escaping (SpotifyBridge.Command) -> Void = { _ in }) {
@@ -39,18 +29,14 @@ public struct RootView: View {
         self.now = now
         self.permission = permission
         self.expanded = expanded
-        self.source = source
         self.progress = progress
         self.holdBands = holdBands
-        self.sourceIcon = sourceIcon
         self.probe = probe
         self.onScrubbing = onScrubbing
         self.send = send
     }
 
-    private var presentation: Presentation {
-        .of(now: now, permission: permission, source: source)
-    }
+    private var presentation: Presentation { .of(now: now, permission: permission) }
     private var open: Bool { expanded && presentation.draws }
 
     public var body: some View {
@@ -102,12 +88,6 @@ public struct RootView: View {
         switch presentation {
         case .track(let track, let playing, _):
             PeekView(geometry: geometry, track: track, playing: playing, holdBands: holdBands)
-        case .app(let source):
-            // The app's icon takes the cover's slot, and the waveform is the
-            // point: this is something we can hear but cannot name beyond
-            // which app it is.
-            PeekView(geometry: geometry, track: PeekView.unknownTrack, playing: true,
-                     holdBands: holdBands, appIcon: sourceIcon ?? source.icon)
         case .permissionNeeded:
             // The mark alone, in the slot the cover would take, with no bars
             // -- nothing is known about playback, and a row of dots would
@@ -126,9 +106,6 @@ public struct RootView: View {
             PanelView(geometry: geometry, track: track, progress: progress,
                       playing: playing, controllable: controllable,
                       onScrubbing: onScrubbing, send: send)
-        case .app(let source):
-            AppPanel(geometry: geometry, name: source.name,
-                     icon: sourceIcon ?? source.icon) { MediaKeys.send($0) }
         case .permissionNeeded:
             PermissionPanel(geometry: geometry)
         case .nothing:

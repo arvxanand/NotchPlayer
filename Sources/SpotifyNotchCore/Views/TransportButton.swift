@@ -42,22 +42,12 @@ public struct TransportButton: View {
     }
 }
 
-/// What a transport button means, separate from who carries it out.
-///
-/// The row draws three buttons; Spotify's panel turns these into Apple Events
-/// addressed to Spotify by name, and the panel for any other app turns them
-/// into system media keys. The row knows neither -- which is what lets one
-/// row serve both without a flag saying which kind of app it is in.
-public enum Transport: Equatable, Sendable {
-    case previous, playpause, next
-}
-
 /// Previous, play/pause, next.
 public struct TransportRow: View {
     let playing: Bool
-    let send: (Transport) -> Void
+    let send: (SpotifyBridge.Command) -> Void
 
-    public init(playing: Bool, send: @escaping (Transport) -> Void) {
+    public init(playing: Bool, send: @escaping (SpotifyBridge.Command) -> Void) {
         self.playing = playing; self.send = send
     }
 

@@ -40,10 +40,6 @@ PID; show and control, no scrubbing in v1; zero third-party dependencies.
 - [Hide is a real stand-down, not `orderOut`](#hide-is-a-real-stand-down-not-orderout)
 - [What the waveform costs, and why it is drawn in CALayers](#what-the-waveform-costs-and-why-it-is-drawn-in-calayers)
 - [Scrubbing: click or drag, written once, on release](#scrubbing-click-or-drag-written-once-on-release)
-- [Any audio, and what it can honestly know](#any-audio-and-what-it-can-honestly-know)
-- [Which source the notch follows](#which-source-the-notch-follows)
-- [Conferencing apps are never tapped](#conferencing-apps-are-never-tapped)
-- [Media keys are sent, never registered](#media-keys-are-sent-never-registered)
 - [`verify.sh` uses exit codes, not greps, for the test stage](#verifysh-uses-exit-codes-not-greps-for-the-test-stage)
 
 ## Copy matchnotch's `Notch/` rather than rewrite it
@@ -454,80 +450,6 @@ somewhere.
 **The knob is always drawn, not revealed on hover**, because `.onHover` never
 fires here (`docs/TRAPS.md` #40). 7pt on a 3pt line: enough to say "draggable",
 small enough to live on screen the whole time the panel is open.
-
-## Any audio, and what it can honestly know
-
-The brief fixed "Spotify only"; the user re-opened it. The notch now follows
-whatever is making sound -- a video, a stream, a film -- and the limit is not
-ours:
-
-**There is no supported way to get a title for arbitrary audio.** MediaRemote,
-the private framework behind Control Center's Now Playing, has been gated
-behind a private entitlement since macOS 15.4. Asked on this machine with
-Spotify actively playing, it answered with an **empty dictionary**.
-
-So the answer is bars for everything and words only where we can get them
-honestly. A video shows its app's icon, that app's name, and a real waveform
-of its audio -- and no progress bar, because there is no position to put in
-one and a bar that never moves is worse than no bar.
-
-Spotify keeps everything: cover, title, artist, progress, scrubbing, and a
-transport addressed to it by name.
-
-## Which source the notch follows
-
-Four rules, each a pure function with its own test, because every one of them
-is a judgement that will be questioned later:
-
-- **A three-second dwell** before a new source is adopted, so a notification
-  ding never makes the notch flash. Spotify is exempt: it announces itself
-  over its own notification and is never a stray sound.
-- **Most recently started wins.** What you just started is what you just
-  chose to watch. Pause it and the older source is still there, so the notch
-  goes straight back to it.
-- **Spotify's own state beats listening to it.** A paused Spotify is not a
-  candidate at all. We can *ask* Spotify what it is doing, and inferring it
-  from an audio stream gets it wrong -- see `docs/BUGS.md` #16, where a
-  paused video held the notch for a minute because its stream was newer.
-- **A source that goes quiet for five seconds is stood down** and something
-  else gets a turn. This is the only way to tell playing from paused for an
-  app that cannot be asked: "producing output" means a stream is open, not
-  that sound is coming out of it (`docs/TRAPS.md` #42). Five seconds, against
-  the two the waveform uses to fall back to synthetic bars -- a quiet passage
-  should change the bars, not the app the notch is following.
-
-## Conferencing apps are never tapped
-
-Zoom, FaceTime, Teams, Discord and their kind are in a skip list, so they are
-never chosen, no tap is ever built for them, and their audio never enters this
-process. "It was never read" is a stronger promise than "nothing was stored",
-and a call is the one thing a visualiser has no business listening to.
-
-The limit is stated rather than papered over: **a meeting in a browser tab
-cannot be told apart from a video in one**, because the sound comes from the
-browser either way.
-
-The same standard applies to the log. App names and track titles never reach
-`out.log` or `error.log`, which would otherwise be a local record of what was
-watched and when. `--sources` prints to a terminal, when a human runs it.
-
-## Media keys are sent, never registered
-
-This reverses the brief, and the reversal is narrower than it sounds. The
-original decision was against *registering* media keys -- claiming F7/F8/F9
-globally, fighting every other app that wants them. Sending one claims
-nothing: it asks the system to do what the keyboard would have done.
-
-**The caveat is real and was hit in testing.** A media key goes to whatever
-the system considers the media-key target, which is usually the last thing
-that played but is not guaranteed to be the app the notch is showing. During
-one test the panel's button paused a browser video, and a second press
-appears to have reached Spotify instead.
-
-Spotify never uses this path -- it is addressed by name over Apple Events,
-which cannot land on the wrong app. The ambiguity only applies to sources we
-can do nothing else with, and it is the strongest argument for the browser
-extension in `docs/WANTED.md`.
 
 ## `verify.sh` uses exit codes, not greps, for the test stage
 

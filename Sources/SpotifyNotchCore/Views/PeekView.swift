@@ -16,17 +16,12 @@ public struct PeekView: View {
     /// False when nothing is known about playback. A row of flat bars would
     /// claim the track is merely paused, which is a different answer.
     let showsWaveform: Bool
-    /// Set when the source is not Spotify: the app's icon stands in for the
-    /// cover, and the standalone Spotify mark is not drawn -- this is not
-    /// Spotify, and one identity mark is still the rule.
-    let appIcon: NSImage?
 
     public init(geometry: NotchGeometry, track: Track, playing: Bool,
-                holdBands: [Float]? = nil, showsWaveform: Bool = true,
-                appIcon: NSImage? = nil) {
+                holdBands: [Float]? = nil, showsWaveform: Bool = true) {
         self.geometry = geometry; self.track = track
         self.playing = playing; self.holdBands = holdBands
-        self.showsWaveform = showsWaveform; self.appIcon = appIcon
+        self.showsWaveform = showsWaveform
     }
 
     /// Stands in for a track we cannot read. No artwork URL, so the cover slot
@@ -54,14 +49,10 @@ public struct PeekView: View {
             // **Hidden when there is no cover**, because then the mark is what
             // `ArtworkView` draws in the square and two of them side by side
             // read as a rendering bug. The mark appears exactly once, always.
-            if appIcon == nil, Self.showsStandaloneMark(artworkURL: track.artworkURL) {
+            if Self.showsStandaloneMark(artworkURL: track.artworkURL) {
                 SpotifyMark().frame(width: Self.markSide, height: Self.markSide)
             }
-            if let appIcon {
-                SourceIcon(image: appIcon, side: Self.artSide, corner: Self.artCorner)
-            } else {
-                ArtworkView(url: track.artworkURL, side: Self.artSide, corner: Self.artCorner)
-            }
+            ArtworkView(url: track.artworkURL, side: Self.artSide, corner: Self.artCorner)
         }
         .padding(.trailing, Self.cutoutInset)
     }

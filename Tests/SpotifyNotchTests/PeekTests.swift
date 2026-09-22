@@ -222,10 +222,7 @@ final class PreviewDataTests: XCTestCase {
         XCTAssertEqual(
             Set(PreviewData.drawing.map(\.name)),
             Set(PreviewData.all
-                .filter {
-                    Presentation.of(now: $0.now, permission: $0.permission,
-                                    source: $0.source).draws
-                }
+                .filter { Presentation.of(now: $0.now, permission: $0.permission).draws }
                 .map(\.name)))
         XCTAssertEqual(Set(PreviewData.all.map(\.name))
                         .subtracting(PreviewData.drawing.map(\.name)),
