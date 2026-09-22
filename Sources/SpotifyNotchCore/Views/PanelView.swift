@@ -24,16 +24,20 @@ public struct PanelView: View {
     /// drag leaves the drawn frame, which is easy to do and takes the thing
     /// you are dragging with it.
     let onScrubbing: (Bool) -> Void
+    /// The title opens the track, the artist their page, the cover the album.
+    let openLink: (SpotifyLinks.Target) -> Void
 
     @State private var scrub: Double?
 
     public init(geometry: NotchGeometry, track: Track, progress: Interpolator?,
                 playing: Bool, controllable: Bool = true,
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
-                send: @escaping (SpotifyBridge.Command) -> Void = { _ in }) {
+                send: @escaping (SpotifyBridge.Command) -> Void = { _ in },
+                openLink: @escaping (SpotifyLinks.Target) -> Void = { _ in }) {
         self.geometry = geometry; self.track = track; self.progress = progress
         self.playing = playing; self.controllable = controllable
         self.onScrubbing = onScrubbing; self.send = send
+        self.openLink = openLink
     }
 
     public var body: some View {
@@ -43,7 +47,15 @@ public struct PanelView: View {
             Color.clear.frame(height: geometry.notchExclusionTop)
 
             HStack(alignment: .top, spacing: Self.gap) {
-                ArtworkView(url: track.artworkURL, side: Self.artSide, corner: Self.artCorner)
+                // Plain buttons, not tap gestures: a `Button` acts on mouse-up,
+                // which is the one click this never-key panel is guaranteed to
+                // get (`docs/TRAPS.md` #37). No hover underline, because
+                // `.onHover` never fires here (#40).
+                Button { openLink(.album) } label: {
+                    ArtworkView(url: track.artworkURL, side: Self.artSide, corner: Self.artCorner)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open the album in Spotify")
                 details
             }
             .padding(.horizontal, Self.inset)
@@ -72,20 +84,28 @@ public struct PanelView: View {
 
     private var details: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(track.name)
-                .font(Type.title())
-                .foregroundStyle(Palette.primary)
-                // One line, truncated: a title that wraps changes the panel's
-                // height, and a panel that resizes per track is a panel that
-                // jumps every time the song does.
-                .lineLimit(1)
-                .truncationMode(.tail)
-            Text(track.artist)
-                .font(Type.label())
-                .foregroundStyle(Palette.secondary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .padding(.top, 2)
+            Button { openLink(.track) } label: {
+                Text(track.name)
+                    .font(Type.title())
+                    .foregroundStyle(Palette.primary)
+                    // One line, truncated: a title that wraps changes the panel's
+                    // height, and a panel that resizes per track is a panel that
+                    // jumps every time the song does.
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens the song in Spotify")
+            Button { openLink(.artist) } label: {
+                Text(track.artist)
+                    .font(Type.label())
+                    .foregroundStyle(Palette.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens the artist in Spotify")
+            .padding(.top, 2)
 
             Spacer(minLength: 0)
 
