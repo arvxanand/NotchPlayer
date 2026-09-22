@@ -79,6 +79,7 @@ launchctl kickstart -k gui/$(id -u)/com.aravmanand.spotifynotch
 | `docs/BUGS.md` | specific defects, what they cost |
 | `docs/DECISIONS.md` | why things are the way they are |
 | `docs/WANTED.md` | what we chose not to build yet, and why |
+| `NEXT-SESSION.md` | a prompt to paste into a fresh chat: what to read, where we left off |
 
 ## Privacy
 
