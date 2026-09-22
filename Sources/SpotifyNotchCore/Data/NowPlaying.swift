@@ -227,31 +227,12 @@ public enum Presentation: Equatable, Sendable {
     /// artist and the position all still arrive over the notification, which
     /// needs no permission -- only the cover and the buttons are lost.
     case track(Track, playing: Bool, controllable: Bool)
-    /// Something other than Spotify is making sound.
-    ///
-    /// All we can honestly know is which app it is. macOS stopped handing out
-    /// titles for arbitrary audio when it gated MediaRemote behind a private
-    /// entitlement in 15.4 -- verified on this machine, which answered with an
-    /// empty dictionary while Spotify was playing (`docs/TRAPS.md`). So this
-    /// case draws an icon, a name and a waveform, and does not pretend to a
-    /// progress bar it cannot fill.
-    case app(AudioSource)
     /// Spotify is running, we cannot talk to it, and we do not know what is
     /// playing. The only state that draws without music, because otherwise
     /// the app is silently dead and the user has no way to find out why.
     case permissionNeeded
 
-    /// `source` is whatever is making sound, chosen by `AudioSources`.
-    ///
-    /// **Anything that is not Spotify wins while it is playing**, because it
-    /// is the thing the user just started -- `AudioSources.chosen` has already
-    /// applied the dwell, the exclusions and "most recent wins", so by the
-    /// time it arrives here the answer is simply true. When it is Spotify, or
-    /// when nothing is playing at all, the Spotify state below decides: a
-    /// paused track still draws its panel, as it always has.
-    public static func of(now: Now, permission: Permission,
-                          source: AudioSource? = nil) -> Presentation {
-        if let source, !source.isSpotify { return .app(source) }
+    public static func of(now: Now, permission: Permission) -> Presentation {
         if let track = now.track {
             return .track(track, playing: now.isPlaying, controllable: permission != .denied)
         }

@@ -107,28 +107,8 @@ final class MenuSummaryTests: XCTestCase {
                              album: "Comes and Goes", duration: 262, hasArtwork: true)
 
     private func summary(_ now: Now, _ permission: Permission = .granted,
-                         hidden: Bool = false, source: AudioSource? = nil) -> String {
-        MenuBarItem.summary(now: now, permission: permission, hidden: hidden, source: source)
-    }
-
-    /// The menu and the notch must agree about the same moment: if the notch
-    /// is showing a video in Chrome, the menu cannot say "Nothing playing".
-    func testTheMenuNamesWhateverTheNotchIsShowing() {
-        let chrome = AudioSource(object: 1, pid: 1, appPID: 1,
-                                 name: "Google Chrome", bundleID: "com.google.Chrome")
-        XCTAssertEqual(summary(.stopped, source: chrome),
-                       "Google Chrome \u{2014} playing audio")
-        // Hidden still outranks it.
-        XCTAssertEqual(summary(.stopped, hidden: true, source: chrome),
-                       "Hidden from the notch")
-    }
-
-    /// Spotify's own source is not reported this way -- it has a track.
-    func testSpotifyAsASourceStillNamesTheTrack() {
-        let spotify = AudioSource(object: 1, pid: 1, appPID: 1,
-                                  name: "Spotify", bundleID: "com.spotify.client")
-        XCTAssertEqual(summary(.track(song, state: .playing, position: 3), source: spotify),
-                       "Comes and Goes \u{2014} KETTAMA")
+                         hidden: Bool = false) -> String {
+        MenuBarItem.summary(now: now, permission: permission, hidden: hidden)
     }
 
     func testEveryStateSaysSomething() {

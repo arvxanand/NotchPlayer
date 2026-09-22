@@ -5,35 +5,11 @@ left out, so picking it up later is a decision and not an excavation.
 
 Nothing here is a bug. `docs/BUGS.md` is for those.
 
-**Done since this list was written:** dragging the progress bar to scrub,
-making the waveform cheap to draw (8.9% of a core down to 1.7%, by taking
-SwiftUI out of the per-frame path), and following *any* app's audio rather
-than only Spotify's.
+**Done since this list was written:** dragging the progress bar to scrub, and
+making the waveform cheap to draw -- 8.9% of a core down to 1.7%, by taking
+SwiftUI out of the per-frame path.
 
-## 1. A browser extension, for titles and skipping
-
-The notch follows a video now, but it can only name the *app*: "Aside", not
-"Arsenal v Chelsea". macOS gates the API that would give a title
-(`docs/DECISIONS.md`), and no browser will say which tab is audible -- Chrome,
-Safari and Brave dictionaries on this machine mention `audible` exactly zero
-times.
-
-An extension knows (`chrome.tabs.query({audible: true})`), and through it the
-panel could have what Spotify has: the title, a real progress bar, play/pause
-and skip ±10s -- landing on the exact tab rather than wherever a media key
-happens to go.
-
-Chosen over the alternative on purpose. Chrome and Safari can both run
-JavaScript from Apple Events, which would do the same job sooner, but the
-switch that enables it is **global**: any app with Automation permission for
-the browser could then run JavaScript in any tab, including logged-in mail
-and banking. An extension sees only what it is granted.
-
-Cost: a second codebase, a native-messaging host, and loading it unpacked
-since it will not be on the Web Store. The design is in
-`~/.claude/plans/i-want-to-build-parsed-cascade.md` as milestone 10.
-
-## 2. A switch to turn off the album-art download
+## 1. A switch to turn off the album-art download
 
 The one thing that leaves the machine is the cover image, fetched from
 Spotify's own CDN with the URL Spotify hands over. Everything else -- the
@@ -43,7 +19,7 @@ If you want literally nothing outbound, this is a menu toggle plus a
 `UserDefaults` flag. The fallback already exists: the Spotify mark stands in
 whenever there is no cover.
 
-## 3. Show something for ads, podcasts and local files
+## 2. Show something for ads, podcasts and local files
 
 Nobody has seen what Spotify reports for any of them. A podcast is probably
 just a track with a different artist line, and an ad probably has no artwork
@@ -53,14 +29,14 @@ marked `CONSTRUCTED`.
 Watch `--watch` while an ad plays, then decide. Guessing at a vendor's ad
 metadata is how you ship a boolean that is wrong six months later.
 
-## 4. External display and clamshell
+## 3. External display and clamshell
 
 Explicitly out of scope: built-in display only, nothing drawn with the lid
 shut. The code already behaves correctly by construction -- it looks for a
 screen with a notch and draws nothing when there isn't one -- but it has never
 been run with a monitor attached.
 
-## 5. Launch at login as a toggle
+## 4. Launch at login as a toggle
 
 Installing and removing the LaunchAgent is two shell commands
 (`tools/install-agent.sh`, `launchctl bootout`). A checkbox in the menu panel

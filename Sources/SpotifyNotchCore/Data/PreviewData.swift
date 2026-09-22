@@ -1,4 +1,3 @@
-import AppKit
 import Foundation
 
 /// Fixed states, so every branch the views can draw can be looked at without
@@ -19,11 +18,6 @@ public enum PreviewData {
         /// Whether Apple Events are available. `.denied` is a whole second
         /// axis of rendering, not a variant of "no music".
         public var permission: Permission = .granted
-        /// Set for the states where something other than Spotify is making
-        /// sound. The icon comes from `PreviewData.stubIcon`, never from a
-        /// real app: a capture has to be identical run to run, and the icon of
-        /// whatever happens to be installed is not.
-        public var source: AudioSource?
 
         /// A stopped clock, so the panel's progress bar renders the same in
         /// every capture. `advancing: false` is what makes it reproducible.
@@ -43,18 +37,6 @@ public enum PreviewData {
               album: "D>E>A>T>H>M>E>T>A>L", duration: 261.849,
               hasArtwork: artwork != nil, artworkURL: artwork)
     }
-
-    /// A stand-in for an app's icon, drawn from a system symbol so a capture
-    /// does not depend on which apps are installed.
-    @MainActor public static let stubIcon: NSImage? = {
-        let image = NSImage(systemSymbolName: "play.rectangle.fill",
-                            accessibilityDescription: "An app")
-        image?.isTemplate = false
-        return image
-    }()
-
-    static let browser = AudioSource(object: 1, pid: 4321, appPID: 4000,
-                                     name: "Google Chrome", bundleID: "com.google.Chrome")
 
     /// Held bar values: a quiet passage and a loud one, so the extremes of the
     /// bar geometry are both looked at rather than only the middle.
@@ -110,17 +92,6 @@ public enum PreviewData {
               now: .unknown("Automation permission refused (-1743)"), bands: nil,
               caption: "Automation refused at launch: the only no-music state that draws",
               permission: .denied),
-        // Something that is not Spotify is playing: an icon, a name, and bars.
-        // Two states, because the long-name case is the one that would push
-        // text under the camera housing.
-        State(name: "otherapp", now: .stopped, bands: nil,
-              caption: "a video in another app -- icon, name, media-key transport",
-              source: browser),
-        State(name: "otherlongname", now: .stopped, bands: loud,
-              caption: "an app whose name is far too long for the panel",
-              source: AudioSource(object: 2, pid: 4321, appPID: 4000,
-                                  name: "Some Application With An Unreasonably Long Name",
-                                  bundleID: "com.example.verbose")),
         State(name: "stopped", now: .stopped, bands: nil,
               caption: "Spotify open, nothing loaded -- draws nothing"),
         State(name: "notrunning", now: .notRunning, bands: nil,
@@ -146,9 +117,7 @@ public enum PreviewData {
     /// and still draws, which is the whole point of that state -- keying this
     /// off `now.draws` would have quietly excluded it from every check.
     public static var drawing: [State] {
-        all.filter {
-            Presentation.of(now: $0.now, permission: $0.permission, source: $0.source).draws
-        }
+        all.filter { Presentation.of(now: $0.now, permission: $0.permission).draws }
     }
 
     /// What `tools/check_notch.sh` captures: every drawing state collapsed,
