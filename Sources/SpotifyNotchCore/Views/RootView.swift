@@ -18,13 +18,16 @@ public struct RootView: View {
     let onScrubbing: (Bool) -> Void
     /// A no-op in previews, so a capture cannot control the user's playback.
     let send: (SpotifyBridge.Command) -> Void
+    /// The title, the artist or the cover was clicked. A no-op in previews.
+    let openLink: (SpotifyLinks.Target, Track) -> Void
 
     public init(geometry: NotchGeometry, now: Now, permission: Permission = .granted,
                 expanded: Bool = false,
                 progress: Interpolator? = nil, holdBands: [Float]? = nil,
                 probe: Bool = false,
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
-                send: @escaping (SpotifyBridge.Command) -> Void = { _ in }) {
+                send: @escaping (SpotifyBridge.Command) -> Void = { _ in },
+                openLink: @escaping (SpotifyLinks.Target, Track) -> Void = { _, _ in }) {
         self.geometry = geometry
         self.now = now
         self.permission = permission
@@ -34,6 +37,7 @@ public struct RootView: View {
         self.probe = probe
         self.onScrubbing = onScrubbing
         self.send = send
+        self.openLink = openLink
     }
 
     private var presentation: Presentation { .of(now: now, permission: permission) }
@@ -105,7 +109,8 @@ public struct RootView: View {
         case .track(let track, let playing, let controllable):
             PanelView(geometry: geometry, track: track, progress: progress,
                       playing: playing, controllable: controllable,
-                      onScrubbing: onScrubbing, send: send)
+                      onScrubbing: onScrubbing, send: send,
+                      openLink: { openLink($0, track) })
         case .permissionNeeded:
             PermissionPanel(geometry: geometry)
         case .nothing:

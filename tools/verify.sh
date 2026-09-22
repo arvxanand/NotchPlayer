@@ -83,6 +83,8 @@ if [ $? -eq 0 ]; then ok "$(printf '%s' "$sweep" | tr '\n' ';' | sed 's/ok    //
 else bad "see below"; printf '%s\n' "$sweep" | sed 's/^/      /'; fi
 
 step "Docs"
+# The docs are local-only (.gitignore), so a fresh clone has none to check.
+if [ -f docs/DECISIONS.md ]; then
 # matchnotch's trap numbering collided three times, once with 43-46 each
 # existing twice for weeks. One grep, run every time, instead.
 for doc in docs/TRAPS.md docs/BUGS.md; do
@@ -135,6 +137,9 @@ PYCHECK
 )
 if [[ "$index_report" == ok* ]]; then ok "DECISIONS.md index matches its headings (${index_report#ok })"
 else bad "DECISIONS.md index: $index_report"; fi
+else
+    ok "no docs/ in this checkout, skipped"
+fi
 
 if [ "$fail" -eq 0 ]; then
     printf "\n\033[32mAll automated checks passed.\033[0m Anything visual still needs eyes.\n"
