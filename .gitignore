@@ -3,3 +3,7 @@
 SpotifyNotch.app/
 *.log
 hig-audit.json
+
+# Docs stay local. Only the root README is published.
+*.md
+!/README.md

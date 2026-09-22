@@ -9,9 +9,6 @@ cutout and it expands into a panel with the cover, the track, a progress bar
 you can drag to seek, and play/pause/prev/next. Idle, it draws nothing and the
 notch looks like a notch.
 
-Read `HANDOFF.md` before writing any code, and `docs/TRAPS.md` before
-debugging anything.
-
 ## Build and run
 
 ```bash
@@ -29,7 +26,7 @@ debugging anything.
 ```
 
 The waveform is the exception: the audio tap needs macOS to launch the app, or
-TCC silently hands it nothing but zeros (`docs/TRAPS.md` #30).
+TCC silently hands it nothing but zeros.
 
 ```bash
 open --stdout /tmp/bands.txt --stderr /tmp/bands.txt \
@@ -66,13 +63,3 @@ Quit. Hidden survives a relaunch. After a Quit:
 launchctl kickstart -k gui/$(id -u)/com.aravmanand.spotifynotch
 ```
 
-## Docs
-
-| | |
-|---|---|
-| `HANDOFF.md` | start here, cold |
-| `docs/TRAPS.md` | classes of mistake, with the fix |
-| `docs/BUGS.md` | specific defects, what they cost |
-| `docs/DECISIONS.md` | why things are the way they are |
-| `docs/WANTED.md` | what we chose not to build yet, and why |
-| `NEXT-SESSION.md` | a prompt to paste into a fresh chat: what to read, where we left off |
