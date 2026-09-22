@@ -313,6 +313,7 @@ private struct Live: View {
         RootView(geometry: geometry, now: service.now, permission: service.permission,
                  expanded: expansion.expanded, progress: service.progress,
                  onScrubbing: { expansion.hold($0) },
-                 send: { service.send($0) })
+                 send: { service.send($0) },
+                 openLink: { SpotifyLinks.open($0, for: $1) })
     }
 }
