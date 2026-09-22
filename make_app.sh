@@ -80,9 +80,40 @@ rm -f "$ENTITLEMENTS"
 
 echo "built $APP"
 
+EXE="$PWD/$APP/Contents/MacOS/SpotifyNotch"
+# Every running copy of this bundle's executable, launchd's or not. `comm` is
+# the executable path alone -- see tools/sweep.sh for why not `command`.
+bundle_pids() { ps -eo pid=,comm= | awk -v exe="$EXE" '{ p = $1; sub(/^ *[0-9]+ /, ""); if ($0 == exe) print p }'; }
+agent_pid() { launchctl list | awk -v a="$AGENT" '$3 == a { print $1 }'; }
+
 if launchctl print "$GUI/$AGENT" >/dev/null 2>&1; then
+    # **A copy launchd does not own survives the kickstart** -- one started with
+    # `open` after a Quit, say. The fresh build then meets the duplicate guard,
+    # prints "already running" and exits 0, and the old binary stays on the
+    # notch. Stop those by pid first. `docs/TRAPS.md` #42.
+    old=$(agent_pid)
+    for pid in $(bundle_pids); do
+        [ "$pid" = "$old" ] && continue
+        echo "stopping pid $pid, a copy launchd does not own"
+        kill "$pid"
+    done
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        [ -z "$(bundle_pids | grep -vx "$old")" ] && break
+        sleep 0.5
+    done
     launchctl kickstart -k "$GUI/$AGENT"
-    echo "restarted $AGENT"
+    # Believe the pid, not the exit code: kickstart succeeds either way.
+    for _ in $(seq 1 20); do
+        now=$(agent_pid)
+        if [ "$now" != "-" ] && [ "$now" != "$old" ] && [ "$(bundle_pids)" = "$now" ]; then
+            echo "restarted $AGENT as pid $now"
+            exit 0
+        fi
+        sleep 0.5
+    done
+    echo "FAIL  $AGENT did not come back as the only copy (launchd pid: $(agent_pid))"
+    bundle_pids | sed 's/^/      running: /'
+    exit 1
 else
     echo "agent not loaded; ./tools/install-agent.sh to load it at login"
 fi

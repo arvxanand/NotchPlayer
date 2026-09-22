@@ -432,3 +432,18 @@ print nothing. Keep the `N.` at column zero or the check cannot see the entry.
     The probe is three clicks at the band's centre and both edges, checking
     whether `player position` moved. Reasoning about which of the three is
     wrong, from the code, is how two of them shipped.
+
+42. **`make_app.sh` said "restarted" and the old build stayed on the notch.**
+    A copy of the app that launchd does not own -- started with `open` after a
+    Quit, which exits 0 and so is not relaunched -- survives
+    `launchctl kickstart -k`. The kickstart does start the new build, which
+    meets the duplicate-instance guard, prints "SpotifyNotch is already
+    running" and exits 0. launchd shows the job with `-` for a pid, the
+    kickstart's exit code is success, and the notch runs a binary two days
+    and one revert out of date. Found only because `pgrep` returned the same
+    pid before and after the "restart".
+
+    The script now stops any copy of the bundle's executable that is not the
+    agent's, by pid, before kickstarting -- and then **checks the pid rather
+    than the exit code**: the job must come back with a new pid, and it must be
+    the only copy running, or the script fails.
