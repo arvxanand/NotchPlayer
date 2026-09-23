@@ -7,3 +7,6 @@ hig-audit.json
 # Docs stay local. Only the root README is published.
 *.md
 !/README.md
+
+# Design mockups stay local too.
+docs/mockups/
