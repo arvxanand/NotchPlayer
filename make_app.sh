@@ -1,5 +1,5 @@
 #!/bin/bash
-# Assemble SpotifyNotch.app, and -- unlike matchnotch's equivalent -- restart
+# Assemble NotchPlayer.app, and -- unlike matchnotch's equivalent -- restart
 # the running copy if there is one.
 #
 # That second half is not a convenience. `swift build` does not update the
@@ -14,17 +14,17 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 CONFIG="${1:-release}"
-APP="SpotifyNotch.app"
-LABEL="local.spotifynotch"
-AGENT="com.aravmanand.spotifynotch"
+APP="NotchPlayer.app"
+LABEL="local.notchplayer"
+AGENT="com.aravmanand.notchplayer"
 GUI="gui/$(id -u)"
 
 swift build -c "$CONFIG"
-BIN="$(swift build -c "$CONFIG" --show-bin-path)/SpotifyNotch"
+BIN="$(swift build -c "$CONFIG" --show-bin-path)/NotchPlayer"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-cp "$BIN" "$APP/Contents/MacOS/SpotifyNotch"
+cp "$BIN" "$APP/Contents/MacOS/NotchPlayer"
 
 # **No CFBundleIconFile, deliberately.** An icon is a second way to launch the
 # app, and a second instance stacks a second panel on the same notch with no
@@ -36,18 +36,18 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleName</key><string>SpotifyNotch</string>
+	<key>CFBundleName</key><string>NotchPlayer</string>
 	<key>CFBundleIdentifier</key><string>$LABEL</string>
-	<key>CFBundleExecutable</key><string>SpotifyNotch</string>
+	<key>CFBundleExecutable</key><string>NotchPlayer</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
 	<key>CFBundleShortVersionString</key><string>0.1</string>
 	<key>CFBundleVersion</key><string>1</string>
 	<key>LSMinimumSystemVersion</key><string>15.0</string>
 	<!-- Agent app: notch only, no dock icon, no menu bar item. -->
 	<key>LSUIElement</key><true/>
-	<key>NSAppleEventsUsageDescription</key><string>SpotifyNotch reads the track Spotify is playing, and sends play, pause and skip when you use the controls in the notch.</string>
+	<key>NSAppleEventsUsageDescription</key><string>NotchPlayer reads the track Spotify is playing, and sends play, pause and skip when you use the controls in the notch.</string>
 	<!-- Typed by hand: Xcode does not offer this key in its dropdown. -->
-	<key>NSAudioCaptureUsageDescription</key><string>SpotifyNotch listens to Spotify's own audio to draw the waveform beside the notch. Nothing is recorded or sent anywhere.</string>
+	<key>NSAudioCaptureUsageDescription</key><string>NotchPlayer listens to Spotify's own audio to draw the waveform beside the notch. Nothing is recorded or sent anywhere.</string>
 </dict>
 </plist>
 PLIST
@@ -64,7 +64,7 @@ PLIST
 # never prompts -- so it looks exactly like a user who denied Automation, and
 # `tccutil reset` changes nothing because there was no TCC decision to reset.
 # Cost: an afternoon, and `docs/TRAPS.md` #34.
-ENTITLEMENTS="$(mktemp -t spotifynotch-entitlements).plist"
+ENTITLEMENTS="$(mktemp -t notchplayer-entitlements).plist"
 cat > "$ENTITLEMENTS" <<'ENT'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -80,7 +80,7 @@ rm -f "$ENTITLEMENTS"
 
 echo "built $APP"
 
-EXE="$PWD/$APP/Contents/MacOS/SpotifyNotch"
+EXE="$PWD/$APP/Contents/MacOS/NotchPlayer"
 # Every running copy of this bundle's executable. `comm` is the executable
 # path alone -- see tools/sweep.sh for why not `command`.
 bundle_pids() { ps -eo pid=,comm= | awk -v exe="$EXE" '{ p = $1; sub(/^ *[0-9]+ /, ""); if ($0 == exe) print p }'; }

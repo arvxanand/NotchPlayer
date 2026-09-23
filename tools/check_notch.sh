@@ -22,8 +22,8 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 CONFIG=release
-[ -x ".build/$CONFIG/SpotifyNotch" ] || CONFIG=debug
-BIN=".build/$CONFIG/SpotifyNotch"
+[ -x ".build/$CONFIG/NotchPlayer" ] || CONFIG=debug
+BIN=".build/$CONFIG/NotchPlayer"
 [ -x "$BIN" ] || { echo "build first: swift build"; exit 1; }
 
 # A stale binary is rule 2 in a new costume, and it bit here twice: a flag was

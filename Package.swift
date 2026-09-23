@@ -7,17 +7,17 @@ import PackageDescription
 let mode: [SwiftSetting] = [.swiftLanguageMode(.v5)]
 
 let package = Package(
-    name: "SpotifyNotch",
+    name: "NotchPlayer",
     // 15, not 14.4: the machine is 15.7.7 and picking 15 removes every
     // @available annotation the Core Audio process tap would otherwise need.
     platforms: [.macOS(.v15)],
     targets: [
         // Everything testable lives here; the executable is just a launcher.
-        .target(name: "SpotifyNotchCore", path: "Sources/SpotifyNotchCore", swiftSettings: mode),
-        .executableTarget(name: "SpotifyNotch", dependencies: ["SpotifyNotchCore"],
-                          path: "Sources/SpotifyNotch", swiftSettings: mode),
-        .testTarget(name: "SpotifyNotchTests", dependencies: ["SpotifyNotchCore"],
-                    path: "Tests/SpotifyNotchTests",
+        .target(name: "NotchPlayerCore", path: "Sources/NotchPlayerCore", swiftSettings: mode),
+        .executableTarget(name: "NotchPlayer", dependencies: ["NotchPlayerCore"],
+                          path: "Sources/NotchPlayer", swiftSettings: mode),
+        .testTarget(name: "NotchPlayerTests", dependencies: ["NotchPlayerCore"],
+                    path: "Tests/NotchPlayerTests",
                     resources: [.copy("Fixtures")], swiftSettings: mode),
     ]
 )
