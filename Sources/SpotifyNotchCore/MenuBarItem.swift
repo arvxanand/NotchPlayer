@@ -92,6 +92,8 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
                 print("launch at login: now \(Self.login)")
                 return Self.login
             },
+            plus: SpotifyPlus.status,
+            togglePlus: { SpotifyPlus.toggle() },
             quit: { NSApp.terminate(nil) }))
     }
 
@@ -99,7 +101,7 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
 
     /// Read on every open, never cached: the user can change it in System
     /// Settings -> General -> Login Items while the app runs.
-    private static var login: MenuPanel.Login {
+    private static var login: MenuPanel.Grant {
         switch SMAppService.mainApp.status {
         case .enabled: .on
         case .requiresApproval: .needsApproval

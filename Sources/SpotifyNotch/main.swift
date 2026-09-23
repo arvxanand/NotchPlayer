@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Combine
 import SpotifyNotchCore
 
@@ -171,8 +172,19 @@ if args.contains("--hit-rects") {
     for (name, r) in PanelView.transportRects(geometry) {
         print("\(name) \(Int(r.midX)) \(Int(r.midY)) \(Int(r.width)) \(Int(r.height))")
     }
+    let plus = PanelView.plusRect(geometry)
+    print("plus \(Int(plus.midX)) \(Int(plus.midY)) \(Int(plus.width)) \(Int(plus.height))")
     let p = PanelView.progressRect(geometry)
     print("progress \(Int(p.midX)) \(Int(p.midY)) \(Int(p.width)) \(Int(p.height))")
+    exit(0)
+}
+
+/// Whether macOS lets *this copy* use Accessibility, which the + needs.
+/// Launch it through LaunchServices (`open -n --stdout FILE -a
+/// SpotifyNotch.app --args --trusted`): from a shell the terminal is the
+/// responsible process and the answer is about the terminal (TRAPS #30).
+if args.contains("--trusted") {
+    print("accessibility trusted: \(AXIsProcessTrusted())")
     exit(0)
 }
 

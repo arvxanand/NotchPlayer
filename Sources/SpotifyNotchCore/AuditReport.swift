@@ -42,6 +42,8 @@ public enum AuditReport {
         for name in ["shuffle", "previous", "playpause", "next", "repeat"] {
             target("transport-\(name)", hit, hit)
         }
+        let plus = PanelView.plusGlyph + PanelView.plusOverhang * 2
+        target("plus", Int(plus), Int(plus))
 
         return "{\n  \"checks\": [\n    " + checks.joined(separator: ",\n    ") + "\n  ]\n}"
     }

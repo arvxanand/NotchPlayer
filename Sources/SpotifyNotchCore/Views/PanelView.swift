@@ -91,28 +91,38 @@ public struct PanelView: View {
 
     private var details: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button { openLink(.track) } label: {
-                changing(Text(track.name)
-                    .font(Type.title())
-                    .foregroundStyle(Palette.primary)
-                    // One line, truncated: a title that wraps changes the panel's
-                    // height, and a panel that resizes per track is a panel that
-                    // jumps every time the song does.
-                    .lineLimit(1)
-                    .truncationMode(.tail))
+            HStack(alignment: .top, spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Button { openLink(.track) } label: {
+                        changing(Text(track.name)
+                            .font(Type.title())
+                            .foregroundStyle(Palette.primary)
+                            // One line, truncated: a title that wraps changes the panel's
+                            // height, and a panel that resizes per track is a panel that
+                            // jumps every time the song does.
+                            .lineLimit(1)
+                            .truncationMode(.tail))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Opens the song in Spotify")
+                    Button { openLink(.artist) } label: {
+                        changing(Text(track.artist)
+                            .font(Type.label())
+                            .foregroundStyle(Palette.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Opens the artist in Spotify")
+                    .padding(.top, 2)
+                }
+                if Self.showsPlus(track) {
+                    // Wider than the + target's overhang, so the title's own
+                    // button and this one never share a point (`docs/TRAPS.md` #21).
+                    Spacer(minLength: Self.plusGap)
+                    plus
+                }
             }
-            .buttonStyle(.plain)
-            .accessibilityHint("Opens the song in Spotify")
-            Button { openLink(.artist) } label: {
-                changing(Text(track.artist)
-                    .font(Type.label())
-                    .foregroundStyle(Palette.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail))
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("Opens the artist in Spotify")
-            .padding(.top, 2)
 
             Spacer(minLength: 0)
 
@@ -174,6 +184,35 @@ public struct PanelView: View {
         .animation(.easeOut(duration: 0.2 * Motion.slow), value: track.id)
     }
 
+    /// Where Spotify puts its own: the right end of the title row. What it
+    /// does is `SpotifyPlus`'s business -- it presses Spotify's +, or opens
+    /// the song -- and either way it acts on mouse-up like every button here.
+    ///
+    /// **Pad, shape, then give the layout back** (`docs/TRAPS.md` #41): the
+    /// 44pt target is live in full while the row lays out an 18pt glyph, so
+    /// the title keeps its width and the artist row keeps its place.
+    private var plus: some View {
+        Button { openLink(.save) } label: {
+            Image(systemName: "plus.circle")
+                .font(.system(size: Self.plusGlyph, weight: .regular))
+                .foregroundStyle(Palette.primary)
+                .frame(width: Self.plusGlyph, height: Self.plusGlyph)
+                .padding(Self.plusOverhang)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(-Self.plusOverhang)
+        // Centred on the title's 21pt line.
+        .padding(.top, (21 - Self.plusGlyph) / 2)
+        .accessibilityLabel("Save the song")
+    }
+
+    /// Only a real track can be saved. A local file, an episode or an ad has
+    /// no `spotify:track:` id, and a + that could do nothing is not drawn.
+    public nonisolated static func showsPlus(_ track: Track) -> Bool {
+        SpotifyLinks.pageURL(for: track.id) != nil
+    }
+
     static var textChange: AnyTransition {
         let lift: CGFloat = Motion.reduced ? 0 : 4, s = Motion.slow
         return .asymmetric(
@@ -217,6 +256,10 @@ public struct PanelView: View {
     /// rhythm; 16 reads as cramped against a block spaced more loosely than
     /// itself, and 23 reads as a separate zone.
     public static let transportGap: CGFloat = 8
+    static let plusGlyph: CGFloat = 18
+    /// How far the + target reaches past its glyph on each side: 44pt in all.
+    static let plusOverhang: CGFloat = (NotchGeometry.minimumHitHeight - plusGlyph) / 2
+    static let plusGap: CGFloat = plusOverhang + 4
     public static let bottomGap: CGFloat = 10
 
     /// Where the transport targets land on screen, top-left origin -- what
@@ -252,6 +295,16 @@ public struct PanelView: View {
     /// most of a hit band, and a probe aimed with the derived number reported
     /// a dead control that was working.
     public static let progressCentreBelowNotch: CGFloat = 66
+
+    /// The + target, same coordinates, derived from the same constants. Its
+    /// glyph's right edge is the text column's, like the progress line's.
+    public static func plusRect(_ geometry: NotchGeometry) -> CGRect {
+        let side = NotchGeometry.minimumHitHeight
+        let glyphRight = geometry.screenFrame.midX + geometry.collapsedWidth / 2 - inset
+        let glyphTop = geometry.notchExclusionTop + topGap + (21 - plusGlyph) / 2
+        return CGRect(x: glyphRight - plusGlyph - plusOverhang, y: glyphTop - plusOverhang,
+                      width: side, height: side)
+    }
 
     public static func transportRects(_ geometry: NotchGeometry)
         -> [(name: String, rect: CGRect)] {

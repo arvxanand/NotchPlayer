@@ -73,10 +73,12 @@ public enum PreviewData {
                                 artist: "أم كلثوم"),
                           state: .playing, position: 23.69),
               bands: nil, caption: "CJK and Arabic -- font fallback and RTL"),
-        State(name: "noart", now: .track(track(name: "Episode 412: The Long Way Round",
+        // A local file's id, so this is also the one state with no +.
+        State(name: "noart", now: .track(track(id: "spotify:local:Some+Podcast::Episode+412:0",
+                                               name: "Episode 412: The Long Way Round",
                                                artist: "Some Podcast", artwork: nil),
                                          state: .playing, position: 12.5),
-              bands: nil, caption: "podcast or local file: the mark stands in for the cover"),
+              bands: nil, caption: "podcast or local file: the mark stands in for the cover, no +"),
         // Automation refused, but a notification has already arrived -- so
         // the track, artist and position are all known and only the cover and
         // the buttons are missing. The panel says why instead of showing three
