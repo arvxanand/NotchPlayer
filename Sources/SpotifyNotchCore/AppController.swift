@@ -33,10 +33,15 @@ public final class AppController: NSObject, NSApplicationDelegate {
     }
     static let hiddenKey = "hiddenFromTheNotch"
 
+    /// `--cycle N`: a preview that changes track every N seconds.
+    private let previewCycle: Double?
+
     public init(preview: PreviewData.State? = nil, previewExpanded: Bool = false,
+                previewCycle: Double? = nil,
                 probe: Bool = false, offscreen: Bool = false,
                 captureServer: Bool = false) {
         self.preview = preview
+        self.previewCycle = previewCycle
         self.previewExpanded = previewExpanded
         self.probe = probe
         self.offscreen = offscreen
@@ -160,11 +165,14 @@ public final class AppController: NSObject, NSApplicationDelegate {
             // fixed data, rather than through a parallel "preview view" that
             // could drift from the real one.
             let open = previewExpanded
+            let cycle = previewCycle
             panel = NotchPanel(screen: screen) {
-                RootView(geometry: geometry, now: preview.now,
-                         permission: preview.permission, expanded: open,
-                         progress: preview.progress, holdBands: preview.bands,
-                         probe: probing)
+                CyclingPreview(every: cycle) { flipped in
+                    RootView(geometry: geometry, now: flipped ? PreviewData.nextTrack : preview.now,
+                             permission: preview.permission, expanded: open,
+                             progress: preview.progress, holdBands: preview.bands,
+                             probe: probing)
+                }
             }
         } else if probing {
             panel = NotchPanel(screen: screen) {
@@ -332,5 +340,23 @@ private struct Live: View {
                  onScrubbing: { expansion.hold($0) },
                  send: { service.send($0) },
                  openLink: { SpotifyLinks.open($0, for: $1) })
+    }
+}
+
+/// Flips between two tracks on a timer, for `--cycle`. Without one it never
+/// flips, so every other preview is untouched.
+struct CyclingPreview<Content: View>: View {
+    let every: Double?
+    @ViewBuilder let content: (Bool) -> Content
+    @State private var flipped = false
+
+    var body: some View {
+        content(flipped).task {
+            guard let every else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(every))
+                flipped.toggle()
+            }
+        }
     }
 }
