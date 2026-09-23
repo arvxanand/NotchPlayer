@@ -15,7 +15,7 @@ cd "$(dirname "$0")"
 
 CONFIG="${1:-release}"
 APP="NotchPlayer.app"
-LABEL="local.notchplayer"
+LABEL="io.github.arvxanand.notchplayer"
 AGENT="com.aravmanand.notchplayer"
 GUI="gui/$(id -u)"
 
