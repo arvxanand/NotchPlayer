@@ -2,16 +2,18 @@ import XCTest
 @testable import NotchPlayerCore
 
 final class LinksTests: XCTestCase {
-    /// The real page's tags, not a hand-written guess at them.
-    private var realPage: String {
+    /// A synthetic page with the real thing's structural quirks (attribute
+    /// order, the duplicate og:site_name, &gt;-escaping) -- not a hand-typed
+    /// guess, and not a copy of a real page either.
+    private var syntheticPage: String {
         let url = Bundle.module.url(forResource: "Fixtures/open-spotify-track", withExtension: "html")!
         return try! String(contentsOf: url, encoding: .utf8)
     }
 
-    func testTheRealPageGivesTheAlbumAndTheArtist() {
-        let page = SpotifyLinks.Page.parse(realPage)
-        XCTAssertEqual(page.album, URL(string: "spotify:album:2MASm01cgG0a0CgioQpe6Q"))
-        XCTAssertEqual(page.artist, URL(string: "spotify:artist:4KEHIUSoWCcqrk8AddTE1O"))
+    func testAPageWithRealWorldQuirksGivesTheAlbumAndTheArtist() {
+        let page = SpotifyLinks.Page.parse(syntheticPage)
+        XCTAssertEqual(page.album, URL(string: "spotify:album:ExampleAlbumId000000"))
+        XCTAssertEqual(page.artist, URL(string: "spotify:artist:ExampleArtistId00000"))
     }
 
     /// A collaboration lists every artist; the first is the one on the credit.
