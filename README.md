@@ -13,8 +13,8 @@ notch looks like a notch.
 
 ```bash
 ./tools/verify.sh              # everything checkable, in one command
-./make_app.sh release          # build the bundle, restart the agent if loaded
-./tools/install-agent.sh       # load it at login (first time only)
+./make_app.sh release          # build the bundle, restart it if running
+open SpotifyNotch.app          # start it; then Launch at Login in its menu
 ```
 
 ## When something looks wrong
@@ -40,7 +40,7 @@ open --stdout /tmp/bands.txt --stderr /tmp/bands.txt \
 | `tools/verify.sh` | build, tests, notch footprint, contrast, hygiene, docs |
 | `tools/check_notch.sh` | nothing legible behind the camera housing, every state. One parked window, ~17s |
 | `tools/hit_probe.sh` | the transport targets are live across their whole 44pt. **Changes playback**, and refuses to run while the app is up |
-| `tools/frame_probe.sh` | how many frames the expand animation really renders, measured on the running agent |
+| `tools/frame_probe.sh` | how many frames the expand animation really renders, measured on the running app |
 | `tools/sweep.sh` | nothing of ours left running; the reference agent is still up |
 | `tools/reset-permissions.sh` | make macOS re-ask for Automation and Audio Capture |
 | `tools/pixel_check.py` | assert about a window capture: `--unlit`, `--bounds` |
@@ -57,9 +57,18 @@ pointer away and it closes.
 A waveform glyph in the menu bar is the only other control: what is playing,
 **Hide from the Notch** (stands the app fully down -- no panel, no hover
 polling, no audio tap -- for when it collides with another notch app), and
-Quit. Hidden survives a relaunch. After a Quit:
+Quit. Hidden survives a relaunch. The gear opens settings:
+
+- **Launch at login** -- a normal macOS login item, listed in System Settings
+  -> General -> Login Items.
+- **Cover colour on the progress bar** -- the line takes the album cover's main
+  colour; a black-and-white cover keeps it white.
+
+After a Quit:
 
 ```bash
-launchctl kickstart -k gui/$(id -u)/com.aravmanand.spotifynotch
+open SpotifyNotch.app
 ```
+
+Logs go to `~/Library/Logs/SpotifyNotch.log`.
 

@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 import SwiftUI
 
 /// The menu-bar item: what is playing, a way to get the panel off the notch,
@@ -56,6 +57,10 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
         popover.contentSize = NSSize(width: MenuPanel.width, height: MenuPanel.height)
         // Transient: clicking anywhere else dismisses it, the way a menu does.
         popover.behavior = .transient
+        // **AppKit's own animation off; `MenuPanel` animates itself in.**
+        // `NSPopover`'s scale-and-fade lays SwiftUI out while it runs, which
+        // matchnotch measured as choppy.
+        popover.animates = false
         popover.delegate = self
         item.button?.target = self
         item.button?.action = #selector(toggle)
@@ -79,7 +84,42 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
                 self?.setHidden(!hidden)
                 self?.popover.performClose(nil)
             },
+            login: Self.login,
+            // Stays open so the box visibly changes -- unlike Hide, whose
+            // effect is on the notch.
+            toggleLogin: {
+                Self.toggleLogin()
+                print("launch at login: now \(Self.login)")
+                return Self.login
+            },
             quit: { NSApp.terminate(nil) }))
+    }
+
+    // MARK: - Launch at login
+
+    /// Read on every open, never cached: the user can change it in System
+    /// Settings -> General -> Login Items while the app runs.
+    private static var login: MenuPanel.Login {
+        switch SMAppService.mainApp.status {
+        case .enabled: .on
+        case .requiresApproval: .needsApproval
+        // `.notFound` too: a debug binary outside a bundle has nothing to
+        // register, and "off" is the truth about it.
+        default: .off
+        }
+    }
+
+    private static func toggleLogin() {
+        do {
+            switch login {
+            case .on: try SMAppService.mainApp.unregister()
+            case .off: try SMAppService.mainApp.register()
+            case .needsApproval: SMAppService.openSystemSettingsLoginItems()
+            }
+        } catch {
+            // The box stays as it was, which is the visible half of this.
+            print("launch at login: \(error)")
+        }
     }
 
     @objc private func toggle() {

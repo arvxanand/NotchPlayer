@@ -57,10 +57,27 @@ public final class AppController: NSObject, NSApplicationDelegate {
         NSScreen.screens.first { $0.safeAreaInsets.top > 0 }
     }
 
+    /// ponytail: appends forever, like the LaunchAgent's log did. Rotate it
+    /// if it ever gets big.
+    public static let logPath = NSHomeDirectory() + "/Library/Logs/SpotifyNotch.log"
+
+    private static var stdoutIsDevNull: Bool {
+        var out = stat(), null = stat()
+        return fstat(STDOUT_FILENO, &out) == 0 && stat("/dev/null", &null) == 0
+            && out.st_rdev == null.st_rdev && (out.st_mode & S_IFMT) == S_IFCHR
+    }
+
     public func applicationDidFinishLaunching(_ note: Notification) {
-        // A LaunchAgent's StandardErrorPath is a file, and Swift's print to a
-        // pipe is block-buffered -- so without this every log line is held
-        // until the process exits, which for a resident agent is never.
+        // **Launched by LaunchServices -- at login, by `open`, from Finder --
+        // stdout is /dev/null**, and every log line with it. Only then: a
+        // terminal, or `open --stdout FILE` (TRAPS #30), keeps its own.
+        if preview == nil, !probe, !captureServer, Self.stdoutIsDevNull {
+            freopen(Self.logPath, "a", stdout)
+            freopen(Self.logPath, "a", stderr)
+        }
+        // Swift's print to a file is block-buffered -- so without this every
+        // log line is held until the process exits, which for a resident app
+        // is never.
         setvbuf(stdout, nil, _IONBF, 0)
 
         build()

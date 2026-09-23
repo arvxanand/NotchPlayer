@@ -1,6 +1,6 @@
 #!/bin/bash
 # Assemble SpotifyNotch.app, and -- unlike matchnotch's equivalent -- restart
-# the resident agent if one is loaded.
+# the running copy if there is one.
 #
 # That second half is not a convenience. `swift build` does not update the
 # running notch, and a whole week can go into testing a binary that is not the
@@ -81,39 +81,46 @@ rm -f "$ENTITLEMENTS"
 echo "built $APP"
 
 EXE="$PWD/$APP/Contents/MacOS/SpotifyNotch"
-# Every running copy of this bundle's executable, launchd's or not. `comm` is
-# the executable path alone -- see tools/sweep.sh for why not `command`.
+# Every running copy of this bundle's executable. `comm` is the executable
+# path alone -- see tools/sweep.sh for why not `command`.
 bundle_pids() { ps -eo pid=,comm= | awk -v exe="$EXE" '{ p = $1; sub(/^ *[0-9]+ /, ""); if ($0 == exe) print p }'; }
-agent_pid() { launchctl list | awk -v a="$AGENT" '$3 == a { print $1 }'; }
+old=$(bundle_pids)
 
-if launchctl print "$GUI/$AGENT" >/dev/null 2>&1; then
-    # **A copy launchd does not own survives the kickstart** -- one started with
-    # `open` after a Quit, say. The fresh build then meets the duplicate guard,
-    # prints "already running" and exits 0, and the old binary stays on the
-    # notch. Stop those by pid first. `docs/TRAPS.md` #42.
-    old=$(agent_pid)
-    for pid in $(bundle_pids); do
-        [ "$pid" = "$old" ] && continue
-        echo "stopping pid $pid, a copy launchd does not own"
-        kill "$pid"
-    done
-    for _ in 1 2 3 4 5 6 7 8 9 10; do
-        [ -z "$(bundle_pids | grep -vx "$old")" ] && break
-        sleep 0.5
-    done
-    launchctl kickstart -k "$GUI/$AGENT"
-    # Believe the pid, not the exit code: kickstart succeeds either way.
-    for _ in $(seq 1 20); do
-        now=$(agent_pid)
-        if [ "$now" != "-" ] && [ "$now" != "$old" ] && [ "$(bundle_pids)" = "$now" ]; then
-            echo "restarted $AGENT as pid $now"
-            exit 0
-        fi
-        sleep 0.5
-    done
-    echo "FAIL  $AGENT did not come back as the only copy (launchd pid: $(agent_pid))"
-    bundle_pids | sed 's/^/      running: /'
-    exit 1
-else
-    echo "agent not loaded; ./tools/install-agent.sh to load it at login"
+# **The LaunchAgent is gone**, replaced by Launch at Login in the menu-bar
+# item (SMAppService). Both at once would launch two copies at login, so an
+# old agent is removed here, once. Its KeepAlive would also respawn the copy
+# stopped below.
+PLIST="$HOME/Library/LaunchAgents/$AGENT.plist"
+if launchctl print "$GUI/$AGENT" >/dev/null 2>&1 || [ -f "$PLIST" ]; then
+    launchctl bootout "$GUI/$AGENT" 2>/dev/null || true
+    rm -f "$PLIST"
+    echo "removed the old LaunchAgent $AGENT; use Launch at Login in the menu bar item"
 fi
+
+if [ -z "$old" ]; then
+    echo "not running; open $APP to start it"
+    exit 0
+fi
+
+# Stop every copy by pid, then start the new build with `open`: the audio
+# tap only works when LaunchServices launches the app (`docs/TRAPS.md` #30).
+# A copy left running would meet the fresh build's duplicate guard and keep
+# the old binary on the notch (`docs/TRAPS.md` #42).
+for pid in $old; do kill "$pid" 2>/dev/null || true; done
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    [ -z "$(bundle_pids)" ] && break
+    sleep 0.5
+done
+open "$APP"
+# Believe the pid, not open's exit code.
+for _ in $(seq 1 20); do
+    now=$(bundle_pids)
+    if [ -n "$now" ] && [ "$(echo "$now" | wc -l)" -eq 1 ] && ! echo "$old" | grep -qx "$now"; then
+        echo "restarted as pid $now"
+        exit 0
+    fi
+    sleep 0.5
+done
+echo "FAIL  the new build did not come up as the only copy"
+bundle_pids | sed 's/^/      running: /'
+exit 1
