@@ -21,16 +21,21 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-BIN=".build/release/SpotifyNotch"
-[ -x "$BIN" ] || BIN=".build/debug/SpotifyNotch"
+CONFIG=release
+[ -x ".build/$CONFIG/SpotifyNotch" ] || CONFIG=debug
+BIN=".build/$CONFIG/SpotifyNotch"
 [ -x "$BIN" ] || { echo "build first: swift build"; exit 1; }
 
-# A stale binary is rule 2 in a new costume, and it bit here once already: a
-# flag was added, the script run without rebuilding, and it hung waiting on
-# output from a binary that did not know the flag.
+# A stale binary is rule 2 in a new costume, and it bit here twice: a flag was
+# added, the script run without rebuilding, and it hung waiting on output
+# from a binary that did not know the flag. Then **it rebuilt the wrong one**
+# -- `swift build` is debug, `$BIN` was release -- so it checked a stale
+# release binary that did not know a new preview state, and passed
+# (TRAPS #45).
+# Build the configuration that is about to run.
 if [ -n "$(find Sources -name '*.swift' -newer "$BIN" -print -quit)" ]; then
-    echo "sources are newer than $BIN -- building"
-    swift build >/dev/null 2>&1 || { echo "build failed"; exit 1; }
+    echo "sources are newer than $BIN -- building $CONFIG"
+    swift build -c "$CONFIG" >/dev/null 2>&1 || { echo "build failed"; exit 1; }
 fi
 
 OUT="$(mktemp -d)"
