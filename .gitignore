@@ -10,3 +10,9 @@ hig-audit.json
 
 # Design mockups stay local too.
 docs/mockups/
+
+# Demo pipeline. The raw captures are hundreds of MB and regenerable from a
+# re-record; only the built GIFs in assets/ are committed. vendor/ is the
+# cloned frames-cli -- NOT tools/, which is this repo's own committed scripts.
+vendor/
+recordings/
