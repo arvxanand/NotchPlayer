@@ -1,0 +1,59 @@
+# Builds NotchPlayer.dmg for a version tag and attaches it to a DRAFT release.
+#
+# It never publishes. A draft is only visible to people with write access: the
+# owner downloads it, tries it, and presses Publish, and a bad build can be
+# deleted with nobody having seen it. Once published, the README's releases/latest/download link and the
+# Homebrew cask pick it up.
+#
+# No notarisation: that needs the paid Apple Developer Program, which was
+# declined. The app is ad-hoc signed by make_app.sh, and users clear macOS's
+# warning once (the README walks them through it).
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write   # gh release create
+
+jobs:
+  dmg:
+    # macos-15 has Xcode 16: Swift 6 and the macOS 15 SDK, as Package.swift wants.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the app
+        # The tag is the version: v0.2 -> 0.2.
+        run: VERSION="${GITHUB_REF_NAME#v}" ./make_app.sh release
+
+      - name: Pack the dmg
+        run: tools/make-dmg.sh
+
+      # Checked from inside the dmg, because that is the copy users get.
+      # make_app.sh only warns when codesign fails, so this is what fails the
+      # job. Without the apple-events entitlement every Apple Event fails with
+      # -1743 and looks like a denied permission (docs/TRAPS.md #34).
+      - name: Check the app inside the dmg
+        run: |
+          set -euo pipefail
+          mnt=$(mktemp -d)
+          hdiutil attach NotchPlayer.dmg -nobrowse -readonly -mountpoint "$mnt"
+          app="$mnt/NotchPlayer.app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign -dv "$app"
+          codesign -d --entitlements - --xml "$app" | grep -q com.apple.security.automation.apple-events
+          plist="$app/Contents/Info.plist"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$plist")" = "${GITHUB_REF_NAME#v}"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$plist")" = io.github.arvxanand.notchplayer
+          hdiutil detach "$mnt"
+
+      - name: Attach to a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" NotchPlayer.dmg --draft --generate-notes \
+            --title "NotchPlayer ${GITHUB_REF_NAME#v}"
+          # The Homebrew cask needs this after the draft is published.
+          echo "sha256 \`$(shasum -a 256 NotchPlayer.dmg | cut -d' ' -f1)\`" >> "$GITHUB_STEP_SUMMARY"
