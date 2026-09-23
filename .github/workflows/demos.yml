@@ -1,0 +1,60 @@
+# Guards the README demo GIFs.
+#
+# This is deliberately NOT "regenerate the GIFs in CI". That can't work here:
+# recordings/ is gitignored (the raw .mov files are hundreds of MB), so CI
+# never sees a recording change and the trigger could never fire. Rebuilding
+# would also need frames-cli plus a 39MB Apple bezel asset download on every
+# run, on a macOS runner, to reproduce something a human only changes when
+# they deliberately re-record.
+#
+# What actually goes wrong is committing a GIF that's too big or too wide, so
+# that is what this checks. Runs in seconds on Linux.
+name: demos
+
+on:
+  pull_request:
+    paths: ['assets/demo/**', 'scripts/**', '.github/workflows/demos.yml']
+  push:
+    branches: [main]
+    paths: ['assets/demo/**', 'scripts/**', '.github/workflows/demos.yml']
+
+jobs:
+  check-gifs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install probe tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Every GIF is under 5MB and at most 1200px wide
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          gifs=(assets/demo/*.gif)
+          if [ ${#gifs[@]} -eq 0 ]; then
+            echo "no demo GIFs committed yet -- nothing to check"
+            exit 0
+          fi
+
+          fail=0
+          for gif in "${gifs[@]}"; do
+            bytes=$(stat -c%s "$gif")
+            width=$(ffprobe -v error -select_streams v:0 \
+                      -show_entries stream=width -of csv=p=0 "$gif")
+            mb=$(awk "BEGIN {printf \"%.1f\", $bytes/1048576}")
+
+            if [ "$bytes" -gt $((5 * 1024 * 1024)) ]; then
+              echo "::error file=$gif::${mb}MB exceeds the 5MB budget -- re-run scripts/make-demo.sh, it will escalate compression"
+              fail=1
+            elif [ "$width" -gt 1200 ]; then
+              echo "::error file=$gif::${width}px wide; the README shows these at width=800, 1200 is already enough for Retina"
+              fail=1
+            else
+              echo "ok  $gif  ${mb}MB  ${width}px"
+            fi
+          done
+          exit $fail
+
+      - name: Shell scripts parse
+        run: bash -n scripts/make-demo.sh scripts/build-all.sh
