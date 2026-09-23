@@ -1,7 +1,6 @@
-// Draws the app icon: the notch with a cover on one side and waveform bars on
-// the other, which is what the app looks like collapsed. Drawn in code so it
-// can be redrawn without a design tool, and so it is plainly not Spotify's
-// mark (docs/RECORDING.md §4).
+// Draws the app icon: a waveform on a dark tile. Drawn in code so it can be
+// redrawn without a design tool, and so it is plainly not Spotify's mark
+// (docs/RECORDING.md §4).
 //
 //   swift tools/make-icon.swift            # writes assets/AppIcon.icns and assets/logo.png
 import AppKit
@@ -28,31 +27,19 @@ let data = png { cg in
         CGColor(red: 0.07, green: 0.07, blue: 0.10, alpha: 1)] as CFArray, locations: [0, 1])!
     cg.drawLinearGradient(bg, start: CGPoint(x: 512, y: 924), end: CGPoint(x: 512, y: 100), options: [])
 
-    // The notch hangs from the top edge, as wide as the cover + gap + bars.
-    let notch = CGRect(x: 212, y: 560, width: 600, height: 364)
-    cg.addPath(CGPath(roundedRect: notch, cornerWidth: 90, cornerHeight: 90, transform: nil))
-    cg.addRect(CGRect(x: notch.minX, y: notch.midY, width: notch.width, height: notch.height / 2))
-    cg.setFillColor(.black); cg.fillPath()
-
-    // Cover on the left, a warm gradient standing in for album art.
-    let cover = CGRect(x: 262, y: 620, width: 170, height: 170)
-    cg.saveGState()
-    cg.addPath(CGPath(roundedRect: cover, cornerWidth: 32, cornerHeight: 32, transform: nil)); cg.clip()
-    let art = CGGradient(colorsSpace: nil, colors: [
-        CGColor(red: 1.00, green: 0.55, blue: 0.35, alpha: 1),
-        CGColor(red: 0.85, green: 0.25, blue: 0.55, alpha: 1)] as CFArray, locations: [0, 1])!
-    cg.drawLinearGradient(art, start: CGPoint(x: cover.minX, y: cover.maxY),
-                          end: CGPoint(x: cover.maxX, y: cover.minY), options: [])
-    cg.restoreGState()
-
-    // Waveform bars on the right, centred on the cover's middle.
-    let heights: [CGFloat] = [70, 140, 100, 170, 120, 80]
-    cg.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.92))
+    // A waveform, shaped like the menu-bar glyph, in a warm gradient.
+    let heights: [CGFloat] = [120, 230, 340, 470, 560, 470, 340, 230, 120]
+    let bar: CGFloat = 44, gap: CGFloat = 30
+    let left = 512 - (CGFloat(heights.count) * bar + CGFloat(heights.count - 1) * gap) / 2
     for (i, h) in heights.enumerated() {
-        let bar = CGRect(x: 520 + CGFloat(i) * 42, y: cover.midY - h / 2, width: 24, height: h)
-        cg.addPath(CGPath(roundedRect: bar, cornerWidth: 12, cornerHeight: 12, transform: nil))
+        let r = CGRect(x: left + CGFloat(i) * (bar + gap), y: 512 - h / 2, width: bar, height: h)
+        cg.addPath(CGPath(roundedRect: r, cornerWidth: bar / 2, cornerHeight: bar / 2, transform: nil))
     }
-    cg.fillPath()
+    cg.clip()
+    let art = CGGradient(colorsSpace: nil, colors: [
+        CGColor(red: 1.00, green: 0.62, blue: 0.35, alpha: 1),
+        CGColor(red: 0.88, green: 0.28, blue: 0.60, alpha: 1)] as CFArray, locations: [0, 1])!
+    cg.drawLinearGradient(art, start: CGPoint(x: 512, y: 792), end: CGPoint(x: 512, y: 232), options: [])
 }
 
 let assets = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
