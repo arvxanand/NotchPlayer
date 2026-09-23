@@ -337,8 +337,10 @@ private struct Live: View {
     var body: some View {
         RootView(geometry: geometry, now: service.now, permission: service.permission,
                  expanded: expansion.expanded, progress: service.progress,
+                 modes: service.modes,
                  onScrubbing: { expansion.hold($0) },
                  send: { service.send($0) },
+                 setRepeat: { service.setRepeat($0) },
                  openLink: { SpotifyLinks.open($0, for: $1) })
     }
 }
