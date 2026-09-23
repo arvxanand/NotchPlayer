@@ -1,5 +1,5 @@
 import XCTest
-@testable import SpotifyNotchCore
+@testable import NotchPlayerCore
 
 private let geometry = NotchGeometry(screenFrame: CGRect(x: 0, y: 0, width: 1920, height: 1243),
                                      notchWidth: 208, notchHeight: 37, hasNotch: true)

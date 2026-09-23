@@ -1,5 +1,5 @@
 import XCTest
-@testable import SpotifyNotchCore
+@testable import NotchPlayerCore
 
 private let track = Track(id: "x", name: "n", artist: "a", album: "b",
                           duration: 100, hasArtwork: false)

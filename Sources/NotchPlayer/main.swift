@@ -1,7 +1,7 @@
 import AppKit
 import ApplicationServices
 import Combine
-import SpotifyNotchCore
+import NotchPlayerCore
 
 let args = CommandLine.arguments
 
@@ -181,7 +181,7 @@ if args.contains("--hit-rects") {
 
 /// Whether macOS lets *this copy* use Accessibility, which the + needs.
 /// Launch it through LaunchServices (`open -n --stdout FILE -a
-/// SpotifyNotch.app --args --trusted`): from a shell the terminal is the
+/// NotchPlayer.app --args --trusted`): from a shell the terminal is the
 /// responsible process and the answer is about the terminal (TRAPS #30).
 if args.contains("--trusted") {
     print("accessibility trusted: \(AXIsProcessTrusted())")
@@ -249,7 +249,7 @@ if let id = Bundle.main.bundleIdentifier {
     let others = NSRunningApplication.runningApplications(withBundleIdentifier: id)
         .filter { $0.processIdentifier != mine }
     if !others.isEmpty {
-        FileHandle.standardError.write(Data("SpotifyNotch is already running\n".utf8))
+        FileHandle.standardError.write(Data("NotchPlayer is already running\n".utf8))
         exit(0)
     }
 }
@@ -265,6 +265,6 @@ MainActor.assumeIsolated {
                                    captureServer: args.contains("--capture-server"))
     app.delegate = controller
     // NSApplication holds its delegate weakly.
-    objc_setAssociatedObject(app, "spotifynotch.controller", controller, .OBJC_ASSOCIATION_RETAIN)
+    objc_setAssociatedObject(app, "notchplayer.controller", controller, .OBJC_ASSOCIATION_RETAIN)
     app.run()
 }

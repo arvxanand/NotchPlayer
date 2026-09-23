@@ -28,14 +28,14 @@ cd "$(dirname "$0")/.."
 # than as an error. That looked exactly like a regression in the panel, and
 # cost an hour of hunting one. With the agent stopped the same probe passes
 # every check.
-if pgrep -f 'SpotifyNotch\.app/Contents/MacOS/SpotifyNotch' >/dev/null; then
+if pgrep -f 'NotchPlayer\.app/Contents/MacOS/NotchPlayer' >/dev/null; then
     echo "the installed app is running, and its panel is in the way."
     echo "Quit it from the menu bar item, then:"
-    echo "    ./tools/hit_probe.sh && open SpotifyNotch.app"
+    echo "    ./tools/hit_probe.sh && open NotchPlayer.app"
     exit 1
 fi
 
-BIN=".build/debug/SpotifyNotch"
+BIN=".build/debug/NotchPlayer"
 [ -n "$(find Sources -name '*.swift' -newer "$BIN" -print -quit 2>/dev/null)" ] && swift build >/dev/null
 [ -x "$BIN" ] || { echo "swift build first"; exit 1; }
 

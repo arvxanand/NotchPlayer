@@ -1,5 +1,5 @@
 import XCTest
-@testable import SpotifyNotchCore
+@testable import NotchPlayerCore
 
 /// WCAG 2.x relative luminance and contrast, written out here rather than
 /// imported, so the palette is checked against the formula and not against

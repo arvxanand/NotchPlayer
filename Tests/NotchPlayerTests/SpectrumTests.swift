@@ -1,5 +1,5 @@
 import XCTest
-@testable import SpotifyNotchCore
+@testable import NotchPlayerCore
 
 /// The real-audio half of `Bands`, driven by signals whose answer is known
 /// before the code runs. A visualiser is the easiest thing in the world to

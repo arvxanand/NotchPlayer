@@ -65,7 +65,7 @@ fi
 step "Colour contrast (HIG)"
 checker="$HOME/.claude/skills/apple-hig-expert/scripts/hig_checker.py"
 if [ -f "$checker" ]; then
-    .build/debug/SpotifyNotch --audit > hig-audit.json
+    .build/debug/NotchPlayer --audit > hig-audit.json
     audit=$(python3 "$checker" batch hig-audit.json 2>&1)
     score=$(printf '%s' "$audit" | sed -n 's/.*"score": \([0-9]*\).*/\1/p')
     n=$(grep -c '"type"' hig-audit.json)

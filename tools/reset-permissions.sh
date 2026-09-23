@@ -7,7 +7,7 @@
 # app that is listed as allowed in System Settings, or the waveform silently
 # never receiving a buffer.
 set -euo pipefail
-ID="local.spotifynotch"
+ID="local.notchplayer"
 tccutil reset AppleEvents "$ID" || true
 tccutil reset AudioCapture "$ID" || true
 # The + (docs/TRAPS.md #51): switching the entry off and on in System

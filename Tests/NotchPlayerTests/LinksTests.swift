@@ -1,5 +1,5 @@
 import XCTest
-@testable import SpotifyNotchCore
+@testable import NotchPlayerCore
 
 final class LinksTests: XCTestCase {
     /// The real page's tags, not a hand-written guess at them.

@@ -49,10 +49,10 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
         // matchnotch's item is a sport glyph two positions away, so the two
         // must not be confusable at 16pt.
         let image = NSImage(systemSymbolName: "waveform",
-                            accessibilityDescription: "SpotifyNotch")
+                            accessibilityDescription: "NotchPlayer")
         image?.isTemplate = true
         item.button?.image = image
-        item.button?.toolTip = "SpotifyNotch"
+        item.button?.toolTip = "NotchPlayer"
 
         popover.contentSize = NSSize(width: MenuPanel.width, height: MenuPanel.height)
         // Transient: clicking anywhere else dismisses it, the way a menu does.

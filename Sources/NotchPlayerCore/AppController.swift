@@ -64,7 +64,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
 
     /// ponytail: appends forever, like the LaunchAgent's log did. Rotate it
     /// if it ever gets big.
-    public static let logPath = NSHomeDirectory() + "/Library/Logs/SpotifyNotch.log"
+    public static let logPath = NSHomeDirectory() + "/Library/Logs/NotchPlayer.log"
 
     private static var stdoutIsDevNull: Bool {
         var out = stat(), null = stat()
@@ -143,7 +143,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
     private func build() {
         guard !hidden else { return standDown() }
         guard let screen = Self.notchedScreen else {
-            NSLog("SpotifyNotch: no notched display, drawing nothing")
+            NSLog("NotchPlayer: no notched display, drawing nothing")
             // Nothing is drawn in clamshell, so nothing needs listening to.
             // Holding a process tap open to feed a waveform on no screen is
             // the definition of a background app being a bad citizen.

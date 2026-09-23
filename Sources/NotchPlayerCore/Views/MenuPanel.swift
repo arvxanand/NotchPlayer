@@ -131,7 +131,7 @@ public struct MenuPanel: View {
             Row(title: hidden ? "Show in the Notch" : "Hide from the Notch",
                 symbol: hidden ? "eye" : "eye.slash", action: toggleHidden)
             divider
-            Row(title: "Quit SpotifyNotch", symbol: "power", action: quit)
+            Row(title: "Quit NotchPlayer", symbol: "power", action: quit)
         }
         .overlay(alignment: .topTrailing) {
             Glyph(symbol: "gearshape", label: "Settings") { go(.settings) }
@@ -340,7 +340,7 @@ public struct MenuPanel: View {
 /// Ported from matchnotch, where three attempts at a smooth slide were made
 /// from theory and one made it worse; this ended it. `animatableData` is set
 /// once per frame the animation computes, so it reports how far the page
-/// jumped between drawn frames. Off unless `SPOTIFYNOTCH_PAGE_PROBE` is set.
+/// jumped between drawn frames. Off unless `NOTCHPLAYER_PAGE_PROBE` is set.
 struct PageOffset: GeometryEffect {
     var x: CGFloat
     /// Only one page is recorded: both animate together, and two into one
@@ -364,7 +364,7 @@ struct PageOffset: GeometryEffect {
 
 @MainActor
 enum PageProbe {
-    static let enabled = ProcessInfo.processInfo.environment["SPOTIFYNOTCH_PAGE_PROBE"] != nil
+    static let enabled = ProcessInfo.processInfo.environment["NOTCHPLAYER_PAGE_PROBE"] != nil
     private static var times: [CFTimeInterval] = []
     private static var values: [CGFloat] = []
     private static var flush: Task<Void, Never>?

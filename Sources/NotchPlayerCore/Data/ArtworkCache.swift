@@ -37,7 +37,7 @@ public actor ArtworkCache {
 
     public init() {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        directory = base.appendingPathComponent("SpotifyNotch/artwork", isDirectory: true)
+        directory = base.appendingPathComponent("NotchPlayer/artwork", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 

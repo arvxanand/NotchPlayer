@@ -1,5 +1,5 @@
 import XCTest
-@testable import SpotifyNotchCore
+@testable import NotchPlayerCore
 
 final class ArtworkChangeTests: XCTestCase {
     private let a = URL(string: "https://i.scdn.co/image/a")!

@@ -1,5 +1,5 @@
 import XCTest
-@testable import SpotifyNotchCore
+@testable import NotchPlayerCore
 
 private func fixture(_ name: String) -> Data {
     let url = Bundle.module.url(forResource: "Fixtures/\(name)", withExtension: "json")

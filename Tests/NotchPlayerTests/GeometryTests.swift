@@ -1,5 +1,5 @@
 import XCTest
-@testable import SpotifyNotchCore
+@testable import NotchPlayerCore
 
 /// This display's real numbers, so the arithmetic is checked against a Mac
 /// that exists rather than against round figures.

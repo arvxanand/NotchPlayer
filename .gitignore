@@ -1,6 +1,6 @@
 .build/
 .DS_Store
-SpotifyNotch.app/
+NotchPlayer.app/
 *.log
 hig-audit.json
 

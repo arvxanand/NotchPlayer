@@ -1,4 +1,4 @@
-# SpotifyNotch
+# NotchPlayer
 
 Spotify now-playing in the MacBook notch. Swift 6 / SwiftUI + AppKit, no
 dependencies.
@@ -14,15 +14,15 @@ notch looks like a notch.
 ```bash
 ./tools/verify.sh              # everything checkable, in one command
 ./make_app.sh release          # build the bundle, restart it if running
-open SpotifyNotch.app          # start it; then Launch at Login in its menu
+open NotchPlayer.app          # start it; then Launch at Login in its menu
 ```
 
 ## When something looks wrong
 
 ```bash
-.build/debug/SpotifyNotch --read        # what Spotify is actually saying
-.build/debug/SpotifyNotch --watch 30    # every state change, stamped, no UI
-.build/debug/SpotifyNotch --list-previews
+.build/debug/NotchPlayer --read        # what Spotify is actually saying
+.build/debug/NotchPlayer --watch 30    # every state change, stamped, no UI
+.build/debug/NotchPlayer --list-previews
 ```
 
 The waveform is the exception: the audio tap needs macOS to launch the app, or
@@ -30,7 +30,7 @@ TCC silently hands it nothing but zeros.
 
 ```bash
 open --stdout /tmp/bands.txt --stderr /tmp/bands.txt \
-     -a SpotifyNotch.app --args --bands 8   # live bars, or "no live audio"
+     -a NotchPlayer.app --args --bands 8   # live bars, or "no live audio"
 ```
 
 ## Checks
@@ -81,8 +81,8 @@ Quit. Hidden survives a relaunch. The gear opens settings:
 After a Quit:
 
 ```bash
-open SpotifyNotch.app
+open NotchPlayer.app
 ```
 
-Logs go to `~/Library/Logs/SpotifyNotch.log`.
+Logs go to `~/Library/Logs/NotchPlayer.log`.
 

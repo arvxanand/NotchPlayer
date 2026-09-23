@@ -1,5 +1,5 @@
 import XCTest
-@testable import SpotifyNotchCore
+@testable import NotchPlayerCore
 
 /// The panel's +: which of Spotify's buttons it presses, when it presses
 /// rather than opening the song, and where its target is.

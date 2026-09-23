@@ -40,10 +40,10 @@ public enum Motion {
         reduced ? .easeInOut(duration: 0.18) : spring
     }
 
-    /// `SPOTIFYNOTCH_SLOW_MOTION=10` stretches the track-change animations ten
+    /// `NOTCHPLAYER_SLOW_MOTION=10` stretches the track-change animations ten
     /// times, so a window capture every ~150ms can see each stage of a 0.35s
     /// fade. The fast capture API is gone on macOS 15. 1 unless set.
-    public static let slow = ProcessInfo.processInfo.environment["SPOTIFYNOTCH_SLOW_MOTION"]
+    public static let slow = ProcessInfo.processInfo.environment["NOTCHPLAYER_SLOW_MOTION"]
         .flatMap(Double.init) ?? 1
 }
 

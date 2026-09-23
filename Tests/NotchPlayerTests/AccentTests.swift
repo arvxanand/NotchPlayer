@@ -1,5 +1,5 @@
 import XCTest
-@testable import SpotifyNotchCore
+@testable import NotchPlayerCore
 
 final class AccentTests: XCTestCase {
     /// `n` pixels of one colour, as RGBA bytes.

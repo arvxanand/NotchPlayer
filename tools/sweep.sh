@@ -2,8 +2,8 @@
 # Is anything of ours still on the user's notch, and is their own app still up?
 #
 # **Both of the checks this replaces were wrong, and both reported "fine" for
-# hours.** `pgrep -fl 'spotifyNotch/\.build'` never matched, because the
-# processes are launched as `.build/debug/SpotifyNotch` with no directory
+# hours.** `pgrep -fl 'notchPlayer/\.build'` never matched, because the
+# processes are launched as `.build/debug/NotchPlayer` with no directory
 # prefix in argv. And `launchctl list | grep -c matchnotch` counts a *line*,
 # which exists whether or not the job has a live PID -- the reference app was
 # down and the check kept saying 1.
@@ -20,23 +20,23 @@ fail=0
 # arguments, so any shell whose own invocation mentions the binary -- this
 # script's caller, for one -- was reported as a leak. `comm` is the executable
 # path alone.
-ours=$(ps -eo pid=,etime=,comm= | awk '$3 ~ /\/SpotifyNotch$/ { print }')
+ours=$(ps -eo pid=,etime=,comm= | awk '$3 ~ /\/NotchPlayer$/ { print }')
 # Anything whose executable lives in the app bundle is the real app, which has
 # a menu-bar item and a Quit. Everything else is a build product somebody left
 # running.
-strays=$(printf '%s\n' "$ours" | grep -v 'SpotifyNotch\.app/Contents/MacOS/SpotifyNotch' | grep -v '^$')
-app=$(printf '%s\n' "$ours" | grep 'SpotifyNotch\.app/Contents/MacOS/SpotifyNotch')
+strays=$(printf '%s\n' "$ours" | grep -v 'NotchPlayer\.app/Contents/MacOS/NotchPlayer' | grep -v '^$')
+app=$(printf '%s\n' "$ours" | grep 'NotchPlayer\.app/Contents/MacOS/NotchPlayer')
 
 if [ -n "$strays" ]; then
     echo "LEAKED -- these have no Dock icon and no Quit, so the user cannot close them:"
     printf '%s\n' "$strays" | sed 's/^/    /'
-    echo "    kill them by pid. Never 'pkill -f SpotifyNotch'."
+    echo "    kill them by pid. Never 'pkill -f NotchPlayer'."
     fail=1
 elif [ -z "$app" ]; then
-    echo "ok    no SpotifyNotch processes"
+    echo "ok    no NotchPlayer processes"
 fi
 if [ -n "$app" ]; then
-    echo "ok    SpotifyNotch.app is running (quittable from its menu bar item):"
+    echo "ok    NotchPlayer.app is running (quittable from its menu bar item):"
     printf '%s\n' "$app" | sed 's/^/          /'
 fi
 

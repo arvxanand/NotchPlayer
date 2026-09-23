@@ -13,14 +13,14 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-BIN=".build/debug/SpotifyNotch"
+BIN=".build/debug/NotchPlayer"
 [ -x "$BIN" ] || { echo "swift build first"; exit 1; }
-LOG="$HOME/Library/Logs/SpotifyNotch.log"
+LOG="$HOME/Library/Logs/NotchPlayer.log"
 
-pgrep -f 'SpotifyNotch.app/Contents/MacOS/SpotifyNotch' >/dev/null || {
-    echo "no running app -- open SpotifyNotch.app"; exit 1; }
+pgrep -f 'NotchPlayer.app/Contents/MacOS/NotchPlayer' >/dev/null || {
+    echo "no running app -- open NotchPlayer.app"; exit 1; }
 [ -f "$LOG" ] || { echo "no $LOG -- the probe reads the app's log, which it only"
-                   echo "writes when LaunchServices started it (open SpotifyNotch.app)"; exit 1; }
+                   echo "writes when LaunchServices started it (open NotchPlayer.app)"; exit 1; }
 
 TOOLS="$(mktemp -d)"
 trap 'rm -rf "$TOOLS"' EXIT
@@ -64,5 +64,5 @@ sleep 1.2
 "$BIN" --probe-signal report
 sleep 0.5
 
-echo "measured on pid $(pgrep -f 'SpotifyNotch.app/Contents/MacOS/SpotifyNotch' | head -1):"
+echo "measured on pid $(pgrep -f 'NotchPlayer.app/Contents/MacOS/NotchPlayer' | head -1):"
 tail -n +$((BEFORE + 1)) "$LOG" | grep '^probe:' | sed 's/^/    /'

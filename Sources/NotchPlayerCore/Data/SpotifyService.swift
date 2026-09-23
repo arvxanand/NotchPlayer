@@ -77,7 +77,7 @@ public final class SpotifyService: ObservableObject {
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) {
                 [weak self] _ in
                 MainActor.assumeIsolated {
-                    NSLog("SpotifyNotch: woke, re-reading now")
+                    NSLog("NotchPlayer: woke, re-reading now")
                     self?.refresh()
                 }
             })
@@ -132,7 +132,7 @@ public final class SpotifyService: ObservableObject {
             // Fall back to a full read rather than discarding the event: the
             // notification told us *something* changed, and that is still true
             // even if we could not parse it.
-            NSLog("SpotifyNotch: unparsable notification (%@), falling back to a read", what)
+            NSLog("NotchPlayer: unparsable notification (%@), falling back to a read", what)
             refresh()
         }
     }
@@ -160,7 +160,7 @@ public final class SpotifyService: ObservableObject {
             permission = .denied
             return nil
         case .failure(let other):
-            NSLog("SpotifyNotch: artwork url failed: %@", String(describing: other))
+            NSLog("NotchPlayer: artwork url failed: %@", String(describing: other))
             return nil
         }
     }
@@ -200,7 +200,7 @@ public final class SpotifyService: ObservableObject {
     /// before the first successful read; afterwards it leaves the last good
     /// value on screen and books a retry.
     private func unresolved(_ reason: String) {
-        NSLog("SpotifyNotch: %@", reason)
+        NSLog("NotchPlayer: %@", reason)
         if case .unknown = now { now = .unknown(reason) }
         // The retry clock starts now, when the answer arrived -- not when the
         // question was asked. A TTL stamped before the request turns one
@@ -329,7 +329,7 @@ public final class SpotifyService: ObservableObject {
         case .failure(.denied):
             permission = .denied
         case .failure(let other):
-            NSLog("SpotifyNotch: %@ failed: %@", command.name, String(describing: other))
+            NSLog("NotchPlayer: %@ failed: %@", command.name, String(describing: other))
         }
     }
 }

@@ -93,6 +93,6 @@ public final class FrameProbe: @unchecked Sendable {
 
     // MARK: - Names the tool and the app agree on
 
-    public static let startNotification = "local.spotifynotch.probe.start"
-    public static let reportNotification = "local.spotifynotch.probe.report"
+    public static let startNotification = "local.notchplayer.probe.start"
+    public static let reportNotification = "local.notchplayer.probe.report"
 }

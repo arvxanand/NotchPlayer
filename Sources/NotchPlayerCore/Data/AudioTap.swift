@@ -150,7 +150,7 @@ public final class AudioTap {
         ring = nil; analyzer = nil
         bands = nil
         status = .unavailable(reason)
-        NSLog("SpotifyNotch: no live waveform (%@)", reason)
+        NSLog("NotchPlayer: no live waveform (%@)", reason)
     }
 
     /// One frame of bar heights, or nil when there is no live audio and the
@@ -184,7 +184,7 @@ public final class AudioTap {
             status = quiet ? .silent : .listening
             if !reported, quiet || lastSignal != nil {
                 reported = true
-                NSLog("SpotifyNotch: waveform %@ (%.0fHz)",
+                NSLog("NotchPlayer: waveform %@ (%.0fHz)",
                       quiet ? "synthetic -- tap is silent, audio recording permission"
                             : "live", rate)
             }
@@ -251,7 +251,7 @@ extension AudioTap {
 
             let description = CATapDescription(stereoMixdownOfProcesses: [processObject])
             description.uuid = UUID()
-            description.name = "SpotifyNotch"
+            description.name = "NotchPlayer"
             description.isPrivate = true
             // **Unmuted, and this is not a detail.** The other behaviours let
             // a tap silence what it is listening to; muting the user's music
@@ -270,7 +270,7 @@ extension AudioTap {
             // exists to carry the tap and nothing else.
             let uid = UUID().uuidString
             let settings: [String: Any] = [
-                kAudioAggregateDeviceNameKey: "SpotifyNotch Tap",
+                kAudioAggregateDeviceNameKey: "NotchPlayer Tap",
                 kAudioAggregateDeviceUIDKey: uid,
                 kAudioAggregateDeviceIsPrivateKey: true,
                 kAudioAggregateDeviceIsStackedKey: false,

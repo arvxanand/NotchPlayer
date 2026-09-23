@@ -77,7 +77,7 @@ public struct PermissionPanel: View {
                         .font(Type.title())
                         .foregroundStyle(Palette.primary)
                         .lineLimit(1)
-                    Text("SpotifyNotch needs permission to read what's playing.")
+                    Text("NotchPlayer needs permission to read what's playing.")
                         .font(Type.label())
                         .foregroundStyle(Palette.secondary)
                         .lineLimit(2)

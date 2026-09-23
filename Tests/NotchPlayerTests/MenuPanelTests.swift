@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import SpotifyNotchCore
+@testable import NotchPlayerCore
 
 /// Both pages share one fixed height so the popover never resizes mid-slide,
 /// and they are clipped -- so a page that outgrows it loses its last row
