@@ -28,6 +28,9 @@ public struct PanelView: View {
     let openLink: (SpotifyLinks.Target) -> Void
 
     @State private var scrub: Double?
+    /// Watched for the cover's colour, which arrives with the cover.
+    @ObservedObject private var memory = ArtMemory.shared
+    @AppStorage(Accent.enabledKey) private var coverAccent = true
 
     public init(geometry: NotchGeometry, track: Track, progress: Interpolator?,
                 playing: Bool, controllable: Bool = true,
@@ -129,6 +132,9 @@ public struct PanelView: View {
                 VStack(spacing: 4) {
                     ProgressLine(
                         fraction: track.duration > 0 ? position / track.duration : 0,
+                        accent: memory.accent(for: coverAccent ? track.artworkURL : nil).map {
+                            Color(red: $0.r, green: $0.g, blue: $0.b)
+                        } ?? Palette.primary,
                         onScrub: seekable ? { scrub = $0; onScrubbing(true) } : nil,
                         onCommit: seekable ? { commit($0) } : nil)
                     HStack(spacing: 0) {

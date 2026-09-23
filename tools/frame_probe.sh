@@ -15,12 +15,12 @@ cd "$(dirname "$0")/.."
 
 BIN=".build/debug/SpotifyNotch"
 [ -x "$BIN" ] || { echo "swift build first"; exit 1; }
-LOG="out.log"
+LOG="$HOME/Library/Logs/SpotifyNotch.log"
 
 pgrep -f 'SpotifyNotch.app/Contents/MacOS/SpotifyNotch' >/dev/null || {
-    echo "no running app -- ./tools/install-agent.sh, or open the bundle"; exit 1; }
-[ -f "$LOG" ] || { echo "no $LOG -- the probe reads the agent's stdout, so the"
-                   echo "app has to be the launchd one (./tools/install-agent.sh)"; exit 1; }
+    echo "no running app -- open SpotifyNotch.app"; exit 1; }
+[ -f "$LOG" ] || { echo "no $LOG -- the probe reads the app's log, which it only"
+                   echo "writes when LaunchServices started it (open SpotifyNotch.app)"; exit 1; }
 
 TOOLS="$(mktemp -d)"
 trap 'rm -rf "$TOOLS"' EXIT
