@@ -37,6 +37,22 @@ public struct ArtworkView: View {
 
     private var image: NSImage? { memory.image(for: url) }
 
+    /// What is drawn: the current cover on top, and while a change is fading,
+    /// the one before it underneath.
+    ///
+    /// **A cross-dissolve, not a cross-fade.** The old cover stays fully
+    /// opaque underneath while the new one fades in over it, then is dropped.
+    /// Fading both at once dips through the black slot at the midpoint -- two
+    /// half-transparent covers -- which is matchnotch TRAPS #22 in picture form.
+    /// And the old cover stays up while the new one downloads, rather than
+    /// the slot going black for the length of the fetch.
+    @State private var layers: [Layer] = []
+    private struct Layer: Identifiable {
+        let id: URL
+        let image: NSImage
+    }
+    static let fade = Animation.easeOut(duration: 0.35 * Motion.slow)
+
     /// Whether the mark stands in for the cover. See
     /// `PeekView.showsStandaloneMark` for why this is a function and not an
     /// `if` in a view body.
@@ -53,11 +69,17 @@ public struct ArtworkView: View {
         RoundedRectangle(cornerRadius: corner, style: .continuous)
             .fill(fill)
             .overlay {
-                if let image {
-                    Image(nsImage: image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } else if Self.showsPlaceholderMark(url: url, hasImage: false) {
+                ZStack {
+                    ForEach(layers) { layer in
+                        Image(nsImage: layer.image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            // Fades in; leaves instantly, because by then the
+                            // layer above covers it completely.
+                            .transition(.asymmetric(insertion: .opacity, removal: .identity))
+                    }
+                }
+                if layers.isEmpty, Self.showsPlaceholderMark(url: url, hasImage: false) {
                     SpotifyMark().frame(width: side * 0.62, height: side * 0.62)
                 }
             }
@@ -67,9 +89,48 @@ public struct ArtworkView: View {
             // which writes into the transaction dispatched from the root and
             // re-animates things hundreds of points away that nobody touched
             // (matchnotch TRAPS #52).
-            .animation(.easeOut(duration: 0.18), value: image != nil)
+            .animation(Self.fade, value: layers.last?.id)
             // `.task(id:)` so a track change re-runs it. Loading is
             // idempotent and keyed by URL, so this is safe to call often.
             .task(id: url) { memory.load(url) }
+            // **The first draw never animates** (matchnotch's rule for its
+            // score animations): a panel that appears shows its cover, it
+            // does not fade one in.
+            .onAppear { sync(animated: false) }
+            .onChange(of: url) { sync(animated: true) }
+            .onChange(of: image) { sync(animated: true) }
+    }
+
+    /// What a change of URL or image does to the layers. Pure, so the rules
+    /// are asserted rather than restated (`ArtworkTests`).
+    enum Change: Equatable { case keep, clear, show, dissolve }
+    static func change(showing: URL?, url: URL?, ready: Bool, appearing: Bool) -> Change {
+        guard let url else { return .clear }
+        // Still downloading, or already on screen: leave what is showing.
+        guard ready, showing != url else { return .keep }
+        return appearing ? .show : .dissolve
+    }
+
+    private func sync(animated: Bool) {
+        switch Self.change(showing: layers.last?.id, url: url, ready: image != nil,
+                           appearing: !animated) {
+        case .keep: return
+        case .clear: layers = []
+        case .show:
+            var still = Transaction()
+            still.disablesAnimations = true
+            withTransaction(still) { layers = [Layer(id: url!, image: image!)] }
+        case .dissolve: dissolve(to: Layer(id: url!, image: image!))
+        }
+    }
+
+    private func dissolve(to layer: Layer) {
+        let url = layer.id
+        layers.append(layer)
+        // Drop what is underneath once the new cover has fully arrived.
+        Task {
+            try? await Task.sleep(for: .seconds(0.4 * Motion.slow))
+            if layers.last?.id == url { layers.removeFirst(layers.count - 1) }
+        }
     }
 }

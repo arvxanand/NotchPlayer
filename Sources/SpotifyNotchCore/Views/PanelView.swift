@@ -88,23 +88,23 @@ public struct PanelView: View {
     private var details: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button { openLink(.track) } label: {
-                Text(track.name)
+                changing(Text(track.name)
                     .font(Type.title())
                     .foregroundStyle(Palette.primary)
                     // One line, truncated: a title that wraps changes the panel's
                     // height, and a panel that resizes per track is a panel that
                     // jumps every time the song does.
                     .lineLimit(1)
-                    .truncationMode(.tail)
+                    .truncationMode(.tail))
             }
             .buttonStyle(.plain)
             .accessibilityHint("Opens the song in Spotify")
             Button { openLink(.artist) } label: {
-                Text(track.artist)
+                changing(Text(track.artist)
                     .font(Type.label())
                     .foregroundStyle(Palette.secondary)
                     .lineLimit(1)
-                    .truncationMode(.tail)
+                    .truncationMode(.tail))
             }
             .buttonStyle(.plain)
             .accessibilityHint("Opens the artist in Spotify")
@@ -148,6 +148,35 @@ public struct PanelView: View {
             }
         }
         .frame(height: Self.artSide, alignment: .top)
+    }
+
+    /// The title and the artist, when the song changes: the old text lifts out
+    /// and fades, **then** the new one rises in. In sequence, so the two never
+    /// overlap -- two half-transparent lines of text on top of each other is
+    /// the thing that looks broken.
+    ///
+    /// 4pt of travel over ~0.2s is about 0.3pt a frame; matchnotch's rule is
+    /// that past ~20 it judders. Keyed on the track id, so a re-render of the
+    /// same song never animates.
+    private func changing(_ text: some View) -> some View {
+        ZStack(alignment: .leading) {
+            // No full-width frame: the title is a button, and a short one must
+            // not answer clicks in the empty space beside it.
+            text
+                .id(track.id)
+                .transition(Self.textChange)
+        }
+        // Scoped to the track, not `withAnimation` (matchnotch TRAPS #52).
+        .animation(.easeOut(duration: 0.2 * Motion.slow), value: track.id)
+    }
+
+    static var textChange: AnyTransition {
+        let lift: CGFloat = Motion.reduced ? 0 : 4, s = Motion.slow
+        return .asymmetric(
+            insertion: .opacity.combined(with: .offset(y: lift))
+                .animation(.easeOut(duration: 0.22 * s).delay(0.12 * s)),
+            removal: .opacity.combined(with: .offset(y: -lift))
+                .animation(.easeIn(duration: 0.12 * s)))
     }
 
     /// A track of zero length has no position to seek to, and a refused
