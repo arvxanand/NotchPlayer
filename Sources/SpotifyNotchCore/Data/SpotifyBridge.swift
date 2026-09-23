@@ -38,6 +38,11 @@ public final class SpotifyBridge {
         /// `access="r"` in Spotify's dictionary -- it is writable, checked
         /// before anything was built on it.
         case seek(TimeInterval)
+        /// `shuffling` and `repeating` are writable booleans. **Repeat is on or
+        /// off only**: the dictionary has no repeat-one, so the app can neither
+        /// set it nor tell it apart from repeat-all.
+        case shuffle(Bool)
+        case repeating(Bool)
 
         /// The three that take no argument. Not `CaseIterable`, which an enum
         /// with an associated value cannot be, so the tests that sweep every
@@ -50,6 +55,8 @@ public final class SpotifyBridge {
             case .previous: return "previous"
             case .next: return "next"
             case .seek: return "seek"
+            case .shuffle: return "shuffle"
+            case .repeating: return "repeat"
             }
         }
 
@@ -69,6 +76,10 @@ public final class SpotifyBridge {
                 // program's source code, so it gets C formatting.
                 return #"tell application "Spotify" to set player position to "#
                     + String(format: "%.3f", max(0, seconds))
+            case .shuffle(let on):
+                return #"tell application "Spotify" to set shuffling to "# + (on ? "true" : "false")
+            case .repeating(let on):
+                return #"tell application "Spotify" to set repeating to "# + (on ? "true" : "false")
             }
         }
 
@@ -101,6 +112,16 @@ public final class SpotifyBridge {
     end tell
     """
 
+    /// Shuffle, repeat, and whether they can be changed at all -- they cannot
+    /// on Spotify's DJ, where a write silently does nothing. `shuffling
+    /// enabled` and `repeating enabled` share the code `pReE`, so they are one
+    /// value and one is read (`docs/TRAPS.md` #46).
+    static let modesScript = """
+    tell application "Spotify"
+      return {shuffling, repeating, shuffling enabled}
+    end tell
+    """
+
     /// Used only on the notification path, which carries everything else.
     static let artworkScript = #"tell application "Spotify" to return artwork url of current track"#
 
@@ -126,6 +147,13 @@ public final class SpotifyBridge {
                 return .failure(.other(0, "unexpected position reply: \(fields)"))
             }
             return .success((s, p))
+        }
+    }
+
+    public func modes() -> Result<Modes, Failure> {
+        items(Self.modesScript).flatMap { fields in
+            Modes.from(fields).map { .success($0) }
+                ?? .failure(.other(0, "unexpected modes reply: \(fields)"))
         }
     }
 
@@ -207,5 +235,46 @@ public final class SpotifyBridge {
         case -1728: return .noTrack
         default: return .other(code, message)
         }
+    }
+}
+
+/// Whether shuffle and repeat are on.
+public struct Modes: Equatable, Sendable {
+    public var shuffle: Bool
+    public var repeating: Bool
+    /// False on Spotify's DJ, which has neither.
+    public var allowed: Bool
+    /// Repeat one song. **Not Spotify's** -- its dictionary has only repeat
+    /// on/off, and its menu item only responds while Spotify is frontmost --
+    /// so this app loops the song itself (`SpotifyService.armLoop`), with
+    /// Spotify on repeat-all underneath. Never read from Spotify.
+    public var one = false
+
+    public init(shuffle: Bool, repeating: Bool, allowed: Bool = true, one: Bool = false) {
+        self.shuffle = shuffle; self.repeating = repeating; self.allowed = allowed
+        self.one = one
+    }
+
+    public enum Repeat: Equatable, Sendable { case off, all, one }
+
+    public var repeatMode: Repeat { !repeating ? .off : one ? .one : .all }
+
+    /// What a press of the repeat button leads to: Spotify's own order.
+    public nonisolated static func next(after mode: Repeat) -> Repeat {
+        switch mode {
+        case .off: .all
+        case .all: .one
+        case .one: .off
+        }
+    }
+
+    /// `{shuffling, repeating, shuffling enabled}` as AppleScript prints them.
+    /// Nil for anything else, rather than a guess that would draw a wrong
+    /// state.
+    public nonisolated static func from(_ fields: [String]) -> Modes? {
+        func bool(_ s: String) -> Bool? { ["true": true, "false": false][s.lowercased()] }
+        guard fields.count == 3, let s = bool(fields[0]), let r = bool(fields[1]),
+              let a = bool(fields[2]) else { return nil }
+        return Modes(shuffle: s, repeating: r, allowed: a)
     }
 }
