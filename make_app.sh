@@ -14,6 +14,9 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 CONFIG="${1:-release}"
+# The release workflow passes the tag (`v0.2` -> `VERSION=0.2`). Releases
+# start at 0.2, so a local build's 0.1 never matches a published one.
+VERSION="${VERSION:-0.1}"
 APP="NotchPlayer.app"
 LABEL="io.github.arvxanand.notchplayer"
 AGENT="com.aravmanand.notchplayer"
@@ -40,8 +43,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 	<key>CFBundleIdentifier</key><string>$LABEL</string>
 	<key>CFBundleExecutable</key><string>NotchPlayer</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>CFBundleShortVersionString</key><string>0.1</string>
-	<key>CFBundleVersion</key><string>1</string>
+	<key>CFBundleShortVersionString</key><string>$VERSION</string>
+	<key>CFBundleVersion</key><string>$VERSION</string>
 	<key>LSMinimumSystemVersion</key><string>15.0</string>
 	<!-- Agent app: notch only, no dock icon, no menu bar item. -->
 	<key>LSUIElement</key><true/>
