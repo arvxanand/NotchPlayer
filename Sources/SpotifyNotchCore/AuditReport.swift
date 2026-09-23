@@ -39,9 +39,9 @@ public enum AuditReport {
         // Computed from the constant the layout actually uses, so a shrunk
         // button cannot pass by being audited at its intended size.
         let hit = Int(NotchGeometry.minimumHitHeight)
-        target("transport-previous", hit, hit)
-        target("transport-playpause", hit, hit)
-        target("transport-next", hit, hit)
+        for name in ["shuffle", "previous", "playpause", "next", "repeat"] {
+            target("transport-\(name)", hit, hit)
+        }
 
         return "{\n  \"checks\": [\n    " + checks.joined(separator: ",\n    ") + "\n  ]\n}"
     }

@@ -7,6 +7,8 @@ public struct RootView: View {
     let permission: Permission
     let expanded: Bool
     let progress: Interpolator?
+    /// Shuffle and repeat.
+    let modes: Modes?
     /// Fixed bar values for a reproducible capture; nil animates.
     let holdBands: [Float]?
     /// `--probe`: fill the shell white so its geometry can be measured. The
@@ -18,25 +20,29 @@ public struct RootView: View {
     let onScrubbing: (Bool) -> Void
     /// A no-op in previews, so a capture cannot control the user's playback.
     let send: (SpotifyBridge.Command) -> Void
+    let setRepeat: (Modes.Repeat) -> Void
     /// The title, the artist or the cover was clicked. A no-op in previews.
     let openLink: (SpotifyLinks.Target, Track) -> Void
 
     public init(geometry: NotchGeometry, now: Now, permission: Permission = .granted,
                 expanded: Bool = false,
-                progress: Interpolator? = nil, holdBands: [Float]? = nil,
+                progress: Interpolator? = nil, modes: Modes? = nil, holdBands: [Float]? = nil,
                 probe: Bool = false,
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
                 send: @escaping (SpotifyBridge.Command) -> Void = { _ in },
+                setRepeat: @escaping (Modes.Repeat) -> Void = { _ in },
                 openLink: @escaping (SpotifyLinks.Target, Track) -> Void = { _, _ in }) {
         self.geometry = geometry
         self.now = now
         self.permission = permission
         self.expanded = expanded
         self.progress = progress
+        self.modes = modes
         self.holdBands = holdBands
         self.probe = probe
         self.onScrubbing = onScrubbing
         self.send = send
+        self.setRepeat = setRepeat
         self.openLink = openLink
     }
 
@@ -108,8 +114,8 @@ public struct RootView: View {
         switch presentation {
         case .track(let track, let playing, let controllable):
             PanelView(geometry: geometry, track: track, progress: progress,
-                      playing: playing, controllable: controllable,
-                      onScrubbing: onScrubbing, send: send,
+                      playing: playing, controllable: controllable, modes: modes,
+                      onScrubbing: onScrubbing, send: send, setRepeat: setRepeat,
                       openLink: { openLink($0, track) })
         case .permissionNeeded:
             PermissionPanel(geometry: geometry)
