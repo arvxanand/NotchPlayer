@@ -37,9 +37,10 @@ final class PanelLayoutTests: XCTestCase {
 
     func testTheTransportRowFitsThePanel() {
         XCTAssertLessThan(TransportRow.width, geometry.collapsedWidth - PanelView.inset * 2)
-        // Centres 56pt apart: close enough to read as one control, far enough
-        // that a trackpad miss does not skip a track when it meant to pause.
-        XCTAssertEqual(TransportRow.centreToCentre, 56)
+        // Spaced as the user's screenshot of Spotify: 44pt across the middle
+        // three, 37pt out to shuffle and repeat.
+        XCTAssertEqual(TransportRow.centreToCentre, 44)
+        XCTAssertEqual(TransportRow.outerCentreToCentre, 37)
     }
 
     /// Every transport target is the HIG minimum. The glyphs are smaller on
@@ -48,13 +49,14 @@ final class PanelLayoutTests: XCTestCase {
     /// intended area.
     func testEveryTransportTargetMeetsTheMinimum() {
         XCTAssertGreaterThanOrEqual(NotchGeometry.minimumHitHeight, 44)
-        for glyph in [TransportRow.sideGlyph, TransportRow.centreGlyph] {
+        for glyph in [TransportRow.sideGlyph, TransportRow.centreGlyph, TransportRow.disc] {
             XCTAssertLessThan(glyph, NotchGeometry.minimumHitHeight,
                               "a glyph drawn at its target size leaves no padding to miss into")
         }
         // The audit emits one check per button from the same constant.
         let json = AuditReport.json()
-        for name in ["transport-previous", "transport-playpause", "transport-next"] {
+        for name in ["transport-shuffle", "transport-previous", "transport-playpause",
+                     "transport-next", "transport-repeat"] {
             XCTAssertTrue(json.contains(name), "\(name) is drawn but never audited")
         }
     }
@@ -185,22 +187,22 @@ final class TransportTests: XCTestCase {
         XCTAssertEqual(TransportRow.playPauseLabel(playing: false), "Play")
     }
 
-    func testTheThreeTargetsAreEvenlySpacedAndDoNotTouch() {
+    /// Touching since the row was matched to Spotify's, but never
+    /// overlapping: a click must land on exactly one button.
+    func testTheFiveTargetsAreInOrderAndDoNotOverlap() {
         let rects = PanelView.transportRects(geometry)
-        XCTAssertEqual(rects.map(\.name), ["previous", "playpause", "next"])
+        XCTAssertEqual(rects.map(\.name), ["shuffle", "previous", "playpause", "next", "repeat"])
+        let gaps = zip(rects, rects.dropFirst()).map { $1.rect.midX - $0.rect.midX }
+        XCTAssertEqual(gaps, [37, 44, 44, 37])
         for (a, b) in zip(rects, rects.dropFirst()) {
-            XCTAssertEqual(b.rect.midX - a.rect.midX, TransportRow.centreToCentre)
-            // A gap between them, so a trackpad miss lands on nothing rather
-            // than on the next track.
-            XCTAssertFalse(a.rect.intersects(b.rect))
-            XCTAssertEqual(b.rect.minX - a.rect.maxX, TransportRow.gap)
+            XCTAssertLessThanOrEqual(a.rect.maxX, b.rect.minX, "\(a.name) overlaps \(b.name)")
         }
     }
 
     func testTheClusterIsCentredOnTheCutout() {
         let rects = PanelView.transportRects(geometry)
-        XCTAssertEqual(rects[1].rect.midX, geometry.notchScreenRect.midX)
-        XCTAssertEqual(rects[1].rect.midX, geometry.screenFrame.midX)
+        XCTAssertEqual(rects[2].rect.midX, geometry.notchScreenRect.midX)
+        XCTAssertEqual(rects[2].rect.midX, geometry.screenFrame.midX)
     }
 
     /// The probe script aims real clicks at these. If the arithmetic here
@@ -221,7 +223,8 @@ final class TransportTests: XCTestCase {
         // Derived from the same constants the HStack lays out with, so the
         // arithmetic and the layout cannot drift without this noticing.
         let rects = PanelView.transportRects(geometry)
-        XCTAssertEqual(rects.first!.rect.width, NotchGeometry.minimumHitHeight)
+        XCTAssertEqual(rects[1].rect.width, NotchGeometry.minimumHitHeight)
+        XCTAssertEqual(rects.first!.rect.width, TransportRow.modeWidth)
         XCTAssertEqual(rects.map(\.rect.maxX).max()! - rects.map(\.rect.minX).min()!,
                        TransportRow.width)
         XCTAssertEqual(rects[0].rect.minY,
@@ -328,12 +331,37 @@ final class ScrubTests: XCTestCase {
     /// near-identical scripts for the life of the process.
     func testSeekScriptsAreNotCachedAndTheFixedOnesAre() {
         XCTAssertFalse(SpotifyBridge.Command.seek(1).cacheable)
-        for command in SpotifyBridge.Command.simple { XCTAssertTrue(command.cacheable) }
+        for command in SpotifyBridge.Command.simple + [.shuffle(true), .repeating(false)] {
+            XCTAssertTrue(command.cacheable)
+        }
     }
 
     func testEveryCommandHasAName() {
-        for command in SpotifyBridge.Command.simple + [.seek(1)] {
+        for command in SpotifyBridge.Command.simple + [.seek(1), .shuffle(true), .repeating(true)] {
             XCTAssertFalse(command.name.isEmpty)
         }
+    }
+
+    func testShuffleAndRepeatSetTheValueTheyAreGiven() {
+        XCTAssertEqual(SpotifyBridge.Command.shuffle(true).source,
+                       #"tell application "Spotify" to set shuffling to true"#)
+        XCTAssertEqual(SpotifyBridge.Command.shuffle(false).source,
+                       #"tell application "Spotify" to set shuffling to false"#)
+        XCTAssertEqual(SpotifyBridge.Command.repeating(true).source,
+                       #"tell application "Spotify" to set repeating to true"#)
+        XCTAssertEqual(SpotifyBridge.Command.repeating(false).source,
+                       #"tell application "Spotify" to set repeating to false"#)
+    }
+
+    /// AppleScript prints booleans in lowercase; anything else is not a
+    /// state to draw.
+    func testModesParseOnlyWhatSpotifyActuallyReturns() {
+        XCTAssertEqual(Modes.from(["true", "false", "true"]),
+                       Modes(shuffle: true, repeating: false, allowed: true))
+        // Spotify's DJ, measured: nothing on, nothing allowed.
+        XCTAssertEqual(Modes.from(["false", "false", "false"]),
+                       Modes(shuffle: false, repeating: false, allowed: false))
+        XCTAssertNil(Modes.from(["true", "false"]))
+        XCTAssertNil(Modes.from(["yes", "no", "maybe"]))
     }
 }

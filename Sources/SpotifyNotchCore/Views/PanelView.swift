@@ -17,7 +17,10 @@ public struct PanelView: View {
     /// cannot work, and saying so is better than three controls that swallow
     /// every press.
     let controllable: Bool
+    /// Shuffle and repeat, as last read.
+    let modes: Modes?
     let send: (SpotifyBridge.Command) -> Void
+    let setRepeat: (Modes.Repeat) -> Void
 
     /// Raised while the pointer is dragging the progress line, so the panel
     /// is held open. Without it the watcher collapses the panel the moment the
@@ -33,13 +36,14 @@ public struct PanelView: View {
     @AppStorage(Accent.enabledKey) private var coverAccent = true
 
     public init(geometry: NotchGeometry, track: Track, progress: Interpolator?,
-                playing: Bool, controllable: Bool = true,
+                playing: Bool, controllable: Bool = true, modes: Modes? = nil,
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
                 send: @escaping (SpotifyBridge.Command) -> Void = { _ in },
+                setRepeat: @escaping (Modes.Repeat) -> Void = { _ in },
                 openLink: @escaping (SpotifyLinks.Target) -> Void = { _ in }) {
         self.geometry = geometry; self.track = track; self.progress = progress
-        self.playing = playing; self.controllable = controllable
-        self.onScrubbing = onScrubbing; self.send = send
+        self.playing = playing; self.controllable = controllable; self.modes = modes
+        self.onScrubbing = onScrubbing; self.send = send; self.setRepeat = setRepeat
         self.openLink = openLink
     }
 
@@ -73,7 +77,7 @@ public struct PanelView: View {
             // in the footprint check, and no second animation to tune.
             Group {
                 if controllable {
-                    TransportRow(playing: playing, send: send)
+                    TransportRow(playing: playing, modes: modes, send: send, setRepeat: setRepeat)
                 } else {
                     PermissionNote().padding(.horizontal, Self.inset)
                 }
@@ -254,9 +258,13 @@ public struct PanelView: View {
         let side = NotchGeometry.minimumHitHeight
         let top = geometry.notchExclusionTop + topGap + artSide + transportGap
         let centreX = geometry.screenFrame.midX
-        return zip(["previous", "playpause", "next"], [-1.0, 0, 1]).map { name, offset in
-            let x = centreX + CGFloat(offset) * TransportRow.centreToCentre - side / 2
-            return (name, CGRect(x: x, y: top, width: side, height: side))
+        let inner = TransportRow.centreToCentre, outer = TransportRow.outerCentreToCentre
+        let mode = TransportRow.modeWidth
+        let targets: [(String, CGFloat, CGFloat)] = [
+            ("shuffle", -inner - outer, mode), ("previous", -inner, side),
+            ("playpause", 0, side), ("next", inner, side), ("repeat", inner + outer, mode)]
+        return targets.map { name, offset, width in
+            (name, CGRect(x: centreX + offset - width / 2, y: top, width: width, height: side))
         }
     }
 

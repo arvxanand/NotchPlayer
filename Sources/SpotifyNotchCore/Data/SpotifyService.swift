@@ -17,10 +17,17 @@ import Combine
 public final class SpotifyService: ObservableObject {
     @Published public private(set) var now: Now = .unknown("not read yet")
     @Published public private(set) var permission: Permission = .unknown
+    /// Shuffle and repeat. Read with every full read -- launch, wake, the
+    /// panel opening, and after a command -- because Spotify publishes no
+    /// notification when either changes. Nil until the first read.
+    @Published public private(set) var modes: Modes?
 
     /// The position and the instant it was true. Published so the panel can
     /// advance it locally between reads instead of asking.
-    @Published public private(set) var progress: Interpolator?
+    @Published public private(set) var progress: Interpolator? {
+        didSet { armLoop() }
+    }
+    private var loop: Timer?
 
     private let bridge: SpotifyBridge
     private var reconcile: Timer?
@@ -98,6 +105,12 @@ public final class SpotifyService: ObservableObject {
         case .success(let reading):
             permission = .granted
             apply(reading)
+            if case .success(var read) = bridge.modes() {
+                // Repeat-one is ours; it survives only while Spotify still
+                // repeats underneath it.
+                read.one = read.repeating && (modes?.one ?? false)
+                if read != modes { modes = read }
+            }
         case .failure(let failure):
             handle(failure)
         }
@@ -242,6 +255,53 @@ public final class SpotifyService: ObservableObject {
         return progress.position(at: instant, duration: track.duration)
     }
 
+    /// Off, all, one: Spotify's repeat, plus this app's loop for "one".
+    public func setRepeat(_ mode: Modes.Repeat) {
+        let wantsSpotify = mode != .off
+        if modes?.repeating != wantsSpotify { send(.repeating(wantsSpotify)) }
+        modes?.one = mode == .one
+        armLoop()
+    }
+
+    /// How long before the end to jump back. Early enough that Spotify has not
+    /// started the next song -- a Timer and an Apple Event both take some
+    /// milliseconds -- late enough that almost none of the song is lost.
+    nonisolated static let loopLead: TimeInterval = 0.35
+
+    /// When to jump back, from now. Nil when there is nothing to loop.
+    public nonisolated static func loopDelay(duration: TimeInterval,
+                                             position: TimeInterval) -> TimeInterval? {
+        guard duration > loopLead * 2 else { return nil }
+        return max(0, duration - loopLead - position)
+    }
+
+    /// **Repeat one, done here.** While it is on and a song plays, one timer
+    /// is armed for just before the end; when it fires, the real position is
+    /// read and, if the same song really is about to end, it goes back to 0.
+    /// Re-armed whenever the position changes (a seek, a pause, a new song),
+    /// so it never runs on a stale guess.
+    private func armLoop() {
+        loop?.invalidate()
+        loop = nil
+        guard modes?.one == true, now.isPlaying, let track = now.track,
+              let position = position(),
+              let delay = Self.loopDelay(duration: track.duration, position: position)
+        else { return }
+        let id = track.id
+        loop = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.modes?.one == true, self.now.track?.id == id else { return }
+                if case .success(let read) = self.bridge.position(),
+                   track.duration - read.position <= Self.loopLead * 3 {
+                    self.send(.seek(0))
+                } else {
+                    // The guess was early (a stall, a drifted clock): try again.
+                    self.armLoop()
+                }
+            }
+        }
+    }
+
     public func send(_ command: SpotifyBridge.Command) {
         switch bridge.send(command) {
         case .success:
@@ -256,6 +316,9 @@ public final class SpotifyService: ObservableObject {
                 progress = Interpolator(position: seconds, stamped: .now,
                                         advancing: now.isPlaying)
             }
+            // Same reasoning: no notification comes back, and we just set it.
+            if case .shuffle(let on) = command { modes?.shuffle = on }
+            if case .repeating(let on) = command { modes?.repeating = on }
             // Spotify answers with a notification of its own, so there is
             // nothing to read here -- but a command that produced no
             // notification within a moment means the optimistic state and the
