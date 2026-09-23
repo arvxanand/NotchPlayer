@@ -19,13 +19,17 @@ public struct ProgressLine: View {
     /// that looks inert.
     let onScrub: ((Double) -> Void)?
     let onCommit: ((Double) -> Void)?
+    /// The filled part and the knob. The cover's colour (`Accent`), or white
+    /// when the cover is grey or not loaded.
+    let accent: Color
 
     @State private var dragging = false
 
-    public init(fraction: Double,
+    public init(fraction: Double, accent: Color = Palette.primary,
                 onScrub: ((Double) -> Void)? = nil,
                 onCommit: ((Double) -> Void)? = nil) {
         self.fraction = fraction
+        self.accent = accent
         self.onScrub = onScrub
         self.onCommit = onCommit
     }
@@ -113,13 +117,17 @@ public struct ProgressLine: View {
     private func bar(filled: CGFloat) -> some View {
         ZStack(alignment: .leading) {
             Capsule().fill(Palette.track).frame(height: barHeight)
-            Capsule().fill(Palette.primary).frame(width: filled, height: barHeight)
+            // The animation sits between the fill and the frame, so it only
+            // covers the colour: a new song's colour fades in, while the width
+            // jumping back to the start is not animated along with it.
+            Capsule().fill(accent).animation(Self.fade, value: accent)
+                .frame(width: filled, height: barHeight)
         }
         .frame(height: Self.thickness)
         .overlay(alignment: .leading) {
             if live {
                 Circle()
-                    .fill(Palette.primary)
+                    .fill(accent).animation(Self.fade, value: accent)
                     .frame(width: Self.knobSide, height: Self.knobSide)
                     // Centred on the playhead, and allowed past both ends, so
                     // it marks the position rather than the edge of the space
@@ -129,6 +137,8 @@ public struct ProgressLine: View {
         }
         .animation(.easeOut(duration: 0.12), value: dragging)
     }
+
+    static let fade = Animation.easeOut(duration: 0.4)
 
     /// Thickens while being dragged -- which works without an active app,
     /// because a drag is events rather than tracking.
