@@ -30,10 +30,11 @@ public enum PreviewData {
     static let cover = URL(string:
         "https://i.scdn.co/image/ab67616d0000b273e045aa197ada995407bf92fc")
 
-    static func track(name: String = "D>E>A>T>H>M>E>T>A>L",
+    static func track(id: String = "spotify:track:4sIFi8LpJWPvI5xviWFyA6",
+                      name: String = "D>E>A>T>H>M>E>T>A>L",
                       artist: String = "Panchiko",
                       artwork: URL? = cover) -> Track {
-        Track(id: "spotify:track:4sIFi8LpJWPvI5xviWFyA6", name: name, artist: artist,
+        Track(id: id, name: name, artist: artist,
               album: "D>E>A>T>H>M>E>T>A>L", duration: 261.849,
               hasArtwork: artwork != nil, artworkURL: artwork)
     }
@@ -103,6 +104,14 @@ public enum PreviewData {
     /// matchnotch's equivalent falls through to `default: .idle`, so a typo'd
     /// state renders a blank notch and looks like a bug in the app rather than
     /// a bug in the command line. Failing loudly costs one `guard`.
+    /// What `--cycle` alternates with, to watch a track change without
+    /// touching anyone's Spotify. A different id, title, artist and cover.
+    public static let nextTrack = Now.track(
+        track(id: "spotify:track:0000000000000000000002", name: "The Next Song",
+              artist: "Someone Else",
+              artwork: URL(string: "https://i.scdn.co/image/ab67616d0000b273c5649add07ed3720be9d5526")),
+        state: .playing, position: 84)
+
     public static func named(_ name: String) -> State? {
         all.first { $0.name == name }
     }

@@ -246,7 +246,9 @@ let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 
 MainActor.assumeIsolated {
+    let cycle = args.firstIndex(of: "--cycle").flatMap { $0 + 1 < args.count ? Double(args[$0 + 1]) : nil }
     let controller = AppController(preview: preview, previewExpanded: args.contains("--expanded"),
+                                   previewCycle: cycle,
                                    probe: probe, offscreen: args.contains("--offscreen"),
                                    captureServer: args.contains("--capture-server"))
     app.delegate = controller
