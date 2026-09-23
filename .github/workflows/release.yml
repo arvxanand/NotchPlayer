@@ -19,8 +19,12 @@ permissions:
 
 jobs:
   dmg:
-    # macos-15 has Xcode 16: Swift 6 and the macOS 15 SDK, as Package.swift wants.
     runs-on: macos-15
+    # Pinned to the Xcode the app is developed with (16.0, Swift 6.0), not the
+    # runner's default 16.4. A newer Swift is untested here: the Command Line
+    # Tools' Swift 6.2.3 never finished compiling this code (docs/TRAPS.md #66).
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.0.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
 
