@@ -121,7 +121,8 @@ public enum Palette {
     /// The only chromatic colour in the app. Allowed on the Spotify mark, and
     /// on the playing dot in `MenuPanel` -- which is the same claim made twice
     /// (this is Spotify, this is live) rather than decoration borrowing a
-    /// meaning. It appears nowhere else, and specifically never on a control. Everything else chromatic comes from the album
+    /// meaning. The one control it appears on is an "on" switch in the menu
+    /// panel's settings, by the user's choice. Everything else chromatic comes from the album
     /// art itself. Spotify's own green, 8.12:1 on black.
     public static let spotify = Color(red: 0x1D / 255, green: 0xB9 / 255, blue: 0x54 / 255)
     public static let spotifyHex = "#1DB954"

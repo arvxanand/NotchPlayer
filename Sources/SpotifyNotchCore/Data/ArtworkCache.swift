@@ -102,6 +102,8 @@ public final class ArtMemory: ObservableObject {
     public static let capacity = 24
 
     @Published public private(set) var images: [String: NSImage] = [:]
+    /// Each cover's colour, taken with the decode. Nil for a grey cover.
+    private var accents: [String: Accent.RGB] = [:]
     private var order: [String] = []
     private var inFlight: Set<String> = []
 
@@ -110,6 +112,11 @@ public final class ArtMemory: ObservableObject {
     public func image(for url: URL?) -> NSImage? {
         guard let url else { return nil }
         return images[ArtworkCache.fetchURL(for: url).absoluteString]
+    }
+
+    public func accent(for url: URL?) -> Accent.RGB? {
+        guard let url else { return nil }
+        return accents[ArtworkCache.fetchURL(for: url).absoluteString]
     }
 
     /// Fire and forget; publishes when the bytes arrive and decode.
@@ -127,11 +134,15 @@ public final class ArtMemory: ObservableObject {
     private func store(_ key: String, _ bytes: Data?) {
         inFlight.remove(key)
         guard let bytes, let image = Self.downscaled(bytes) else { return }
+        // Before `images`, which is the published one: the view that redraws
+        // for the new cover finds its colour already there.
+        accents[key] = Accent.of(image)
         images[key] = image
         order.append(key)
         while order.count > Self.capacity, let oldest = order.first {
             order.removeFirst()
             images[oldest] = nil
+            accents[oldest] = nil
         }
     }
 

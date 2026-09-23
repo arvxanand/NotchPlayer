@@ -13,7 +13,7 @@ public enum Render {
     /// Named so `--render` has a fixed vocabulary and a typo cannot silently
     /// produce something plausible.
     public enum Subject: String, CaseIterable, Sendable {
-        case mark, peek, artwork, waveform, menu, progress
+        case mark, peek, artwork, waveform, menu, settings, progress
     }
 
     @MainActor
@@ -35,7 +35,7 @@ public enum Render {
         case .peek:           return CGSize(width: side * 10, height: side)
         // Its own fixed size: the popover is not scalable art, it is a window
         // whose proportions are the thing being judged.
-        case .menu:           return CGSize(width: MenuPanel.width, height: MenuPanel.height)
+        case .menu, .settings: return CGSize(width: MenuPanel.width, height: MenuPanel.height)
         // The real width it is drawn at, so the knob is judged at its real
         // proportion to the line rather than at a flattering one.
         case .progress:       return CGSize(width: 234, height: 40)
@@ -52,7 +52,12 @@ public enum Render {
             case .menu:
                 MenuPanel(track: PreviewData.named("playing")?.now.track,
                           playing: true, subtitle: "Playing", hidden: false,
-                          toggleHidden: {}, quit: {})
+                          toggleHidden: {}, login: .on, toggleLogin: { .on }, quit: {},
+                          animateIn: false)
+            case .settings:
+                MenuPanel(track: nil, playing: false, subtitle: "", hidden: false,
+                          toggleHidden: {}, login: .on, toggleLogin: { .on }, quit: {},
+                          page: .settings, animateIn: false)
             case .progress:
                 // Handlers passed, because the knob only exists when the line
                 // is actually draggable.

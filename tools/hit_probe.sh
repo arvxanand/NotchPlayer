@@ -30,9 +30,8 @@ cd "$(dirname "$0")/.."
 # every check.
 if pgrep -f 'SpotifyNotch\.app/Contents/MacOS/SpotifyNotch' >/dev/null; then
     echo "the installed app is running, and its panel is in the way."
-    echo "Hide it from the menu bar item, or:"
-    echo "    launchctl bootout gui/\$(id -u)/com.aravmanand.spotifynotch"
-    echo "    ./tools/hit_probe.sh && ./tools/install-agent.sh"
+    echo "Quit it from the menu bar item, then:"
+    echo "    ./tools/hit_probe.sh && open SpotifyNotch.app"
     exit 1
 fi
 
