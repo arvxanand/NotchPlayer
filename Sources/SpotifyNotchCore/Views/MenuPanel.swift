@@ -18,15 +18,19 @@ public struct MenuPanel: View {
     let toggleHidden: () -> Void
     /// State, so the box flips in place. Rebuilding the popover's content
     /// instead moved the whole popover 26pt sideways under the pointer.
-    @State private var login: Login
+    @State private var login: Grant
     /// Does the change and answers what the state is now.
-    let toggleLogin: () -> Login
+    let toggleLogin: () -> Grant
+    /// The panel's + pressing Spotify's own, the same way.
+    @State private var plus: Grant
+    let togglePlus: () -> Grant
     let quit: () -> Void
     /// Read by `PanelView` too, which redraws the line when it changes.
     @AppStorage(Accent.enabledKey) private var coverAccent = true
 
-    /// Whether the app opens at login, as `SMAppService` reports it.
-    public enum Login: Sendable { case off, on, needsApproval }
+    /// A switch macOS has a say in: launch at login (`SMAppService`), and the
+    /// + pressing Spotify's button (Accessibility).
+    public enum Grant: Sendable { case off, on, needsApproval }
 
     /// Behind the gear. `rawValue` is the side a page sits on: settings is to
     /// the right of the glance, so it arrives from the right.
@@ -39,12 +43,15 @@ public struct MenuPanel: View {
     @State private var shown = false
 
     public init(track: Track?, playing: Bool, subtitle: String, hidden: Bool,
-                toggleHidden: @escaping () -> Void, login: Login,
-                toggleLogin: @escaping () -> Login, quit: @escaping () -> Void,
+                toggleHidden: @escaping () -> Void, login: Grant,
+                toggleLogin: @escaping () -> Grant,
+                plus: Grant = .off, togglePlus: @escaping () -> Grant = { .off },
+                quit: @escaping () -> Void,
                 page: Page = .main, animateIn: Bool = true) {
         self.track = track; self.playing = playing; self.subtitle = subtitle
         self.hidden = hidden; self.toggleHidden = toggleHidden
         _login = State(initialValue: login); self.toggleLogin = toggleLogin; self.quit = quit
+        _plus = State(initialValue: plus); self.togglePlus = togglePlus
         _page = State(initialValue: page)
         // An offscreen render never appears, so it would stay invisible.
         _shown = State(initialValue: !animateIn)
@@ -151,6 +158,8 @@ public struct MenuPanel: View {
             SwitchRow(title: "Cover colour on the progress bar", isOn: coverAccent) {
                 coverAccent.toggle()
             }
+            divider
+            plusRow
             Spacer(minLength: 0)
         }
     }
@@ -210,6 +219,20 @@ public struct MenuPanel: View {
                 action: flip)
         } else {
             SwitchRow(title: "Launch at login", isOn: login == .on, action: flip)
+        }
+    }
+
+    /// Off, the panel's + opens the song; on, it presses Spotify's own +.
+    /// Flipping it on asks macOS for Accessibility, and until that is given
+    /// the row says where to go -- the + meanwhile still opens the song.
+    @ViewBuilder
+    private var plusRow: some View {
+        let flip = { plus = togglePlus() }
+        if plus == .needsApproval {
+            Row(title: "Allow in Accessibility\u{2026}", symbol: "exclamationmark.triangle",
+                action: flip)
+        } else {
+            SwitchRow(title: "Save with Spotify's +", isOn: plus == .on, action: flip)
         }
     }
 

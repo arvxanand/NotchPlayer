@@ -14,7 +14,9 @@ import AppKit
 /// a click that does nothing.
 @MainActor
 public enum SpotifyLinks {
-    public enum Target: Equatable, Sendable { case track, album, artist }
+    /// `save` is the panel's +, which is not a link at all -- see
+    /// `SpotifyPlus`. It rides this path so the view needs no second callback.
+    public enum Target: Equatable, Sendable { case track, album, artist, save }
 
     /// Album and artist pages, per track, so a second click costs nothing.
     private static var found: [String: Page] = [:]
@@ -24,6 +26,10 @@ public enum SpotifyLinks {
     /// started playing -- and clicking a title is not asking for that. An
     /// album or artist URI only navigates (also measured).
     public static func open(_ target: Target, for track: Track) {
+        // Read by `tools/hit_probe.sh`: the + and the title both land in
+        // Spotify, so only this line says which one was clicked.
+        print("link: \(target)")
+        if target == .save { return SpotifyPlus.save(track) }
         let fallback = search(fallbackTerm(target, track))
         guard let page = pageURL(for: track.id) else { return openOr(nil, fallback) }
         if let cached = found[track.id] {
@@ -38,7 +44,7 @@ public enum SpotifyLinks {
 
     nonisolated static func fallbackTerm(_ target: Target, _ track: Track) -> String {
         switch target {
-        case .track: "\(track.name) \(track.artist)"
+        case .track, .save: "\(track.name) \(track.artist)"
         case .album: "\(track.album) \(track.artist)"
         case .artist: track.artist
         }
@@ -92,7 +98,7 @@ public enum SpotifyLinks {
             switch target {
             case .album: album
             case .artist: artist
-            case .track: album.flatMap { URL(string: "\($0.absoluteString):highlight:\(id)") }
+            case .track, .save: album.flatMap { URL(string: "\($0.absoluteString):highlight:\(id)") }
             }
         }
 
