@@ -130,7 +130,7 @@ for tier in "${tiers[@]}"; do
 done
 
 if [ -z "$landed" ]; then
-    echo "FAIL  still over 5MB at the most aggressive tier (15fps 640px lossy=80)." >&2
+    echo "FAIL  still over 5MB at the most aggressive tier (33fps 800px lossy=60)." >&2
     echo "      The clip is too long or too busy. Shorten it to 6-10s, or record" >&2
     echo "      against a flat dark wallpaper -- a photo wallpaper eats the" >&2
     echo "      256-colour palette and doubles the file." >&2
