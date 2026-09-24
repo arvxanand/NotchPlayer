@@ -29,8 +29,9 @@ drag to seek, and the transport row. Idle, it draws nothing and the notch looks
 like a notch.
 
 No login and no Spotify developer account. The only network calls are the
-album cover, and Spotify's public page for a song when you click its title or
-artist. Swift 6 / SwiftUI + AppKit, zero third-party dependencies.
+album cover, Spotify's public page for a song when you click its title or
+artist, and a daily check of this repo's releases for a new version, which you
+can turn off. Swift 6 / SwiftUI + AppKit, zero third-party dependencies.
 
 ## Features
 
@@ -204,8 +205,11 @@ for the permission. Here's what NotchPlayer actually does with it:
   turns each slice into 14 bar heights for the waveform and throws the
   sound away. No audio ever goes to a file.
 - **Nothing is sent anywhere.** The app has no account, no analytics and no
-  server. Its only network requests are the album cover, and Spotify's
-  public page for a song when you click its title or artist.
+  server. Its only network requests are the album cover, Spotify's public
+  page for a song when you click its title or artist, and a daily check of
+  this repo's GitHub releases for a newer NotchPlayer. That check sends
+  nothing about you or your music, and **Check for updates** behind the gear
+  turns it off.
 - **You can check.** The code that listens is
   [`AudioTap.swift`](Sources/NotchPlayerCore/Data/AudioTap.swift), and the
   permission can be turned off at any time in **System Settings → Privacy &
@@ -247,12 +251,21 @@ brew install --cask arvxanand/notchplayer/notchplayer
 
 ### Updating
 
-Quit NotchPlayer, then download the new version and drag it into
-Applications again (choose **Replace**), or run
-`brew upgrade --cask notchplayer`. After a download you clear the warning once
-more. **Either way, macOS asks for the permissions
-again after every update**, because the app isn't signed with a paid
-certificate. Click Allow again.
+**From v0.3 on, NotchPlayer updates itself.** When a new version is out, the
+menu bar icon gets a small dot and its menu says **Update to v0.x** in blue.
+Click it: NotchPlayer swaps in the new version and restarts in a second or
+two, and keeps its permissions. It checks once a day; **Check for updates**
+behind the gear turns that off.
+
+- **Coming from v0.2**, update the old way one last time: download the new
+  version, drag it into Applications (choose **Replace**), clear the warning,
+  and allow the permissions again. v0.2 can't update itself, and v0.3 is
+  signed differently, so macOS asks once more.
+- **If NotchPlayer can't replace itself** (you aren't an admin, or it's
+  running from the dmg), the row opens the download page instead and you
+  update the old way.
+- **Installed with Homebrew?** The row stays hidden; run
+  `brew upgrade --cask notchplayer`.
 
 ### Uninstalling
 
@@ -316,12 +329,15 @@ TCC shows you — hence `make_app.sh` rather than plain `swift build`.
    git tag v0.3 origin/main && git push origin v0.3
    ```
 
-2. The `release` workflow builds `NotchPlayer.dmg` with Xcode 16.0, checks
-   its signature, entitlement, version and bundle id from inside the dmg, and
-   attaches it to a **draft** release, which only people with write access
-   can see.
+2. The `release` workflow builds `NotchPlayer.dmg` with Xcode 16.0, signs
+   it with the NotchPlayer certificate (repo secrets `SIGNING_P12` and
+   `SIGNING_P12_PASSWORD`), checks its signer, entitlement, version and
+   bundle id from inside the dmg, and attaches it to a **draft** release,
+   which only people with write access can see. Run by hand from a branch
+   (Actions → release → Run workflow), it only builds and checks.
 3. Download the dmg from the draft, try it, and click **Publish release**.
-   The README's download link always points at the newest published release.
+   **Publishing is what updates everyone:** the README's download link and
+   every copy's update check only see published releases.
 4. Update the cask in
    [homebrew-notchplayer](https://github.com/arvxanand/homebrew-notchplayer)
    (`Casks/notchplayer.rb`): set `version` to the new version and `sha256` to
