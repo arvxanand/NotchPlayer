@@ -79,7 +79,7 @@ body:
       label: Quick checks
       options:
         - label: The Spotify desktop app is open and signed in
-        - label: I clicked **Allow** for Automation and Audio Recording (or turned them on in System Settings → Privacy & Security)
+        - label: I clicked Allow for Automation and Audio Recording (or turned them on in System Settings → Privacy & Security)
 
   - type: textarea
     id: log
