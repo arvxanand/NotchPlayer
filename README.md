@@ -79,9 +79,10 @@ loops the song itself for "one".
 ### Save the song
 
 The **+** at the end of the title row. By default it opens the song in Spotify
-so you can add it there. Turn on **Save with Spotify's +** and it presses
-Spotify's own + for you — unsaved goes straight to Liked Songs, already-saved
-opens the playlist picker.
+so you can add it there. Turn on **Save with Spotify's +** and it opens
+Spotify's playlist list for you. Nothing is added until you pick a playlist.
+A song you haven't saved gets Spotify's **Add to playlist** menu (Liked
+Songs is one item above it); a saved one gets Spotify's picker.
 
 </td>
 </tr>
@@ -183,10 +184,33 @@ macOS 15, so use the steps above.
 |---|---|---|
 | **Automation** | read the track and send play/pause/skip to Spotify | first launch |
 | **Audio Recording** | the waveform — Spotify's output only, analysed in memory | first launch |
-| **Accessibility** | optional, only for pressing Spotify's own **+** | when you enable it |
+| **Accessibility** | optional, only for opening Spotify's playlist list from the **+** | when you enable it |
 
 Click **Allow** for both on first launch. Then turn on **Launch at Login**
 from the menu bar item (the waveform) → the gear.
+
+#### What "Audio Recording" actually records
+
+macOS asks for "System Audio Recording" because that's the name Apple uses
+for the permission. Here's what NotchPlayer actually does with it:
+
+- **It only hears Spotify.** It listens to Spotify's audio output, the music
+  you're already hearing. It never uses the microphone, and it doesn't hear
+  other apps, calls, videos or anything else on your Mac.
+- **It only listens while Spotify is playing.** It stops when you pause,
+  when Spotify quits, and when you choose **Hide from the Notch**.
+- **Nothing is saved.** The audio passes through a buffer in memory that
+  holds about a tenth of a second and is constantly written over. The app
+  turns each slice into 14 bar heights for the waveform and throws the
+  sound away. No audio ever goes to a file.
+- **Nothing is sent anywhere.** The app has no account, no analytics and no
+  server. Its only network requests are the album cover, and Spotify's
+  public page for a song when you click its title or artist.
+- **You can check.** The code that listens is
+  [`AudioTap.swift`](Sources/NotchPlayerCore/Data/AudioTap.swift), and the
+  permission can be turned off at any time in **System Settings → Privacy &
+  Security → Screen & System Audio Recording**. Everything else keeps
+  working; the bars just switch to a made-up animation.
 
 #### If you clicked Don't Allow, or nothing shows up
 

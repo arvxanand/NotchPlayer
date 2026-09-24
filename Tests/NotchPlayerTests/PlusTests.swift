@@ -46,6 +46,41 @@ final class PlusTests: XCTestCase {
         XCTAssertNil(SpotifyPlus.target(in: labels))
     }
 
+    /// 24 Sep 2026: pressing Spotify's + on an unsaved song only liked it,
+    /// with no picker. That button is never pressed; the title's menu opens.
+    func testAnUnsavedSongOpensTheMenuAndIsNeverLiked() {
+        XCTAssertEqual(SpotifyPlus.step(for: "Add to Liked Songs"), .openMenu)
+        XCTAssertEqual(SpotifyPlus.step(for: "Add to playlist"), .pressPlus)
+    }
+
+    /// The bar as measured 24 Sep 2026, names changed: a page row's link
+    /// before the bar, then the title and two artists, then the transport and
+    /// another row's link.
+    private let bar: [(role: String, label: String)] = [
+        ("AXLink", "Some Other Song"), ("AXButton", "Play Some Other Song"),
+        ("AXButton", "Now playing view"),
+        ("AXLink", "The Song"), ("AXLink", "Someone"), ("AXLink", "Someone Else"),
+        ("AXButton", "Lossless"), ("AXButton", "Add to Liked Songs"),
+        ("AXButton", "Previous"), ("AXButton", "Play"), ("AXLink", "A Row Further Down"),
+    ]
+
+    func testTheMenuOpensOnTheSongTitleNotAnArtistOrARow() {
+        XCTAssertEqual(SpotifyPlus.titleLink(in: bar), 3)
+    }
+
+    /// A song called "Previous" is a link, not the transport button.
+    func testASongNamedLikeAButtonIsStillTheTitle() {
+        var items = bar
+        items[3] = ("AXLink", "Previous")
+        XCTAssertEqual(SpotifyPlus.titleLink(in: items), 3)
+    }
+
+    func testNoTitleNoMenu() {
+        XCTAssertNil(SpotifyPlus.titleLink(in: bar.filter { $0.role != "AXLink" }))
+        XCTAssertNil(SpotifyPlus.titleLink(in: bar.filter { $0.label != "Now playing view" }))
+        XCTAssertNil(SpotifyPlus.titleLink(in: bar.filter { $0.label != "Previous" }))
+    }
+
     func testNoAnchorNoPress() {
         XCTAssertNil(SpotifyPlus.target(in: spotify.filter { $0 != "Now playing view" }))
         XCTAssertNil(SpotifyPlus.target(in: ["Now playing view"]))
