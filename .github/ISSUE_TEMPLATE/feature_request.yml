@@ -1,0 +1,29 @@
+# The "Suggest an idea" form. Short on purpose: an idea needs the problem it
+# solves more than it needs a spec.
+name: Suggest an idea
+description: Something NotchPlayer could do, or do better.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      description: Describe the idea, and what it would help you do.
+      placeholder: I'd like the panel to show the song's lyrics.
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: A sketch, a screenshot of another app that does it, or why it matters to you.
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        NotchPlayer only uses what the Spotify desktop app itself exposes, with no Spotify account login,
+        so some ideas (lyrics, the queue, liking a song without Spotify's own button) may not be possible.
+        Suggest them anyway.

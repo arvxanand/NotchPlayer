@@ -1,0 +1,92 @@
+# The "Report a bug" form behind Issues -> New issue.
+#
+# Written for someone who has never filed an issue: every box says where to
+# find the answer. The two things that matter most for a notch app are the
+# Mac model (notch sizes differ) and a phone photo -- a screenshot does not
+# show the notch the way the eye does.
+name: Report a bug
+description: Something in NotchPlayer isn't working the way it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Fill in what you can; every box says where to find the answer.
+        If a permission is the problem (no song showing, or the bars don't move with the music), the README's
+        [troubleshooting steps](https://github.com/arvxanand/NotchPlayer#if-you-clicked-dont-allow-or-nothing-shows-up) may fix it first.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: |
+        I hovered over the notch while a song was playing. I expected the panel to open, but nothing happened.
+    validations:
+      required: true
+
+  - type: textarea
+    id: photo
+    attributes:
+      label: A photo of the notch
+      description: |
+        Take a photo of the top of your screen **with your phone** and drag it in here.
+        A screenshot often doesn't show the notch the way you see it.
+    validations:
+      required: false
+
+  - type: input
+    id: mac
+    attributes:
+      label: Your Mac
+      description: Apple menu → **About This Mac**. Copy the name and size shown at the top.
+      placeholder: MacBook Air, 13-inch, M2, 2022
+    validations:
+      required: true
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      description: Also in **About This Mac**, next to "macOS".
+      placeholder: Sequoia 15.7
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: NotchPlayer version
+      description: In Finder, open **Applications**, right-click **NotchPlayer** → **Get Info**, and look at "Version".
+      placeholder: "0.2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install it?
+      options:
+        - Downloaded the .dmg from Releases
+        - Homebrew
+        - Built it from source
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Quick checks
+      options:
+        - label: The Spotify desktop app is open and signed in
+        - label: I clicked **Allow** for Automation and Audio Recording (or turned them on in System Settings → Privacy & Security)
+
+  - type: textarea
+    id: log
+    attributes:
+      label: The log file (optional, but it helps a lot)
+      description: |
+        In Finder, choose **Go → Go to Folder…**, paste `~/Library/Logs/NotchPlayer.log`, and press Return.
+        Drag that file into this box. It lists what the app did (for example "waveform live"), not the songs you played.
+    validations:
+      required: false
