@@ -22,16 +22,15 @@
 
 ---
 
-Collapsed, while music plays: the album cover and a live waveform — a real FFT
-of Spotify's own audio — either side of the camera housing. Hover the cutout
-and it expands into a panel with the cover, the track, a progress bar you can
-drag to seek, and the transport row. Idle, it draws nothing and the notch looks
-like a notch.
+While music plays, the album cover sits on one side of the camera and a
+waveform that moves with the music on the other. Point at the notch and it
+opens into a panel with the cover, the song, a progress bar you can drag, and
+play, pause and skip buttons. When nothing is playing, it draws nothing and
+the notch looks like a notch.
 
-No login and no Spotify developer account. The only network calls are the
-album cover, Spotify's public page for a song when you click its title or
-artist, and a daily check of this repo's releases for a new version, which you
-can turn off. Swift 6 / SwiftUI + AppKit, zero third-party dependencies.
+No login and no Spotify account setup. It only goes online for the album
+cover, Spotify's public page for a song when you click its title or artist,
+and a daily check for a new version of NotchPlayer, which you can turn off.
 
 ## Features
 
@@ -46,9 +45,9 @@ can turn off. Swift 6 / SwiftUI + AppKit, zero third-party dependencies.
 
 ### Now playing, at a glance
 
-The cover on one side of the camera housing, a live waveform on the other.
-The waveform is a real FFT of Spotify's output through a Core Audio process
-tap — 14 bars, computed in memory, never stored and never sent anywhere.
+The cover on one side of the camera, a waveform on the other. The bars move
+with the music you're hearing. They're worked out on your Mac as the song
+plays, and the sound is never saved or sent anywhere.
 
 </td>
 </tr>
@@ -62,10 +61,9 @@ tap — 14 bars, computed in memory, never stored and never sent anywhere.
 
 ### Full transport
 
-Play/pause, previous, next, and a progress bar you can click or drag to seek —
-the target is the 30pt band around the line, not the line itself. Shuffle and
-repeat sit in the same row; repeat cycles off → all → one, and NotchPlayer
-loops the song itself for "one".
+Play/pause, previous, next, and a progress bar you can click or drag to jump
+around the song. You don't have to hit the thin line exactly. Shuffle and
+repeat sit in the same row; repeat goes off → all → one.
 
 </td>
 </tr>
@@ -97,10 +95,10 @@ Songs is one item above it); a saved one gets Spotify's picker.
 
 ### Stays out of the way
 
-A waveform glyph in the menu bar is the only other control: what's playing,
-**Hide from the Notch** (stands the app fully down — no panel, no hover
-polling, no audio tap), and Quit. The gear opens settings: launch at login,
-cover colour on the progress bar, and the + behaviour.
+A waveform icon in the menu bar is the only other control: what's playing,
+**Hide from the Notch** (turns it off without quitting), and Quit. The gear
+opens settings: launch at login, cover colour on the progress bar, the +, and
+checking for updates.
 
 </td>
 </tr>
@@ -286,17 +284,13 @@ yourself (in Finder, **Go → Go to Folder…** and paste each path):
 
 ## Using it
 
-Hover the notch to open the panel; move the pointer away and it closes. Click
-the title, artist or cover to open that thing in Spotify — the title opens the
-album with the song highlighted rather than restarting the track.
+Point at the notch to open the panel; move the pointer away and it closes.
+Click the title, artist or cover to open that thing in Spotify. The title
+opens the album with the song highlighted, without restarting it.
 
-The **+** needs a word of explanation. Spotify's AppleScript dictionary exposes
-a `starred` property that does nothing, so there is no scriptable way to like a
-song. NotchPlayer instead presses Spotify's real + through the Accessibility
-API — the same channel VoiceOver uses. It's off by default, it's your own
-click being relayed, and it brings Spotify to the front. If anything is missing
-— permission not granted, or a Spotify update moved the button — the + quietly
-falls back to opening the song. Local files and podcasts get no +.
+With **Save with Spotify's +** on, the + brings Spotify to the front and opens
+its playlist list for you. If it can't, it opens the song instead. Local
+files and podcasts get no +.
 
 ## Found a bug, or have an idea?
 
