@@ -158,3 +158,27 @@ final class FrameProbeTests: XCTestCase {
         XCTAssertEqual(FrameProbe.describe([]), "probe: no frames")
     }
 }
+
+/// Which Macs get a notch drawn. Only the first case is reachable on the Mac
+/// this is developed on, which is why the rule is a pure function.
+final class NotchPresenceTests: XCTestCase {
+    func testAnyScreenWithATopInsetHasTheNotch() {
+        XCTAssertEqual(NotchPresence.of([(builtIn: true, topInset: 37)]), .present)
+        // Lid open with an external monitor too: the built-in still counts.
+        XCTAssertEqual(NotchPresence.of([(builtIn: false, topInset: 0),
+                                         (builtIn: true, topInset: 32)]), .present)
+    }
+
+    func testABuiltInScreenWithoutACutoutHasNoNotch() {
+        // A 13" MacBook Pro or an M1 Air.
+        XCTAssertEqual(NotchPresence.of([(builtIn: true, topInset: 0)]), .noNotch)
+        XCTAssertEqual(NotchPresence.of([(builtIn: true, topInset: 0),
+                                         (builtIn: false, topInset: 0)]), .noNotch)
+    }
+
+    func testNoBuiltInScreenIsItsOwnAnswer() {
+        // A Mac mini, or a MacBook with the lid shut.
+        XCTAssertEqual(NotchPresence.of([(builtIn: false, topInset: 0)]), .noBuiltInScreen)
+        XCTAssertEqual(NotchPresence.of([]), .noBuiltInScreen)
+    }
+}

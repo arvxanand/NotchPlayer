@@ -141,6 +141,19 @@ final class MenuSummaryTests: XCTestCase {
         XCTAssertEqual(summary(.stopped, .denied), "Cannot read Spotify")
     }
 
+    /// On a Mac with no notch the panel draws nothing, so this line is the
+    /// only thing that says why. The song is still named on the line above.
+    func testNoNotchIsSaidInsteadOfTheTrack() {
+        let playing = Now.track(song, state: .playing, position: 0)
+        XCTAssertEqual(MenuBarItem.summary(now: playing, permission: .granted, hidden: false,
+                                           notch: .noNotch), "This Mac has no notch")
+        XCTAssertEqual(MenuBarItem.summary(now: .stopped, permission: .denied, hidden: false,
+                                           notch: .noBuiltInScreen), "No notch on this screen")
+        XCTAssertEqual(MenuBarItem.summary(now: playing, permission: .granted, hidden: true,
+                                           notch: .noNotch), "Hidden from the notch")
+        XCTAssertEqual(summary(playing), "Comes and Goes \u{2014} KETTAMA")
+    }
+
     func testALongTitleIsCutRatherThanWideningTheMenu() {
         let long = Track(id: "x", name: String(repeating: "verylongword ", count: 8),
                          artist: String(repeating: "artist ", count: 8),
