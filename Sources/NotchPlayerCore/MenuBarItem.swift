@@ -78,7 +78,8 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
         popover.contentViewController = NSHostingController(rootView: MenuPanel(
             track: now.track,
             playing: now.isPlaying,
-            subtitle: Self.summary(now: now, permission: permission, hidden: hidden),
+            subtitle: Self.summary(now: now, permission: permission, hidden: hidden,
+                                   notch: .current),
             hidden: hidden,
             toggleHidden: { [weak self] in
                 self?.setHidden(!hidden)
@@ -154,10 +155,17 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
     ///
     /// Hidden wins over everything: if the panel is not on the notch, that is
     /// the fact the user opened this menu to check, and what Spotify happens
-    /// to be playing is beside the point.
+    /// to be playing is beside the point. No notch comes next, for the same
+    /// reason: the track is still named on the line above.
     public nonisolated static func summary(now: Now, permission: Permission,
-                                           hidden: Bool) -> String {
+                                           hidden: Bool,
+                                           notch: NotchPresence = .present) -> String {
         if hidden { return "Hidden from the notch" }
+        switch notch {
+        case .present: break
+        case .noNotch: return "This Mac has no notch"
+        case .noBuiltInScreen: return "No notch on this screen"
+        }
         if permission == .denied, now.track == nil { return "Cannot read Spotify" }
         switch now {
         case .notRunning: return "Spotify is not running"

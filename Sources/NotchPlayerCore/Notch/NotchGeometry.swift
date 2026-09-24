@@ -205,3 +205,32 @@ public struct NotchGeometry: Equatable, Sendable {
         CGRect(x: notchScreenRect.minX, y: 0, width: notchWidth, height: notchHeight)
     }
 }
+
+/// Whether there is a notch to draw on, so the menu-bar item can say why the
+/// notch is empty instead of looking broken. Same test as
+/// `AppController.notchedScreen`: any screen with a top inset has the cutout.
+///
+/// **Never run on a Mac without a notch.** The rule is pure so every case can
+/// be tested on this one, which has a notch.
+public enum NotchPresence: Equatable, Sendable {
+    case present
+    /// A built-in screen with no cutout: a 13" MacBook Pro, an M1 Air.
+    case noNotch
+    /// No built-in screen at all: a desktop Mac, or a MacBook with the lid
+    /// shut. The two can't be told apart from the screen list, so the wording
+    /// covers both.
+    case noBuiltInScreen
+
+    public nonisolated static func of(_ screens: [(builtIn: Bool, topInset: CGFloat)]) -> NotchPresence {
+        if screens.contains(where: { $0.topInset > 0 }) { return .present }
+        return screens.contains(where: { $0.builtIn }) ? .noNotch : .noBuiltInScreen
+    }
+
+    @MainActor public static var current: NotchPresence {
+        of(NSScreen.screens.map { screen in
+            let id = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+            return (builtIn: id.map { CGDisplayIsBuiltin($0) != 0 } ?? false,
+                    topInset: screen.safeAreaInsets.top)
+        })
+    }
+}
