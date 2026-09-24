@@ -112,6 +112,20 @@ You need:
 - macOS 15 Sequoia or later
 - the Spotify desktop app, signed in
 
+**Does my Mac have a notch?** If the camera sits in a black cutout that dips
+into the top of the screen, yes. If it sits in the frame above the screen, no.
+
+| Has a notch | No notch |
+|---|---|
+| MacBook Pro 14" and 16" (late 2021 and newer) | MacBook Pro 13" (every one, including M1 and M2) |
+| MacBook Air 13" with M2 or newer | MacBook Air with M1, and older |
+| MacBook Air 15" (all of them) | Intel MacBooks (NotchPlayer won't open) |
+| | iMac, Mac mini, Mac Studio, Mac Pro |
+
+Not sure which you have? Apple menu → **About This Mac** shows the model and
+size. On a Mac without a notch, NotchPlayer draws nothing, and its menu bar
+item says "This Mac has no notch".
+
 ### 1. Download it
 
 **[Download NotchPlayer](https://github.com/arvxanand/NotchPlayer/releases/latest/download/NotchPlayer.dmg)**,
