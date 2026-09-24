@@ -74,7 +74,7 @@ jobs:
           hdiutil attach NotchPlayer.dmg -nobrowse -readonly -mountpoint "$mnt"
           app="$mnt/NotchPlayer.app"
           codesign --verify --deep --strict --verbose=2 "$app"
-          codesign -dv "$app" 2>&1 | tee /dev/stderr | grep -qx 'Authority=NotchPlayer'
+          codesign -dv --verbose=2 "$app" 2>&1 | tee /dev/stderr | grep -qx 'Authority=NotchPlayer'
           codesign -d --entitlements - --xml "$app" | grep -q com.apple.security.automation.apple-events
           plist="$app/Contents/Info.plist"
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$plist")" = "$VERSION"
