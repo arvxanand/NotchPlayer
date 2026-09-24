@@ -357,6 +357,14 @@ forced under 5MB: the script gives up width first, then adds lossy
 compression, then drops to 33fps, and fails loudly rather than committing
 something huge. It also fails if the frame timing comes out uneven.
 
+## Found a bug, or have an idea?
+
+[**Open an issue**](https://github.com/arvxanand/NotchPlayer/issues/new/choose)
+and pick **Report a bug** or **Suggest an idea**. The bug form asks for your
+Mac model and macOS version, and if you can, a phone photo of the notch and
+NotchPlayer's log file. That's usually enough to find the problem. You need a
+free GitHub account, and you'll be told when it's fixed.
+
 ## Contributing
 
 Issues and pull requests are welcome. Two things worth knowing before you open

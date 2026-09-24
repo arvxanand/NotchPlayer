@@ -1,0 +1,7 @@
+# Forms only: an empty issue usually arrives as "it doesn't work" with no Mac
+# model, which is the first thing needed for a notch app.
+blank_issues_enabled: false
+contact_links:
+  - name: Installing, or the "could not verify" warning
+    url: https://github.com/arvxanand/NotchPlayer#install
+    about: Step-by-step install, Open Anyway, and fixing permissions.
