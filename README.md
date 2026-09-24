@@ -28,8 +28,9 @@ and it expands into a panel with the cover, the track, a progress bar you can
 drag to seek, and the transport row. Idle, it draws nothing and the notch looks
 like a notch.
 
-No login, no Spotify developer account, no network calls beyond the album
-cover. Swift 6 / SwiftUI + AppKit, zero third-party dependencies.
+No login and no Spotify developer account. The only network calls are the
+album cover, and Spotify's public page for a song when you click its title or
+artist. Swift 6 / SwiftUI + AppKit, zero third-party dependencies.
 
 ## Features
 
@@ -222,6 +223,16 @@ certificate. Click Allow again.
 3. Drag NotchPlayer from Applications to the Trash, or run
    `brew uninstall --cask notchplayer`.
 
+That leaves its settings, cached album covers and log behind. To remove those
+too, use `brew uninstall --zap --cask notchplayer` instead, or delete these
+yourself (in Finder, **Go → Go to Folder…** and paste each path):
+
+- `~/Library/Preferences/io.github.arvxanand.notchplayer.plist`
+- `~/Library/Caches/NotchPlayer`
+- `~/Library/Caches/io.github.arvxanand.notchplayer`
+- `~/Library/HTTPStorages/io.github.arvxanand.notchplayer`
+- `~/Library/Logs/NotchPlayer.log`
+
 ## Using it
 
 Hover the notch to open the panel; move the pointer away and it closes. Click
@@ -252,26 +263,39 @@ cd NotchPlayer
 open NotchPlayer.app
 ```
 
+Quit a downloaded copy first. Both have the same bundle id, and a second copy
+refuses to start while one is running.
+
 SwiftPM can't produce a bundle, and a bundle is required for `LSUIElement`
 (no dock icon), a stable bundle identifier, and the usage-description strings
 TCC shows you — hence `make_app.sh` rather than plain `swift build`.
 
 ### Releasing a version
 
-```bash
-git tag v0.3 && git push origin v0.3
-```
+1. Tag `main` and push the tag. The version is the tag without the `v`.
 
-The `release` workflow builds `NotchPlayer.dmg`, checks its signature, and
-attaches it to a **draft** release. Download the draft, try it, then publish
-it. The job summary prints the dmg's sha256. Put that and the new version in
-`Casks/notchplayer.rb` in
-[homebrew-notchplayer](https://github.com/arvxanand/homebrew-notchplayer) so
-`brew upgrade` sees it. `tools/make-dmg.sh` makes the same dmg locally.
+   ```bash
+   git tag v0.3 origin/main && git push origin v0.3
+   ```
+
+2. The `release` workflow builds `NotchPlayer.dmg` with Xcode 16.0, checks
+   its signature, entitlement, version and bundle id from inside the dmg, and
+   attaches it to a **draft** release, which only people with write access
+   can see.
+3. Download the dmg from the draft, try it, and click **Publish release**.
+   The README's download link always points at the newest published release.
+4. Update the cask in
+   [homebrew-notchplayer](https://github.com/arvxanand/homebrew-notchplayer)
+   (`Casks/notchplayer.rb`): set `version` to the new version and `sha256` to
+   the value in the workflow's job summary. Until then, `brew upgrade` keeps
+   installing the old one.
+
+`tools/make-dmg.sh` makes the same dmg locally, after `./make_app.sh release`.
 
 ### When something looks wrong
 
 ```bash
+swift build                            # the debug binary these use
 .build/debug/NotchPlayer --read        # what Spotify is actually saying
 .build/debug/NotchPlayer --watch 30    # every state change, stamped, no UI
 .build/debug/NotchPlayer --list-previews
@@ -282,7 +306,7 @@ TCC silently hands it nothing but zeros.
 
 ```bash
 open --stdout /tmp/bands.txt --stderr /tmp/bands.txt \
-     -a NotchPlayer.app --args --bands 8   # live bars, or "no live audio"
+     ./NotchPlayer.app --args --bands 8   # live bars, or "no live audio"
 ```
 
 Logs go to `~/Library/Logs/NotchPlayer.log`.
@@ -295,8 +319,10 @@ Logs go to `~/Library/Logs/NotchPlayer.log`.
 | `tools/check_notch.sh` | nothing legible behind the camera housing, every state. One parked window, ~17s |
 | `tools/hit_probe.sh` | the play/pause and + targets are live across their whole 44pt, and only there. **Changes playback** and opens Spotify, and refuses to run while the app is up |
 | `tools/frame_probe.sh` | how many frames the expand animation really renders, measured on the running app |
-| `tools/sweep.sh` | nothing of ours left running; the reference agent is still up |
-| `tools/reset-permissions.sh` | make macOS re-ask for Automation and Audio Capture |
+| `tools/sweep.sh` | no preview window or debug build left running |
+| `tools/reset-permissions.sh` | make macOS re-ask for Automation, Audio Capture and Accessibility |
+| `tools/make-dmg.sh` | pack `NotchPlayer.app` into `NotchPlayer.dmg`, the same way the release workflow does |
+| `swift tools/make-icon.swift` | redraw the app icon (`assets/AppIcon.icns`) and the README logo |
 | `tools/pixel_check.py` | assert about a window capture: `--unlit`, `--bounds` |
 | `tools/crop.py` | crop and enlarge a capture so a 39pt strip can be looked at. Takes **pixels**, and captures are 2x |
 
@@ -322,7 +348,8 @@ something huge. It also fails if the frame timing comes out uneven.
 Issues and pull requests are welcome. Two things worth knowing before you open
 one:
 
-- `./tools/verify.sh` should pass. It's the same thing CI would run.
+- `./tools/verify.sh` should pass. CI doesn't run it (it needs a Mac with a
+  notch), so run it yourself before opening one.
 - The notch is a hard constraint, not a layout suggestion. `check_notch.sh`
   exists because "looks fine on my display" has been wrong more than once.
 

@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 
 RAW="recordings/raw"
 OUT="assets/demo"
-[ -d "$RAW" ] || { echo "FAIL  $RAW does not exist -- record the clips first (see README of this script)" >&2; exit 1; }
+[ -d "$RAW" ] || { echo "FAIL  $RAW does not exist -- record the clips first (see "Rebuilding the demo GIFs" in README.md)" >&2; exit 1; }
 
 shopt -s nullglob
 movs=("$RAW"/*.mov)
