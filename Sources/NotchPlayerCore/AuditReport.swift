@@ -35,6 +35,7 @@ public enum AuditReport {
             contrast(entry.name, Palette.hex(white: entry.level))
         }
         contrast("spotify-mark", Palette.spotifyHex)
+        contrast("update-row", Palette.updateHex)
 
         // Computed from the constant the layout actually uses, so a shrunk
         // button cannot pass by being audited at its intended size.

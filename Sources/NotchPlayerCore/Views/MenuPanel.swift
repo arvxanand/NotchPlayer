@@ -144,7 +144,8 @@ public struct MenuPanel: View {
             Spacer(minLength: 0)
             if let update {
                 divider
-                Row(title: "Update to v\(update)", symbol: "arrow.down.circle", action: installUpdate)
+                Row(title: "Update to v\(update)", symbol: "arrow.down.circle", tint: Palette.update,
+                    action: installUpdate)
             }
             divider
             Row(title: hidden ? "Show in the Notch" : "Hide from the Notch",
@@ -279,6 +280,8 @@ public struct MenuPanel: View {
     private struct Row: View {
         let title: String
         let symbol: String
+        /// Always this colour, pointed at or not: only the update row has one.
+        var tint: Color?
         let action: () -> Void
         @State private var hovering = false
 
@@ -290,7 +293,7 @@ public struct MenuPanel: View {
                 Text(title).font(Type.label(11))
                 Spacer(minLength: 0)
             }
-            .foregroundStyle(hovering ? Palette.primary : Palette.secondary)
+            .foregroundStyle(tint ?? (hovering ? Palette.primary : Palette.secondary))
             .padding(.horizontal, MenuPanel.margin)
             .frame(height: 38)
             .background(hovering ? Palette.wash : .clear)
