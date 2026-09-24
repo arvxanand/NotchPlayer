@@ -57,13 +57,19 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Hardened runtime, ad-hoc signed. Unsandboxed on purpose: App Sandbox blocks
-# Apple Events without a temporary exception for com.spotify.client, and this
-# is not going to the App Store.
+# Hardened runtime, unsandboxed on purpose: App Sandbox blocks Apple Events
+# without a temporary exception for com.spotify.client, and this is not going
+# to the App Store.
 #
-# The cost, and it is a real one: an ad-hoc signature changes on every build,
-# so macOS may treat each build as a new app and re-ask for Automation and
-# Audio Capture. `tools/reset-permissions.sh` is the way out when it does.
+# Signed with the owner's self-signed "NotchPlayer" certificate when the
+# keychain has it (CI loads it from a secret), so macOS keeps the permissions
+# across builds and updates, and the updater can check a download is ours.
+# Without it the build is ad-hoc: a new identity every build, so macOS
+# re-asks for Automation and Audio Capture (`tools/reset-permissions.sh`).
+# Found by its exact name and signed by its hash, because `codesign --sign
+# NAME` matches any certificate whose name contains NAME.
+SIGN_ID="${SIGN_ID:-$(security find-identity -p codesigning | awk '/"NotchPlayer"/ {print $2; exit}')}"
+#
 # **The hardened runtime blocks Apple Events unless the app says it sends
 # them.** Without this entitlement every event fails with -1743 and macOS
 # never prompts -- so it looks exactly like a user who denied Automation, and
@@ -79,8 +85,14 @@ cat > "$ENTITLEMENTS" <<'ENT'
 </dict>
 </plist>
 ENT
-codesign --force --sign - --options runtime --entitlements "$ENTITLEMENTS" "$APP" >/dev/null 2>&1 \
-    || echo "warn  codesign failed; the app will still run unsigned"
+if [ -n "$SIGN_ID" ]; then
+    # No fallback: a release signed any other way can't update itself.
+    codesign --force --sign "$SIGN_ID" --options runtime --entitlements "$ENTITLEMENTS" "$APP"
+    echo "signed with $SIGN_ID"
+else
+    codesign --force --sign - --options runtime --entitlements "$ENTITLEMENTS" "$APP" >/dev/null 2>&1 \
+        || echo "warn  codesign failed; the app will still run unsigned"
+fi
 rm -f "$ENTITLEMENTS"
 
 echo "built $APP"
