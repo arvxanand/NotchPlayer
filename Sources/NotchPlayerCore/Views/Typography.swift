@@ -133,6 +133,12 @@ public enum Palette {
     public static let spotify = Color(red: 0x1D / 255, green: 0xB9 / 255, blue: 0x54 / 255)
     public static let spotifyHex = "#1DB954"
 
+    /// The "Update to v0.x" row, and nothing else: the one row a friend has
+    /// to notice without being told (the owner's call, 24 Sep 2026). A light
+    /// blue, like a link, 9.5:1 on black.
+    public static let update = Color(red: 0x6E / 255, green: 0xB5 / 255, blue: 0xFF / 255)
+    public static let updateHex = "#6EB5FF"
+
     /// Composite a white level onto black, as the compositor will.
     public static func hex(white level: Double) -> String {
         let v = Int((level * 255).rounded())

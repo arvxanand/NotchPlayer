@@ -6,13 +6,19 @@
 # Homebrew cask pick it up.
 #
 # No notarisation: that needs the paid Apple Developer Program, which was
-# declined. The app is ad-hoc signed by make_app.sh, and users clear macOS's
+# declined. The app is signed with the owner's self-signed "NotchPlayer"
+# certificate (two repo secrets), so permissions survive updates and the
+# in-app updater can check a download is ours. Users still clear macOS's
 # warning once (the README walks them through it).
+#
+# Run by hand from a branch (workflow_dispatch) it builds and checks a 0.0
+# test build and attaches nothing.
 name: release
 
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write   # gh release create
@@ -28,16 +34,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Work out the version
+        # The tag is the version: v0.2 -> 0.2. A hand-run is a test build.
+        run: echo "VERSION=$([ "$GITHUB_REF_TYPE" = tag ] && echo "${GITHUB_REF_NAME#v}" || echo 0.0)" >> "$GITHUB_ENV"
+
+      # Into a throwaway keychain that goes away with the runner. The .p12 is
+      # the owner's export from Keychain Access, base64'd into SIGNING_P12.
+      - name: Load the signing certificate
+        env:
+          P12: ${{ secrets.SIGNING_P12 }}
+          P12_PASSWORD: ${{ secrets.SIGNING_P12_PASSWORD }}
+        run: |
+          set -euo pipefail
+          kc="$RUNNER_TEMP/signing.keychain-db"
+          kcpass=$(uuidgen)
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$kcpass" "$kc"
+          security set-keychain-settings -lut 3600 "$kc"
+          security unlock-keychain -p "$kcpass" "$kc"
+          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$kcpass" "$kc" >/dev/null
+          security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+
       - name: Build the app
-        # The tag is the version: v0.2 -> 0.2.
-        run: VERSION="${GITHUB_REF_NAME#v}" ./make_app.sh release
+        run: ./make_app.sh release
 
       - name: Pack the dmg
         run: tools/make-dmg.sh
 
-      # Checked from inside the dmg, because that is the copy users get.
-      # make_app.sh only warns when codesign fails, so this is what fails the
-      # job. Without the apple-events entitlement every Apple Event fails with
+      # Checked from inside the dmg, because that is the copy users get. An
+      # ad-hoc build here would ship, run, and never be able to update itself,
+      # so the signer is checked by name. Without the apple-events entitlement every Apple Event fails with
       # -1743 and looks like a denied permission (docs/TRAPS.md #34).
       - name: Check the app inside the dmg
         run: |
@@ -46,14 +74,15 @@ jobs:
           hdiutil attach NotchPlayer.dmg -nobrowse -readonly -mountpoint "$mnt"
           app="$mnt/NotchPlayer.app"
           codesign --verify --deep --strict --verbose=2 "$app"
-          codesign -dv "$app"
+          codesign -dv --verbose=2 "$app" 2>&1 | grep -x 'Authority=NotchPlayer'
           codesign -d --entitlements - --xml "$app" | grep -q com.apple.security.automation.apple-events
           plist="$app/Contents/Info.plist"
-          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$plist")" = "${GITHUB_REF_NAME#v}"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$plist")" = "$VERSION"
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$plist")" = io.github.arvxanand.notchplayer
           hdiutil detach "$mnt"
 
       - name: Attach to a draft release
+        if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

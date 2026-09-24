@@ -48,11 +48,7 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
         // this is the app's icon and not the service's -- and because
         // matchnotch's item is a sport glyph two positions away, so the two
         // must not be confusable at 16pt.
-        let image = NSImage(systemSymbolName: "waveform",
-                            accessibilityDescription: "NotchPlayer")
-        image?.isTemplate = true
-        item.button?.image = image
-        item.button?.toolTip = "NotchPlayer"
+        setBadge(false)
 
         popover.contentSize = NSSize(width: MenuPanel.width, height: MenuPanel.height)
         // Transient: clicking anywhere else dismisses it, the way a menu does.
@@ -64,6 +60,27 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
         popover.delegate = self
         item.button?.target = self
         item.button?.action = #selector(toggle)
+    }
+
+    /// A small dot at the top right while an update waits. Still a template,
+    /// so it takes the menu bar's tint like the waveform does.
+    public func setBadge(_ on: Bool) {
+        let label = on ? "NotchPlayer, update available" : "NotchPlayer"
+        guard let symbol = NSImage(systemSymbolName: "waveform", accessibilityDescription: label)
+        else { return }
+        let side: CGFloat = 5
+        let image = on ? NSImage(size: NSSize(width: symbol.size.width + side / 2, height: symbol.size.height),
+                                 flipped: false) { rect in
+            symbol.draw(in: NSRect(origin: .zero, size: symbol.size))
+            NSColor.black.setFill()
+            NSBezierPath(ovalIn: NSRect(x: rect.maxX - side, y: rect.maxY - side,
+                                        width: side, height: side)).fill()
+            return true
+        } : symbol
+        image.isTemplate = true
+        image.accessibilityDescription = label
+        item.button?.image = image
+        item.button?.toolTip = label
     }
 
     /// Rebuilt on every open rather than subscribed to the service.
@@ -95,6 +112,18 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
             },
             plus: SpotifyPlus.status,
             togglePlus: { SpotifyPlus.toggle() },
+            update: Updater.available?.version,
+            installUpdate: { [weak self] in
+                self?.popover.performClose(nil)
+                Updater.install()
+            },
+            checkUpdates: Updater.placement == .hidden ? nil : Updater.enabled,
+            toggleUpdates: {
+                Updater.enabled.toggle()
+                print("update: checking \(Updater.enabled ? "on" : "off")")
+                return Updater.enabled
+            },
+            version: Updater.current,
             quit: { NSApp.terminate(nil) }))
     }
 

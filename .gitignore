@@ -5,9 +5,10 @@ NotchPlayer.dmg
 *.log
 hig-audit.json
 
-# Docs stay local. Only the root README is published.
+# Docs stay local. Only the root README and CONTRIBUTING are published.
 *.md
 !/README.md
+!/CONTRIBUTING.md
 
 # Design mockups stay local too.
 docs/mockups/

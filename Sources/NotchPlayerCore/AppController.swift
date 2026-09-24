@@ -97,6 +97,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
                 },
                 hidden: { [weak self] in self?.hidden ?? false },
                 setHidden: { [weak self] in self?.setHidden($0) })
+            Updater.changed = { [weak self] in self?.menuBar?.setBadge(Updater.available != nil) }
+            Updater.start()
         }
 
         NotificationCenter.default.addObserver(

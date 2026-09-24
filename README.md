@@ -22,15 +22,15 @@
 
 ---
 
-Collapsed, while music plays: the album cover and a live waveform — a real FFT
-of Spotify's own audio — either side of the camera housing. Hover the cutout
-and it expands into a panel with the cover, the track, a progress bar you can
-drag to seek, and the transport row. Idle, it draws nothing and the notch looks
-like a notch.
+While music plays, the album cover sits on one side of the camera and a
+waveform that moves with the music on the other. Point at the notch and it
+opens into a panel with the cover, the song, a progress bar you can drag, and
+play, pause and skip buttons. When nothing is playing, it draws nothing and
+the notch looks like a notch.
 
-No login and no Spotify developer account. The only network calls are the
-album cover, and Spotify's public page for a song when you click its title or
-artist. Swift 6 / SwiftUI + AppKit, zero third-party dependencies.
+No login and no Spotify account setup. It only goes online for the album
+cover, Spotify's public page for a song when you click its title or artist,
+and a daily check for a new version of NotchPlayer, which you can turn off.
 
 ## Features
 
@@ -45,9 +45,9 @@ artist. Swift 6 / SwiftUI + AppKit, zero third-party dependencies.
 
 ### Now playing, at a glance
 
-The cover on one side of the camera housing, a live waveform on the other.
-The waveform is a real FFT of Spotify's output through a Core Audio process
-tap — 14 bars, computed in memory, never stored and never sent anywhere.
+The cover on one side of the camera, a waveform on the other. The bars move
+with the music you're hearing. They're worked out on your Mac as the song
+plays, and the sound is never saved or sent anywhere.
 
 </td>
 </tr>
@@ -61,10 +61,9 @@ tap — 14 bars, computed in memory, never stored and never sent anywhere.
 
 ### Full transport
 
-Play/pause, previous, next, and a progress bar you can click or drag to seek —
-the target is the 30pt band around the line, not the line itself. Shuffle and
-repeat sit in the same row; repeat cycles off → all → one, and NotchPlayer
-loops the song itself for "one".
+Play/pause, previous, next, and a progress bar you can click or drag to jump
+around the song. You don't have to hit the thin line exactly. Shuffle and
+repeat sit in the same row; repeat goes off → all → one.
 
 </td>
 </tr>
@@ -96,10 +95,10 @@ Songs is one item above it); a saved one gets Spotify's picker.
 
 ### Stays out of the way
 
-A waveform glyph in the menu bar is the only other control: what's playing,
-**Hide from the Notch** (stands the app fully down — no panel, no hover
-polling, no audio tap), and Quit. The gear opens settings: launch at login,
-cover colour on the progress bar, and the + behaviour.
+A waveform icon in the menu bar is the only other control: what's playing,
+**Hide from the Notch** (turns it off without quitting), and Quit. The gear
+opens settings: launch at login, cover colour on the progress bar, the +, and
+checking for updates.
 
 </td>
 </tr>
@@ -204,8 +203,11 @@ for the permission. Here's what NotchPlayer actually does with it:
   turns each slice into 14 bar heights for the waveform and throws the
   sound away. No audio ever goes to a file.
 - **Nothing is sent anywhere.** The app has no account, no analytics and no
-  server. Its only network requests are the album cover, and Spotify's
-  public page for a song when you click its title or artist.
+  server. Its only network requests are the album cover, Spotify's public
+  page for a song when you click its title or artist, and a daily check of
+  this repo's GitHub releases for a newer NotchPlayer. That check sends
+  nothing about you or your music, and **Check for updates** behind the gear
+  turns it off.
 - **You can check.** The code that listens is
   [`AudioTap.swift`](Sources/NotchPlayerCore/Data/AudioTap.swift), and the
   permission can be turned off at any time in **System Settings → Privacy &
@@ -247,12 +249,21 @@ brew install --cask arvxanand/notchplayer/notchplayer
 
 ### Updating
 
-Quit NotchPlayer, then download the new version and drag it into
-Applications again (choose **Replace**), or run
-`brew upgrade --cask notchplayer`. After a download you clear the warning once
-more. **Either way, macOS asks for the permissions
-again after every update**, because the app isn't signed with a paid
-certificate. Click Allow again.
+**From v0.3 on, NotchPlayer updates itself.** When a new version is out, the
+menu bar icon gets a small dot and its menu says **Update to v0.x** in blue.
+Click it: NotchPlayer swaps in the new version and restarts in a second or
+two, and keeps its permissions. It checks once a day; **Check for updates**
+behind the gear turns that off.
+
+- **Coming from v0.2**, update the old way one last time: download the new
+  version, drag it into Applications (choose **Replace**), clear the warning,
+  and allow the permissions again. v0.2 can't update itself, and v0.3 is
+  signed differently, so macOS asks once more.
+- **If NotchPlayer can't replace itself** (you aren't an admin, or it's
+  running from the dmg), the row opens the download page instead and you
+  update the old way.
+- **Installed with Homebrew?** The row stays hidden; run
+  `brew upgrade --cask notchplayer`.
 
 ### Uninstalling
 
@@ -273,113 +284,13 @@ yourself (in Finder, **Go → Go to Folder…** and paste each path):
 
 ## Using it
 
-Hover the notch to open the panel; move the pointer away and it closes. Click
-the title, artist or cover to open that thing in Spotify — the title opens the
-album with the song highlighted rather than restarting the track.
+Point at the notch to open the panel; move the pointer away and it closes.
+Click the title, artist or cover to open that thing in Spotify. The title
+opens the album with the song highlighted, without restarting it.
 
-The **+** needs a word of explanation. Spotify's AppleScript dictionary exposes
-a `starred` property that does nothing, so there is no scriptable way to like a
-song. NotchPlayer instead presses Spotify's real + through the Accessibility
-API — the same channel VoiceOver uses. It's off by default, it's your own
-click being relayed, and it brings Spotify to the front. If anything is missing
-— permission not granted, or a Spotify update moved the button — the + quietly
-falls back to opening the song. Local files and podcasts get no +.
-
-## For developers
-
-### Build from source
-
-Needs macOS 15 and **Xcode 16** (tested with 16.0, Swift 6.0). The free
-Command Line Tools aren't enough yet: their Swift 6.2 didn't finish compiling
-this project in over ten minutes.
-
-```bash
-git clone https://github.com/arvxanand/NotchPlayer.git
-cd NotchPlayer
-./tools/verify.sh              # everything checkable, in one command
-./make_app.sh release          # build the bundle, restart it if running
-open NotchPlayer.app
-```
-
-Quit a downloaded copy first. Both have the same bundle id, and a second copy
-refuses to start while one is running.
-
-SwiftPM can't produce a bundle, and a bundle is required for `LSUIElement`
-(no dock icon), a stable bundle identifier, and the usage-description strings
-TCC shows you — hence `make_app.sh` rather than plain `swift build`.
-
-### Releasing a version
-
-1. Tag `main` and push the tag. The version is the tag without the `v`.
-
-   ```bash
-   git tag v0.3 origin/main && git push origin v0.3
-   ```
-
-2. The `release` workflow builds `NotchPlayer.dmg` with Xcode 16.0, checks
-   its signature, entitlement, version and bundle id from inside the dmg, and
-   attaches it to a **draft** release, which only people with write access
-   can see.
-3. Download the dmg from the draft, try it, and click **Publish release**.
-   The README's download link always points at the newest published release.
-4. Update the cask in
-   [homebrew-notchplayer](https://github.com/arvxanand/homebrew-notchplayer)
-   (`Casks/notchplayer.rb`): set `version` to the new version and `sha256` to
-   the value in the workflow's job summary. Until then, `brew upgrade` keeps
-   installing the old one.
-
-`tools/make-dmg.sh` makes the same dmg locally, after `./make_app.sh release`.
-
-### When something looks wrong
-
-```bash
-swift build                            # the debug binary these use
-.build/debug/NotchPlayer --read        # what Spotify is actually saying
-.build/debug/NotchPlayer --watch 30    # every state change, stamped, no UI
-.build/debug/NotchPlayer --list-previews
-```
-
-The waveform is the exception: the audio tap needs macOS to launch the app, or
-TCC silently hands it nothing but zeros.
-
-```bash
-open --stdout /tmp/bands.txt --stderr /tmp/bands.txt \
-     ./NotchPlayer.app --args --bands 8   # live bars, or "no live audio"
-```
-
-Logs go to `~/Library/Logs/NotchPlayer.log`.
-
-### Checks
-
-| | |
-|---|---|
-| `tools/verify.sh` | build, tests, notch footprint, contrast, hygiene, docs |
-| `tools/check_notch.sh` | nothing legible behind the camera housing, every state. One parked window, ~17s |
-| `tools/hit_probe.sh` | the play/pause and + targets are live across their whole 44pt, and only there. **Changes playback** and opens Spotify, and refuses to run while the app is up |
-| `tools/frame_probe.sh` | how many frames the expand animation really renders, measured on the running app |
-| `tools/sweep.sh` | no preview window or debug build left running |
-| `tools/reset-permissions.sh` | make macOS re-ask for Automation, Audio Capture and Accessibility |
-| `tools/make-dmg.sh` | pack `NotchPlayer.app` into `NotchPlayer.dmg`, the same way the release workflow does |
-| `swift tools/make-icon.swift` | redraw the app icon (`assets/AppIcon.icns`) and the README logo |
-| `tools/pixel_check.py` | assert about a window capture: `--unlit`, `--bounds` |
-| `tools/crop.py` | crop and enlarge a capture so a 39pt strip can be looked at. Takes **pixels**, and captures are 2x |
-
-`verify.sh` runs everything except `hit_probe.sh`, which clicks real buttons.
-
-### Rebuilding the demo GIFs
-
-The README animations are built from screen recordings that live outside git
-(`recordings/` is ignored; only the built GIFs in `assets/demo/` are committed).
-
-```bash
-brew install gifski gifsicle ffmpeg
-./scripts/build-all.sh              # recordings/raw/*.mov -> assets/demo/*.gif
-```
-
-Each recording is already cropped around the notch. Every GIF is 50fps and
-forced under 5MB: the script gives up width first, then adds lossy
-compression, then drops to 33fps, and fails loudly rather than committing
-something huge. It also fails if the frame timing comes out uneven.
+With **Save with Spotify's +** on, the + brings Spotify to the front and opens
+its playlist list for you. If it can't, it opens the song instead. Local
+files and podcasts get no +.
 
 ## Found a bug, or have an idea?
 
@@ -389,15 +300,10 @@ Mac model and macOS version, and if you can, a phone photo of the notch and
 NotchPlayer's log file. That's usually enough to find the problem. You need a
 free GitHub account, and you'll be told when it's fixed.
 
-## Contributing
+## Building it yourself
 
-Issues and pull requests are welcome. Two things worth knowing before you open
-one:
-
-- `./tools/verify.sh` should pass. CI doesn't run it (it needs a Mac with a
-  notch), so run it yourself before opening one.
-- The notch is a hard constraint, not a layout suggestion. `check_notch.sh`
-  exists because "looks fine on my display" has been wrong more than once.
+Want to build NotchPlayer from source, or help out? See
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

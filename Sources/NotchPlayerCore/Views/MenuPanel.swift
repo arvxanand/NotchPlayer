@@ -24,6 +24,13 @@ public struct MenuPanel: View {
     /// The panel's + pressing Spotify's own, the same way.
     @State private var plus: Grant
     let togglePlus: () -> Grant
+    /// A newer version, when there is one (`Updater`).
+    let update: String?
+    let installUpdate: () -> Void
+    /// Nil hides the switch: a Homebrew install or a local build doesn't check.
+    @State private var checkUpdates: Bool?
+    let toggleUpdates: () -> Bool
+    let version: String
     let quit: () -> Void
     /// Read by `PanelView` too, which redraws the line when it changes.
     @AppStorage(Accent.enabledKey) private var coverAccent = true
@@ -46,12 +53,18 @@ public struct MenuPanel: View {
                 toggleHidden: @escaping () -> Void, login: Grant,
                 toggleLogin: @escaping () -> Grant,
                 plus: Grant = .off, togglePlus: @escaping () -> Grant = { .off },
+                update: String? = nil, installUpdate: @escaping () -> Void = {},
+                checkUpdates: Bool? = nil, toggleUpdates: @escaping () -> Bool = { false },
+                version: String = "",
                 quit: @escaping () -> Void,
                 page: Page = .main, animateIn: Bool = true) {
         self.track = track; self.playing = playing; self.subtitle = subtitle
         self.hidden = hidden; self.toggleHidden = toggleHidden
         _login = State(initialValue: login); self.toggleLogin = toggleLogin; self.quit = quit
         _plus = State(initialValue: plus); self.togglePlus = togglePlus
+        self.update = update; self.installUpdate = installUpdate
+        _checkUpdates = State(initialValue: checkUpdates); self.toggleUpdates = toggleUpdates
+        self.version = version
         _page = State(initialValue: page)
         // An offscreen render never appears, so it would stay invisible.
         _shown = State(initialValue: !animateIn)
@@ -67,7 +80,9 @@ public struct MenuPanel: View {
     /// resized its window on every frame of the slide, which wobbled.
     /// `MenuPanelTests` fails if either page outgrows it -- the pages are
     /// `.clipped()`, so an extra row would not scroll, it would vanish.
-    public static let height: CGFloat = 162
+    /// 200 since the updater: settings has four rows, and the main page's
+    /// spare space holds the version footer, or the update row instead.
+    public static let height: CGFloat = 200
     static let margin: CGFloat = 14
     static let coverSide: CGFloat = 56
 
@@ -127,11 +142,18 @@ public struct MenuPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Spacer(minLength: 0)
+            if let update {
+                divider
+                Row(title: "Update to v\(update)", symbol: "arrow.down.circle", tint: Palette.update,
+                    action: installUpdate)
+            }
             divider
             Row(title: hidden ? "Show in the Notch" : "Hide from the Notch",
                 symbol: hidden ? "eye" : "eye.slash", action: toggleHidden)
             divider
             Row(title: "Quit NotchPlayer", symbol: "power", action: quit)
+            // The update row takes its room.
+            if update == nil { footer }
         }
         .overlay(alignment: .topTrailing) {
             Glyph(symbol: "gearshape", label: "Settings") { go(.settings) }
@@ -160,8 +182,20 @@ public struct MenuPanel: View {
             }
             divider
             plusRow
+            if let on = checkUpdates {
+                divider
+                SwitchRow(title: "Check for updates", isOn: on) { checkUpdates = toggleUpdates() }
+            }
             Spacer(minLength: 0)
         }
+    }
+
+    static let privacy = URL(string: "https://github.com/arvxanand/NotchPlayer#what-audio-recording-actually-records")!
+
+    /// Small and grey: which version this is, and what the app does with
+    /// what it hears. The whole row is the link, so the target is full height.
+    private var footer: some View {
+        Footer(version: version)
     }
 
     private var header: some View {
@@ -246,6 +280,8 @@ public struct MenuPanel: View {
     private struct Row: View {
         let title: String
         let symbol: String
+        /// Always this colour, pointed at or not: only the update row has one.
+        var tint: Color?
         let action: () -> Void
         @State private var hovering = false
 
@@ -257,7 +293,7 @@ public struct MenuPanel: View {
                 Text(title).font(Type.label(11))
                 Spacer(minLength: 0)
             }
-            .foregroundStyle(hovering ? Palette.primary : Palette.secondary)
+            .foregroundStyle(tint ?? (hovering ? Palette.primary : Palette.secondary))
             .padding(.horizontal, MenuPanel.margin)
             .frame(height: 38)
             .background(hovering ? Palette.wash : .clear)
@@ -308,6 +344,29 @@ public struct MenuPanel: View {
             .accessibilityLabel(title)
             .accessibilityValue(isOn ? "on" : "off")
             .accessibilityAddTraits(.isButton)
+        }
+    }
+
+    private struct Footer: View {
+        let version: String
+        @State private var hovering = false
+
+        var body: some View {
+            HStack(spacing: 4) {
+                Text("NotchPlayer \(version)")
+                Text("\u{00B7}")
+                Text("Privacy").underline(hovering)
+            }
+            .font(Type.label(10))
+            .foregroundStyle(hovering ? Palette.primary : Palette.secondary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 36)
+            .contentShape(Rectangle())
+            .onHover { hovering = $0 }
+            .onTapGesture { NSWorkspace.shared.open(MenuPanel.privacy) }
+            .accessibilityElement()
+            .accessibilityLabel("NotchPlayer \(version), privacy")
+            .accessibilityAddTraits(.isLink)
         }
     }
 

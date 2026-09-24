@@ -68,6 +68,7 @@ final class PaletteTests: XCTestCase {
                           "\(entry.name) is drawn but never audited")
         }
         XCTAssertTrue(json.contains(Palette.spotifyHex))
+        XCTAssertTrue(json.contains(Palette.updateHex))
         // The hit-target constant, not a repeat of the number.
         XCTAssertTrue(json.contains("\"w\": \(Int(NotchGeometry.minimumHitHeight))"))
     }
