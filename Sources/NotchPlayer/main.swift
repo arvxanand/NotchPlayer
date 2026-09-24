@@ -188,6 +188,13 @@ if args.contains("--trusted") {
     exit(0)
 }
 
+/// The +'s search, in this bundle's own process, pressing nothing. Launch it
+/// the same way as `--trusted`.
+if args.contains("--find-plus") {
+    SpotifyPlus.findProbe()
+    exit(0)
+}
+
 if args.contains("--audit") {
     print(AuditReport.json())
     exit(0)

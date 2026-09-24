@@ -79,9 +79,10 @@ loops the song itself for "one".
 ### Save the song
 
 The **+** at the end of the title row. By default it opens the song in Spotify
-so you can add it there. Turn on **Save with Spotify's +** and it presses
-Spotify's own + for you — unsaved goes straight to Liked Songs, already-saved
-opens the playlist picker.
+so you can add it there. Turn on **Save with Spotify's +** and it opens
+Spotify's playlist list for you. Nothing is added until you pick a playlist.
+A song you haven't saved gets Spotify's **Add to playlist** menu (Liked
+Songs is one item above it); a saved one gets Spotify's picker.
 
 </td>
 </tr>
@@ -183,7 +184,7 @@ macOS 15, so use the steps above.
 |---|---|---|
 | **Automation** | read the track and send play/pause/skip to Spotify | first launch |
 | **Audio Recording** | the waveform — Spotify's output only, analysed in memory | first launch |
-| **Accessibility** | optional, only for pressing Spotify's own **+** | when you enable it |
+| **Accessibility** | optional, only for opening Spotify's playlist list from the **+** | when you enable it |
 
 Click **Allow** for both on first launch. Then turn on **Launch at Login**
 from the menu bar item (the waveform) → the gear.

@@ -5,11 +5,13 @@ import ApplicationServices
 ///
 /// **Spotify's dictionary cannot save a song, and the Web API needs a
 /// developer app capped at five users** -- so the + presses Spotify's *own* +
-/// through Accessibility, the channel VoiceOver uses. Spotify's button then
-/// does what it always does: a song not yet saved goes to Liked Songs, a saved
-/// one opens Spotify's playlist picker. Measured on 22 Sep 2026: the button
-/// in the now-playing bar labelled "Add to playlist" on a saved song opened
-/// the real picker when pressed. Which button that is: `target(in:)`.
+/// through Accessibility, the channel VoiceOver uses. **It always ends in a
+/// playlist list, never a silent like.** A saved song's + opens Spotify's
+/// picker, so that one is pressed. An unsaved song's + would only add it to
+/// Liked Songs (24 Sep 2026: the owner's click did exactly that, with no
+/// picker), so it is left alone and the song title's right-click menu opens
+/// instead, at its "Add to playlist" list. Which button: `target(in:)`;
+/// which way: `step(for:)`.
 ///
 /// **Opt-in, and every failure opens the song instead** -- the same album,
 /// song highlighted, that the title opens. Off, not allowed, button not found,
@@ -144,6 +146,27 @@ public enum SpotifyPlus {
         return labels[start..<end].firstIndex(where: accepted.contains)
     }
 
+    nonisolated static let unsaved = "Add to Liked Songs", addToPlaylist = "Add to playlist"
+    /// Not in the SDK's role constants; what Spotify's song and artist names report.
+    nonisolated static let linkRole = "AXLink"
+
+    public enum Step: Equatable, Sendable { case pressPlus, openMenu }
+
+    /// Spotify's + on an unsaved song likes it and shows no picker, so that
+    /// one is never pressed.
+    public nonisolated static func step(for plusLabel: String) -> Step {
+        plusLabel == unsaved ? .openMenu : .pressPlus
+    }
+
+    /// The playing song's title: the first link in the now-playing bar,
+    /// before the artists. Buttons and links in document order.
+    public nonisolated static func titleLink(in items: [(role: String, label: String)]) -> Int? {
+        guard let start = items.firstIndex(where: { $0.role == kAXButtonRole && $0.label == anchor }),
+              let end = items[start...].firstIndex(where: { $0.role == kAXButtonRole && $0.label == transport })
+        else { return nil }
+        return items[start..<end].firstIndex { $0.role == linkRole }
+    }
+
     // MARK: - Accessibility, off the main thread (every call is IPC)
 
     nonisolated static let bundleID = "com.spotify.client"
@@ -151,37 +174,121 @@ public enum SpotifyPlus {
     /// Polls, because Spotify arrives over a Space switch when it runs full
     /// screen -- until it is in front it shows Accessibility no windows at
     /// all (`docs/TRAPS.md` #49). Answers the label it pressed, or nil.
-    private nonisolated static func press(pid: pid_t) -> String? {
+    /// `pressing: false` (`--find-plus`) never presses Spotify's +; the
+    /// menu, which adds nothing, still opens.
+    private nonisolated static func press(pid: pid_t, pressing: Bool = true) -> String? {
         let app = AXUIElementCreateApplication(pid)
-        // Chromium only builds its web-content tree when asked. It stays on
-        // for the life of that Spotify process.
-        // ponytail: never switched back off; costs Spotify a little until it quits.
-        AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
-        let deadline = Date().addingTimeInterval(3)
+        let started = Date(), deadline = started.addingTimeInterval(3)
+        var seen = "", set: [Int32] = []
         repeat {
-            var buttons: [AXUIElement] = [], visited = 0
-            collect(app, into: &buttons, visited: &visited, depth: 0)
-            let labels = buttons.map(label)
-            if let i = target(in: labels),
-               AXUIElementPerformAction(buttons[i], kAXPressAction as CFString) == .success {
-                return labels[i]
+            // Chromium only builds its web-content tree when asked, and
+            // Spotify 1.3.0 only hears **AXEnhancedUserInterface**
+            // (AXManualAccessibility answers -25205, unsupported). **Asked on
+            // every poll, not once**: asked while Spotify is still on its
+            // full-screen Space, it keeps the flag and builds nothing, even
+            // once it is in front (`docs/TRAPS.md` #68). The one that works
+            // still answers -25208, so the result is only logged.
+            // ponytail: never switched back off; costs Spotify a little until it quits.
+            set = ["AXEnhancedUserInterface", "AXManualAccessibility"].map {
+                AXUIElementSetAttributeValue(app, $0 as CFString, kCFBooleanTrue).rawValue
+            }
+            var found: [AXUIElement] = [], visited = 0
+            collect(app, roles: [kAXButtonRole, linkRole], into: &found, visited: &visited, depth: 0)
+            let items = found.map { (role: string($0, kAXRoleAttribute), label: label($0)) }
+            let buttons = items.indices.filter { items[$0].role == kAXButtonRole }
+            seen = "\(visited) elements, \(buttons.count) buttons, anchor "
+                + (items.contains { $0.label == anchor } ? "found" : "missing")
+            if let b = target(in: buttons.map { items[$0].label }) {
+                let plus = buttons[b], name = items[plus].label
+                print(String(format: "plus: found \"%@\" after %.2fs", name, Date().timeIntervalSince(started)))
+                switch step(for: name) {
+                case .pressPlus:
+                    guard pressing else { return "would press \(name)" }
+                    return AXUIElementPerformAction(found[plus], kAXPressAction as CFString) == .success
+                        ? name : nil
+                case .openMenu:
+                    guard let title = titleLink(in: items) else {
+                        print("plus: no song title in the bar"); return nil
+                    }
+                    return openAddToPlaylist(app: app, title: found[title]) ? "\(addToPlaylist) menu" : nil
+                }
             }
             Thread.sleep(forTimeInterval: 0.15)
         } while Date() < deadline
+        // What it saw, so a failure in the field says which step failed.
+        print("plus: gave up after 3s: \(seen); windows \(count(app, kAXWindowsAttribute)); set \(set)")
         return nil
+    }
+
+    private nonisolated static func count(_ e: AXUIElement, _ attribute: String) -> Int {
+        var value: CFTypeRef?
+        AXUIElementCopyAttributeValue(e, attribute as CFString, &value)
+        return (value as? [AXUIElement])?.count ?? -1
+    }
+
+    /// `--find-plus`: the click's whole path, run from a launch of this very
+    /// bundle (so it has this build's permission), without pressing
+    /// Spotify's +. On an unsaved song it does open the playlist list.
+    public nonisolated static func findProbe() {
+        guard let spotify = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first,
+              let url = spotify.bundleURL else { return print("plus: Spotify isn't running") }
+        print("plus: trusted \(AXIsProcessTrusted())")
+        NSWorkspace.shared.openApplication(at: url, configuration: .init())
+        print("plus: result \(press(pid: spotify.processIdentifier, pressing: false) ?? "nothing")")
+    }
+
+    /// The title's right-click menu, then its "Add to playlist" item, which
+    /// opens the list of playlists beside it. Pressing that item only opens
+    /// the list: nothing is added until the user picks a playlist. Measured
+    /// 24 Sep 2026, Spotify 1.3.0.277: the menu is web content in the window,
+    /// up within 0.7s.
+    private nonisolated static func openAddToPlaylist(app: AXUIElement, title: AXUIElement) -> Bool {
+        // A menu left open by an earlier click, even for an earlier song,
+        // stays open while Spotify is in the background, and asking for the
+        // title's menu then **closes** it (measured 24 Sep 2026: open, closed,
+        // open on three asks). So close it first and never press its item.
+        if menuItem(in: app) != nil {
+            _ = AXUIElementPerformAction(title, kAXShowMenuAction as CFString)
+            let closing = Date().addingTimeInterval(1)
+            while menuItem(in: app) != nil, Date() < closing { Thread.sleep(forTimeInterval: 0.1) }
+        }
+        let shown = AXUIElementPerformAction(title, kAXShowMenuAction as CFString)
+        guard shown == .success else { print("plus: title menu refused (\(shown.rawValue))"); return false }
+        let deadline = Date().addingTimeInterval(2)
+        repeat {
+            Thread.sleep(forTimeInterval: 0.1)
+            if let item = menuItem(in: app) {
+                return AXUIElementPerformAction(item, kAXPressAction as CFString) == .success
+            }
+        } while Date() < deadline
+        print("plus: no \"\(addToPlaylist)\" in the title's menu after 2s")
+        return false
+    }
+
+    private nonisolated static func menuItem(in app: AXUIElement) -> AXUIElement? {
+        var items: [AXUIElement] = [], visited = 0
+        collect(app, roles: [kAXMenuItemRole], into: &items, visited: &visited, depth: 0)
+        return items.first { label($0) == addToPlaylist }
     }
 
     /// Spotify's whole window was ~2,700 elements when measured; the caps are
     /// there so a pathological tree cannot hang the click.
-    private nonisolated static func collect(_ e: AXUIElement, into out: inout [AXUIElement],
+    /// Skips the menu bar: nothing we press lives there, and Spotify's own
+    /// menus must never be mistaken for the one the title opens.
+    private nonisolated static func collect(_ e: AXUIElement, roles: Set<String>,
+                                            into out: inout [AXUIElement],
                                             visited: inout Int, depth: Int) {
         visited += 1
         guard depth < 60, visited < 20_000 else { return }
-        if string(e, kAXRoleAttribute) == kAXButtonRole { out.append(e) }
+        let role = string(e, kAXRoleAttribute)
+        guard role != kAXMenuBarRole else { return }
+        if roles.contains(role) { out.append(e) }
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(e, kAXChildrenAttribute as CFString, &value) == .success,
               let children = value as? [AXUIElement] else { return }
-        for child in children { collect(child, into: &out, visited: &visited, depth: depth + 1) }
+        for child in children {
+            collect(child, roles: roles, into: &out, visited: &visited, depth: depth + 1)
+        }
     }
 
     /// Spotify puts a button's name in its description, not its title.
