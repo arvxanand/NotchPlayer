@@ -142,15 +142,25 @@ download.
 Right-clicking the app and choosing Open doesn't get past the warning on
 macOS 15, so use the steps above.
 
-**No Open Anyway button, or no admin password?** The button only shows for
-about an hour after you tried to open the app. Open the **Terminal** app
-(search for it with Spotlight), paste this line, and press Return:
+#### If Open Anyway doesn't show up
 
-```bash
-xattr -dr com.apple.quarantine /Applications/NotchPlayer.app
-```
+1. **Try to open NotchPlayer again** from your Applications folder, and click
+   **Done** when the warning appears. The Open Anyway button only shows up
+   right after macOS blocks the app, and disappears again after about an hour.
+2. **Go back to System Settings → Privacy & Security** and scroll all the way
+   down to **Security**. If System Settings was already open, quit it first
+   (**System Settings** menu → **Quit**) and open it again so it shows the
+   latest.
+3. **Still no button, or it asks for an administrator password you don't
+   have?** Open the **Terminal** app (search for "Terminal" with Spotlight),
+   paste this line, and press Return:
 
-It prints nothing when it works. Then open NotchPlayer again.
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/NotchPlayer.app
+   ```
+
+   It prints nothing when it works. Now open NotchPlayer again. There's no
+   warning this time.
 
 ### 3. Allow what it asks for
 
@@ -162,6 +172,30 @@ It prints nothing when it works. Then open NotchPlayer again.
 
 Click **Allow** for both on first launch. Then turn on **Launch at Login**
 from the menu bar item (the waveform) → the gear.
+
+#### If you clicked Don't Allow, or nothing shows up
+
+You can turn each permission on later in **System Settings → Privacy &
+Security**. Quit NotchPlayer (menu bar item → Quit) and open it again
+afterwards.
+
+- **The notch says "Can't reach Spotify"**, or the menu bar item says
+  "Cannot read Spotify". That's **Automation**: go to **Privacy & Security →
+  Automation**, click **NotchPlayer**, and turn on **Spotify**.
+- **The cover shows, but the bars don't follow the music.** That's **Audio
+  Recording**: go to **Privacy & Security → Screen & System Audio
+  Recording**, scroll down to **System Audio Recording Only**, and turn on
+  **NotchPlayer**.
+
+  <img src="assets/install/4-audio.png" alt="System Audio Recording Only, with NotchPlayer switched on" width="480">
+
+- **NotchPlayer isn't in the list at all**, so there's nothing to switch on.
+  Open **Terminal**, paste this line, press Return, and open NotchPlayer
+  again. It asks for everything again, and this time click **Allow**:
+
+  ```bash
+  tccutil reset All io.github.arvxanand.notchplayer
+  ```
 
 ### Or install with Homebrew
 
