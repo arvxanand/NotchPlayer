@@ -14,8 +14,11 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 CONFIG="${1:-release}"
+# The release workflow passes the tag (`v0.2` -> `VERSION=0.2`). Releases
+# start at 0.2, so a local build's 0.1 never matches a published one.
+VERSION="${VERSION:-0.1}"
 APP="NotchPlayer.app"
-LABEL="local.notchplayer"
+LABEL="io.github.arvxanand.notchplayer"
 AGENT="com.aravmanand.notchplayer"
 GUI="gui/$(id -u)"
 
@@ -23,14 +26,15 @@ swift build -c "$CONFIG"
 BIN="$(swift build -c "$CONFIG" --show-bin-path)/NotchPlayer"
 
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/NotchPlayer"
 
-# **No CFBundleIconFile, deliberately.** An icon is a second way to launch the
-# app, and a second instance stacks a second panel on the same notch with no
-# dock icon and no Quit to get rid of either (TRAPS #65, which recurred in
-# matchnotch after being "fixed"). main.swift guards against it anyway; not
-# shipping the icon means the guard is a backstop rather than the only defence.
+# The icon used to be left out on purpose: it is a second way to launch the
+# app, and a second instance stacks a second panel on the same notch. The
+# guard in main.swift was then tested against a real second launch
+# (`docs/BUGS.md` #15), and a downloaded app with a blank icon in Applications
+# and Spotlight looks broken. Redraw it with `swift tools/make-icon.swift`.
+cp assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -39,9 +43,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 	<key>CFBundleName</key><string>NotchPlayer</string>
 	<key>CFBundleIdentifier</key><string>$LABEL</string>
 	<key>CFBundleExecutable</key><string>NotchPlayer</string>
+	<key>CFBundleIconFile</key><string>AppIcon</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>CFBundleShortVersionString</key><string>0.1</string>
-	<key>CFBundleVersion</key><string>1</string>
+	<key>CFBundleShortVersionString</key><string>$VERSION</string>
+	<key>CFBundleVersion</key><string>$VERSION</string>
 	<key>LSMinimumSystemVersion</key><string>15.0</string>
 	<!-- Agent app: notch only, no dock icon, no menu bar item. -->
 	<key>LSUIElement</key><true/>

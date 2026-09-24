@@ -1,15 +1,6 @@
 <div align="center">
 
-<!-- Logo slot. There is no app icon yet (make_app.sh ships none on purpose --
-     an icon is a second way to launch the app, and a second instance stacks a
-     second panel on the same notch). When you draw one, wire it up like this:
-
-<picture>
-  <source media="(prefers-color-scheme: dark)"  srcset="assets/logo-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="assets/logo-light.png">
-  <img src="assets/logo-light.png" alt="NotchPlayer" width="120">
-</picture>
--->
+<img src="assets/logo.png" alt="NotchPlayer" width="120">
 
 # NotchPlayer
 
@@ -114,27 +105,64 @@ cover colour on the progress bar, and the + behaviour.
 
 ## Install
 
-There is no signed download — NotchPlayer isn't in the App Store and isn't
-notarised, so you build it yourself. It takes about a minute.
+You need:
 
-```bash
-git clone https://github.com/arvxanand/NotchPlayer.git
-cd NotchPlayer
-./make_app.sh release
-open NotchPlayer.app
-```
+- a MacBook with a notch (every one of them is Apple Silicon)
+- macOS 15 Sequoia or later
+- the Spotify desktop app, signed in
 
-Then turn on **Launch at Login** from the menu bar item.
+### 1. Download it
 
-### Requirements
+**[Download NotchPlayer](https://github.com/arvxanand/NotchPlayer/releases/latest/download/NotchPlayer.dmg)**,
+open the file, and drag **NotchPlayer** onto the **Applications** folder next to it.
 
-| | |
-|---|---|
-| macOS | 15.0 or later |
-| Swift | 6.0 toolchain (Xcode 16+) |
-| Spotify | the desktop app, signed in |
+<img src="assets/install/0-drag.png" alt="The NotchPlayer disk window: NotchPlayer next to an Applications folder" width="480">
 
-### Permissions it will ask for
+### 2. Open it the first time
+
+macOS warns you the first time you open NotchPlayer. That's expected. Apple
+only vouches for apps whose developers pay for an Apple Developer account,
+and this is a free, open-source project without one. You do this once per
+download.
+
+1. Open **NotchPlayer** from your Applications folder. macOS says it couldn't
+   verify it. Click **Done** (not Move to Trash).
+
+   <img src="assets/install/1-blocked.png" alt="&quot;NotchPlayer&quot; Not Opened, with Done and Move to Trash" width="260">
+
+2. Open **System Settings** → **Privacy & Security**, scroll down to
+   **Security**, and click **Open Anyway** next to "NotchPlayer was blocked".
+
+   <img src="assets/install/2-open-anyway.png" alt="Privacy &amp; Security: &quot;NotchPlayer&quot; was blocked to protect your Mac, with an Open Anyway button" width="480">
+
+3. Click **Open Anyway** again, then enter your password or use Touch ID.
+
+   <img src="assets/install/3-confirm.png" alt="Open &quot;NotchPlayer&quot;?, with Move to Trash, Open Anyway and Done" width="244">
+
+Right-clicking the app and choosing Open doesn't get past the warning on
+macOS 15, so use the steps above.
+
+#### If Open Anyway doesn't show up
+
+1. **Try to open NotchPlayer again** from your Applications folder, and click
+   **Done** when the warning appears. The Open Anyway button only shows up
+   right after macOS blocks the app, and disappears again after about an hour.
+2. **Go back to System Settings → Privacy & Security** and scroll all the way
+   down to **Security**. If System Settings was already open, quit it first
+   (**System Settings** menu → **Quit**) and open it again so it shows the
+   latest.
+3. **Still no button, or it asks for an administrator password you don't
+   have?** Open the **Terminal** app (search for "Terminal" with Spotlight),
+   paste this line, and press Return:
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/NotchPlayer.app
+   ```
+
+   It prints nothing when it works. Now open NotchPlayer again. There's no
+   warning this time.
+
+### 3. Allow what it asks for
 
 | Permission | Why | When |
 |---|---|---|
@@ -142,10 +170,57 @@ Then turn on **Launch at Login** from the menu bar item.
 | **Audio Recording** | the waveform — Spotify's output only, analysed in memory | first launch |
 | **Accessibility** | optional, only for pressing Spotify's own **+** | when you enable it |
 
-Because the app is ad-hoc signed rather than signed with a paid developer
-certificate, macOS forgets these **after every rebuild or update**. One Allow
-fixes it; `tools/reset-permissions.sh` forces macOS to re-ask when it gets
-stuck.
+Click **Allow** for both on first launch. Then turn on **Launch at Login**
+from the menu bar item (the waveform) → the gear.
+
+#### If you clicked Don't Allow, or nothing shows up
+
+You can turn each permission on later in **System Settings → Privacy &
+Security**. Quit NotchPlayer (menu bar item → Quit) and open it again
+afterwards.
+
+- **The notch says "Can't reach Spotify"**, or the menu bar item says
+  "Cannot read Spotify". That's **Automation**: go to **Privacy & Security →
+  Automation**, click **NotchPlayer**, and turn on **Spotify**.
+- **The cover shows, but the bars don't follow the music.** That's **Audio
+  Recording**: go to **Privacy & Security → Screen & System Audio
+  Recording**, scroll down to **System Audio Recording Only**, and turn on
+  **NotchPlayer**.
+
+  <img src="assets/install/4-audio.png" alt="System Audio Recording Only, with NotchPlayer switched on" width="480">
+
+- **NotchPlayer isn't in the list at all**, so there's nothing to switch on.
+  Open **Terminal**, paste this line, press Return, and open NotchPlayer
+  again. It asks for everything again, and this time click **Allow**:
+
+  ```bash
+  tccutil reset All io.github.arvxanand.notchplayer
+  ```
+
+### Or install with Homebrew
+
+If you already use [Homebrew](https://brew.sh), this puts NotchPlayer in
+Applications with no warning to clear. You still allow the permissions:
+
+```bash
+brew install --cask arvxanand/notchplayer/notchplayer
+```
+
+### Updating
+
+Quit NotchPlayer, then download the new version and drag it into
+Applications again (choose **Replace**), or run
+`brew upgrade --cask notchplayer`. After a download you clear the warning once
+more. **Either way, macOS asks for the permissions
+again after every update**, because the app isn't signed with a paid
+certificate. Click Allow again.
+
+### Uninstalling
+
+1. Turn off **Launch at Login** (menu bar item → the gear).
+2. Quit NotchPlayer (menu bar item → Quit).
+3. Drag NotchPlayer from Applications to the Trash, or run
+   `brew uninstall --cask notchplayer`.
 
 ## Using it
 
@@ -161,16 +236,38 @@ click being relayed, and it brings Spotify to the front. If anything is missing
 — permission not granted, or a Spotify update moved the button — the + quietly
 falls back to opening the song. Local files and podcasts get no +.
 
-## Build from source
+## For developers
+
+### Build from source
+
+Needs macOS 15 and **Xcode 16** (tested with 16.0, Swift 6.0). The free
+Command Line Tools aren't enough yet: their Swift 6.2 didn't finish compiling
+this project in over ten minutes.
 
 ```bash
+git clone https://github.com/arvxanand/NotchPlayer.git
+cd NotchPlayer
 ./tools/verify.sh              # everything checkable, in one command
 ./make_app.sh release          # build the bundle, restart it if running
+open NotchPlayer.app
 ```
 
 SwiftPM can't produce a bundle, and a bundle is required for `LSUIElement`
 (no dock icon), a stable bundle identifier, and the usage-description strings
 TCC shows you — hence `make_app.sh` rather than plain `swift build`.
+
+### Releasing a version
+
+```bash
+git tag v0.3 && git push origin v0.3
+```
+
+The `release` workflow builds `NotchPlayer.dmg`, checks its signature, and
+attaches it to a **draft** release. Download the draft, try it, then publish
+it. The job summary prints the dmg's sha256. Put that and the new version in
+`Casks/notchplayer.rb` in
+[homebrew-notchplayer](https://github.com/arvxanand/homebrew-notchplayer) so
+`brew upgrade` sees it. `tools/make-dmg.sh` makes the same dmg locally.
 
 ### When something looks wrong
 
