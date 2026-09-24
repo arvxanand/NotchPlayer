@@ -189,6 +189,29 @@ macOS 15, so use the steps above.
 Click **Allow** for both on first launch. Then turn on **Launch at Login**
 from the menu bar item (the waveform) → the gear.
 
+#### What "Audio Recording" actually records
+
+macOS asks for "System Audio Recording" because that's the name Apple uses
+for the permission. Here's what NotchPlayer actually does with it:
+
+- **It only hears Spotify.** It listens to Spotify's audio output, the music
+  you're already hearing. It never uses the microphone, and it doesn't hear
+  other apps, calls, videos or anything else on your Mac.
+- **It only listens while Spotify is playing.** It stops when you pause,
+  when Spotify quits, and when you choose **Hide from the Notch**.
+- **Nothing is saved.** The audio passes through a buffer in memory that
+  holds about a tenth of a second and is constantly written over. The app
+  turns each slice into 14 bar heights for the waveform and throws the
+  sound away. No audio ever goes to a file.
+- **Nothing is sent anywhere.** The app has no account, no analytics and no
+  server. Its only network requests are the album cover, and Spotify's
+  public page for a song when you click its title or artist.
+- **You can check.** The code that listens is
+  [`AudioTap.swift`](Sources/NotchPlayerCore/Data/AudioTap.swift), and the
+  permission can be turned off at any time in **System Settings → Privacy &
+  Security → Screen & System Audio Recording**. Everything else keeps
+  working; the bars just switch to a made-up animation.
+
 #### If you clicked Don't Allow, or nothing shows up
 
 You can turn each permission on later in **System Settings → Privacy &
