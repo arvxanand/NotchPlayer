@@ -195,6 +195,26 @@ if args.contains("--find-plus") {
     exit(0)
 }
 
+/// The playing local file's cover, looked up and read in this bundle's own
+/// process, the way the app does it. Launch it like `--trusted`.
+if args.contains("--local-cover") {
+    MainActor.assumeIsolated {
+        guard case .success(.ok(let track, _, _)) = SpotifyBridge().read() else {
+            print("local cover: nothing playing"); exit(1)
+        }
+        guard LocalCover.isLocal(track.id) else { print("local cover: not a local file"); exit(0) }
+        guard let file = LocalCover.file(for: track) else { exit(1) }
+        print("local cover: file \(file.path)")
+        Task {
+            let art = await LocalCover.artwork(in: file)
+            let size = art.flatMap(NSImage.init(data:)).map { "\(Int($0.size.width))x\(Int($0.size.height))" }
+            print("local cover: " + (size.map { "embedded \($0), \(art!.count) bytes" } ?? "no embedded cover"))
+            exit(0)
+        }
+    }
+    RunLoop.main.run()
+}
+
 if args.contains("--audit") {
     print(AuditReport.json())
     exit(0)
