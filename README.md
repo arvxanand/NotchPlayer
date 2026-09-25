@@ -288,6 +288,13 @@ Point at the notch to open the panel; move the pointer away and it closes.
 Click the title, artist or cover to open that thing in Spotify. The title
 opens the album with the song highlighted, without restarting it.
 
+**Songs you added to Spotify from your own Mac** (Spotify's local files)
+show the cover saved inside the song file, like Spotify does. NotchPlayer
+finds the file through Spotify's own list and only reads the picture, on
+your Mac. It never looks in Downloads, Documents, Desktop, iCloud Drive or
+external drives, because macOS would ask first; songs kept there show the
+Spotify logo instead.
+
 With **Save with Spotify's +** on, the + brings Spotify to the front and opens
 its playlist list for you. If it can't, it opens the song instead. Local
 files and podcasts get no +.

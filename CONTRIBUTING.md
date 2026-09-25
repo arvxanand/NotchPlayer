@@ -70,6 +70,14 @@ open --stdout /tmp/bands.txt --stderr /tmp/bands.txt \
      ./NotchPlayer.app --args --bands 8   # live bars, or "no live audio"
 ```
 
+A local-file song's cover is found through Spotify's own index
+(`LocalCover.swift`). To check it from the app's own process, with a local
+song playing:
+
+```bash
+open -n -W --stdout /tmp/local.txt ./NotchPlayer.app --args --local-cover
+```
+
 Logs go to `~/Library/Logs/NotchPlayer.log`.
 
 ## Checks
