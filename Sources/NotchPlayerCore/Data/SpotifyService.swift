@@ -182,6 +182,14 @@ public final class SpotifyService: ObservableObject {
     // MARK: - Publishing
 
     private func settle(_ value: Now) {
+        var value = value
+        // A local file's cover lives in the file (`LocalCover`): its address
+        // is the file itself, so every view that shows covers shows it.
+        if case .track(var track, let state, let position) = value, track.artworkURL == nil,
+           LocalCover.isLocal(track.id) {
+            track.artworkURL = LocalCover.file(for: track)
+            value = .track(track, state: state, position: position)
+        }
         retry?.invalidate(); retry = nil
         if case let .track(_, state, position) = value {
             progress = Interpolator(position: position, stamped: .now,

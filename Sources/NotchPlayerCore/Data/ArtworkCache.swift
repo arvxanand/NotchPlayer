@@ -48,6 +48,14 @@ public actor ArtworkCache {
         let wanted = Self.fetchURL(for: url)
         let key = wanted.absoluteString
         if let hit = memory[key] { return hit }
+        // A local file's own embedded cover (`LocalCover`). Not copied to the
+        // disk cache: it is already on disk.
+        if wanted.isFileURL {
+            guard let bytes = await LocalCover.artwork(in: wanted), NSImage(data: bytes) != nil
+            else { return nil }
+            memory[key] = bytes
+            return bytes
+        }
 
         let file = directory.appendingPathComponent(Self.filename(for: wanted))
         if let cached = try? Data(contentsOf: file), NSImage(data: cached) != nil {
