@@ -109,7 +109,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
                     return (service.now, service.permission)
                 },
                 hidden: { [weak self] in self?.hidden ?? false },
-                setHidden: { [weak self] in self?.setHidden($0) })
+                setHidden: { [weak self] in self?.setHidden($0) },
+                toggleVirtual: { [weak self] in self?.toggleVirtual() ?? AppController.virtualEnabled })
             Updater.changed = { [weak self] in self?.menuBar?.setBadge(Updater.available != nil) }
             Updater.start()
         }
@@ -142,6 +143,17 @@ public final class AppController: NSObject, NSApplicationDelegate {
         guard value != hidden else { return }
         hidden = value
         if value { standDown() } else { build() }
+    }
+
+    /// The settings switch. Rebuilds rather than hiding, because the answer
+    /// changes which screen there is to draw on.
+    private func toggleVirtual() -> Bool {
+        let on = !Self.virtualEnabled
+        UserDefaults.standard.set(on, forKey: Self.virtualKey)
+        print("virtual notch: now \(on ? "on" : "off")")
+        standDown()
+        build()
+        return on
     }
 
     /// Everything `build` turns on, turned off. Not just `orderOut`: a hidden

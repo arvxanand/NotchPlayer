@@ -30,6 +30,9 @@ public struct MenuPanel: View {
     /// Nil hides the switch: a Homebrew install or a local build doesn't check.
     @State private var checkUpdates: Bool?
     let toggleUpdates: () -> Bool
+    /// The virtual notch. Nil hides the switch: only a notchless Mac has it.
+    @State private var virtualNotch: Bool?
+    let toggleVirtual: () -> Bool
     let version: String
     let quit: () -> Void
     /// Read by `PanelView` too, which redraws the line when it changes.
@@ -55,6 +58,7 @@ public struct MenuPanel: View {
                 plus: Grant = .off, togglePlus: @escaping () -> Grant = { .off },
                 update: String? = nil, installUpdate: @escaping () -> Void = {},
                 checkUpdates: Bool? = nil, toggleUpdates: @escaping () -> Bool = { false },
+                virtualNotch: Bool? = nil, toggleVirtual: @escaping () -> Bool = { false },
                 version: String = "",
                 quit: @escaping () -> Void,
                 page: Page = .main, animateIn: Bool = true) {
@@ -64,6 +68,7 @@ public struct MenuPanel: View {
         _plus = State(initialValue: plus); self.togglePlus = togglePlus
         self.update = update; self.installUpdate = installUpdate
         _checkUpdates = State(initialValue: checkUpdates); self.toggleUpdates = toggleUpdates
+        _virtualNotch = State(initialValue: virtualNotch); self.toggleVirtual = toggleVirtual
         self.version = version
         _page = State(initialValue: page)
         // An offscreen render never appears, so it would stay invisible.
@@ -83,6 +88,14 @@ public struct MenuPanel: View {
     /// 200 since the updater: settings has four rows, and the main page's
     /// spare space holds the version footer, or the update row instead.
     public static let height: CGFloat = 200
+    /// One more row and its divider. Added only on a notchless Mac, which is
+    /// the only one with the virtual-notch switch -- every other Mac keeps
+    /// the 200 it was tuned at rather than gaining a blank band.
+    static let rowStep: CGFloat = 38.5
+    public static func height(virtualNotch: Bool?) -> CGFloat {
+        height + (virtualNotch == nil ? 0 : rowStep)
+    }
+    var height: CGFloat { Self.height(virtualNotch: virtualNotch) }
     static let margin: CGFloat = 14
     static let coverSide: CGFloat = 56
 
@@ -109,7 +122,7 @@ public struct MenuPanel: View {
             pageView(main, .main)
             pageView(settings, .settings)
         }
-        .frame(width: Self.width, height: Self.height, alignment: .topLeading)
+        .frame(width: Self.width, height: height, alignment: .topLeading)
         .clipped()
         .background(Palette.background)
         .scaleEffect(shown ? 1 : 0.97, anchor: .top)
@@ -126,7 +139,7 @@ public struct MenuPanel: View {
     private func pageView(_ content: some View, _ which: Page) -> some View {
         let on = page == which
         return content
-            .frame(width: Self.width, height: Self.height, alignment: .topLeading)
+            .frame(width: Self.width, height: height, alignment: .topLeading)
             .opacity(on ? 1 : 0)
             .modifier(PageOffset(x: CGFloat(which.rawValue - page.rawValue) * Self.travel,
                                  page: which))
@@ -176,6 +189,10 @@ public struct MenuPanel: View {
             .frame(height: 44)
             divider
             loginRow
+            if let on = virtualNotch {
+                divider
+                SwitchRow(title: "Show a notch on this Mac", isOn: on) { virtualNotch = toggleVirtual() }
+            }
             divider
             SwitchRow(title: "Cover colour on the progress bar", isOn: coverAccent) {
                 coverAccent.toggle()
