@@ -147,6 +147,13 @@ probe() { # label x y expected(HIT|DEAD)
     if [ -n "$owner" ] && [ "$owner" != playpause ]; then
         printf "FAIL  %-44s %s,%s is inside %s; did not click\n" "$1" "$2" "$3" "$owner"; fail=1; return
     fi
+    # The same check the + gets. Without it a panel that has not opened yet
+    # reads as a dead target, and the DEAD probes pass without testing
+    # anything. It looks at the white disc above the glyph rather than at the
+    # glyph, which is cut out in black and is a gap when paused.
+    if ! "$TOOLS/act" lit "$app_pid" "$CX" "$((CY - HALF / 2))"; then
+        printf "FAIL  %-44s the panel is not drawn there; did not click\n" "$1"; fail=1; return
+    fi
     before=$(state)
     "$TOOLS/act" click "$2" "$3"
     sleep 1.0
