@@ -43,7 +43,7 @@ final class GeometryTests: XCTestCase {
         // InverseCornerShape draws outside its own rect. A window sized to the
         // shell exactly clips both shoulders into square corners.
         XCTAssertEqual(builtIn.windowWidth,
-                       builtIn.collapsedWidth + NotchGeometry.shoulderRadius * 2)
+                       builtIn.openWidth + NotchGeometry.shoulderRadius * 2)
         XCTAssertGreaterThan(builtIn.windowWidth, builtIn.collapsedWidth)
         XCTAssertEqual(builtIn.panelFrame().midX, builtIn.notchScreenRect.midX)
     }
@@ -52,7 +52,7 @@ final class GeometryTests: XCTestCase {
         // Every surplus point is a dead zone swallowing clicks while
         // setInteractive(true). Asserting the *gap* rather than the constant,
         // so growing the panel without growing the window also fails.
-        let slack = NotchGeometry.windowHeight - NotchGeometry.panelHeight
+        let slack = builtIn.windowHeight - builtIn.openHeight
         XCTAssertGreaterThanOrEqual(slack, 0)
         XCTAssertLessThanOrEqual(slack, 24)
     }
@@ -76,13 +76,82 @@ final class GeometryTests: XCTestCase {
         XCTAssertEqual(builtIn.captureRect.size, builtIn.notchScreenRect.size)
     }
 
-    func testAScreenWithNoNotchReportsNoNotch() {
-        let external = NotchGeometry(screenFrame: CGRect(x: 0, y: 0, width: 2560, height: 1440),
-                                     notchWidth: 0, notchHeight: 24, hasNotch: false)
-        XCTAssertFalse(external.hasNotch)
-        // The user's choice: built-in only. There is no pill fallback to get
-        // wrong, so the exclusion band is zero and the app draws nothing.
-        XCTAssertEqual(external.notchExclusionTop, 0)
+    /// A 13" MacBook Pro: no cutout, a 24pt menu bar.
+    private let virtual = NotchGeometry(screenFrame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+                                        notchWidth: 0, notchHeight: 24, hasNotch: false)
+
+    func testTheVirtualPeekIsJustItsTwoWingsInTheMenuBar() {
+        XCTAssertEqual(virtual.collapsedWidth, 144)
+        // Exactly the menu bar: no housing to overhang.
+        XCTAssertEqual(virtual.collapsedHeight, 24)
+        XCTAssertEqual(virtual.collapsedScreenRect.maxY, virtual.screenFrame.maxY)
+        XCTAssertEqual(virtual.collapsedScreenRect.midX, virtual.screenFrame.midX)
+    }
+
+    func testTheVirtualPanelGrowsToTheNotchedWidthAndStartsBelowTheMenuBar() {
+        XCTAssertEqual(virtual.openWidth, 352)
+        XCTAssertEqual(virtual.openHeight, 172)
+        XCTAssertEqual(virtual.windowWidth, 374)
+        XCTAssertEqual(virtual.windowHeight, 188)
+        XCTAssertEqual(virtual.notchExclusionTop, 24, "the title would sit in the menu bar")
+        XCTAssertEqual(virtual.panelScreenRect.width, 352)
+    }
+
+    func testTheVirtualEntryIsExactlyThePeekAndWaitsFirst() {
+        // With no cutout the notch rect is zero wide; entering through it
+        // would never happen. And no margin: menus are under it.
+        XCTAssertEqual(virtual.entryScreenRect, virtual.collapsedScreenRect)
+        XCTAssertTrue(virtual.hoverStayScreenRect.contains(virtual.entryScreenRect))
+        XCTAssertEqual(virtual.entryDwell, 0.3)
+    }
+
+    /// The hard rule: on a notched Mac every new property falls back to what
+    /// was there before.
+    func testNothingChangesOnANotchedScreen() {
+        XCTAssertEqual(builtIn.openWidth, builtIn.collapsedWidth)
+        XCTAssertEqual(builtIn.openHeight, 185)
+        XCTAssertEqual(builtIn.windowHeight, 201)
+        XCTAssertEqual(builtIn.windowWidth, 374)
+        XCTAssertEqual(builtIn.notchExclusionTop, 37)
+        XCTAssertEqual(builtIn.entryScreenRect, builtIn.notchScreenRect)
+        XCTAssertEqual(builtIn.entryDwell, 0)
+        // A notch whose inset is not 37 keeps the literal 185 too.
+        let smaller = NotchGeometry(screenFrame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+                                    notchWidth: 185, notchHeight: 32, hasNotch: true)
+        XCTAssertEqual(smaller.openHeight, 185)
+    }
+}
+
+/// Full-screen hiding asks the window list whether an ordinary window covers
+/// the notchless display. Bounds are top-left origin, like `CGDisplayBounds`.
+final class FullScreenTests: XCTestCase {
+    private let display = CGRect(x: 0, y: 0, width: 1440, height: 900)
+
+    private func window(_ rect: CGRect, layer: Int = 0) -> [String: Any] {
+        [kCGWindowLayer as String: layer,
+         kCGWindowBounds as String: rect.dictionaryRepresentation as NSDictionary]
+    }
+
+    func testAFullScreenWindowCoversTheDisplay() {
+        XCTAssertTrue(AppController.coversDisplay([window(display)], display))
+        // TRAPS #49: a point taller than the display still counts.
+        XCTAssertTrue(AppController.coversDisplay(
+            [window(CGRect(x: 0, y: 0, width: 1440, height: 901))], display))
+    }
+
+    func testAZoomedWindowBelowTheMenuBarDoesNot() {
+        XCTAssertFalse(AppController.coversDisplay(
+            [window(CGRect(x: 0, y: 24, width: 1440, height: 876))], display))
+    }
+
+    func testOverlaysAboveOrdinaryWindowsDoNot() {
+        XCTAssertFalse(AppController.coversDisplay([window(display, layer: 25)], display))
+    }
+
+    func testAFullScreenWindowOnAnotherDisplayDoesNot() {
+        XCTAssertFalse(AppController.coversDisplay(
+            [window(CGRect(x: 1440, y: 0, width: 2560, height: 1440))], display))
+        XCTAssertFalse(AppController.coversDisplay([], display))
     }
 }
 
@@ -110,6 +179,50 @@ final class HoverRegionTests: XCTestCase {
     func testWithNoStayRegionLeavingFallsBackToTheCutout() {
         XCTAssertEqual(HoverWatcher.hoverRegion(notch: notch, stay: nil, active: nil,
                                                 inside: true), notch)
+    }
+
+    // MARK: - Waiting: the dwell in, the grace out
+
+    private let t0 = Date(timeIntervalSinceReferenceDate: 0)
+    private func step(hit: Bool, inside: Bool, since: Date?, at: Double, dwell: Double = 0.3)
+        -> (inside: Bool, since: Date?) {
+        HoverWatcher.step(hit: hit, inside: inside, since: since,
+                          now: t0.addingTimeInterval(at), dwell: dwell,
+                          grace: HoverWatcher.exitGrace)
+    }
+
+    func testWithNoDwellArrivingIsImmediate() {
+        // Every notched Mac: exactly as before the dwell existed.
+        let r = step(hit: true, inside: false, since: nil, at: 0, dwell: 0)
+        XCTAssertTrue(r.inside)
+        XCTAssertNil(r.since)
+    }
+
+    func testWithADwellThePointerHasToRestFirst() {
+        var r = step(hit: true, inside: false, since: nil, at: 0)
+        XCTAssertFalse(r.inside)
+        r = step(hit: true, inside: r.inside, since: r.since, at: 0.2)
+        XCTAssertFalse(r.inside, "0.2s is a sweep on the way to a menu")
+        r = step(hit: true, inside: r.inside, since: r.since, at: 0.31)
+        XCTAssertTrue(r.inside)
+    }
+
+    func testSweepingOffResetsTheDwell() {
+        var r = step(hit: true, inside: false, since: nil, at: 0)
+        r = step(hit: false, inside: r.inside, since: r.since, at: 0.2)
+        XCTAssertNil(r.since, "leaving must not bank the time already spent")
+        r = step(hit: true, inside: r.inside, since: r.since, at: 0.25)
+        r = step(hit: true, inside: r.inside, since: r.since, at: 0.5)
+        XCTAssertFalse(r.inside, "0.25s since coming back, not 0.5s")
+    }
+
+    func testLeavingStillWaitsOutTheGrace() {
+        var r = step(hit: false, inside: true, since: nil, at: 0)
+        XCTAssertTrue(r.inside)
+        r = step(hit: false, inside: r.inside, since: r.since, at: HoverWatcher.exitGrace - 0.01)
+        XCTAssertTrue(r.inside)
+        r = step(hit: false, inside: r.inside, since: r.since, at: HoverWatcher.exitGrace)
+        XCTAssertFalse(r.inside)
     }
 
     func testAPointInTheWingIsNotAnEntryPoint() {

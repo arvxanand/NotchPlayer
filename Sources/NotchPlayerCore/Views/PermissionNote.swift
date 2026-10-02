@@ -96,6 +96,6 @@ public struct PermissionPanel: View {
 
             Spacer(minLength: 0)
         }
-        .frame(width: geometry.collapsedWidth, height: NotchGeometry.panelHeight)
+        .frame(width: geometry.openWidth, height: geometry.openHeight)
     }
 }

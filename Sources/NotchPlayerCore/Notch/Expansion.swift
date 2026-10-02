@@ -10,6 +10,12 @@ import Combine
 public final class Expansion: ObservableObject {
     @Published public private(set) var expanded = false
 
+    /// A full-screen app covers the notchless screen, so the closed peek
+    /// hides. Kept here only because `Live` already observes this object.
+    /// Never set on a notched screen: there the notch area stays black in
+    /// full screen, and the peek sits on hardware rather than on content.
+    @Published public var fullScreen = false
+
     private let watcher: HoverWatcher
     private var geometry: NotchGeometry?
     private var bag: Set<AnyCancellable> = []
@@ -50,10 +56,11 @@ public final class Expansion: ObservableObject {
 
     public func start(geometry: NotchGeometry) {
         self.geometry = geometry
-        // Entry is the cutout alone; leaving takes the wider region. A small
-        // door in, a bigger one out.
-        watcher.notchRect = geometry.notchScreenRect
+        // Entry is the cutout alone (the drawn peek, without a notch);
+        // leaving takes the wider region. A small door in, a bigger one out.
+        watcher.notchRect = geometry.entryScreenRect
         watcher.stayRect = geometry.hoverStayScreenRect
+        watcher.entryDwell = geometry.entryDwell
         watcher.$inside
             .removeDuplicates()
             .sink { [weak self] inside in self?.hover(inside) }

@@ -65,9 +65,42 @@ public struct NotchGeometry: Equatable, Sendable {
     /// Derived from `panelHeight` rather than written beside it, so growing
     /// the panel cannot leave a window too short to hold it.
     public static let slack: CGFloat = 16
-    public static var windowHeight: CGFloat { panelHeight + slack }
+    public var windowHeight: CGFloat { openHeight + Self.slack }
 
-    public init(screen: NSScreen) {
+    /// The band `panelHeight` was designed around: this Mac's 37pt cutout.
+    static let designedBand: CGFloat = 37
+
+    /// Height of the virtual notch if AppKit won't say how tall the menu bar
+    /// is. 24 is a notchless MacBook's menu bar. Not `NSStatusBar.system.thickness`, which reads 22 and leaves
+    /// the shape short of the bar it is meant to sit in.
+    public static let fallbackMenuBarHeight: CGFloat = 24
+
+    /// The open panel's width on a screen with no notch. With a cutout, the
+    /// panel is as wide as the peek, because the peek straddles hardware. With
+    /// none, the peek is only its two wings (144pt, as little of the menu bar
+    /// as possible) and the panel grows out of it to this Mac's width -- the
+    /// width every panel layout was tuned at.
+    public static let virtualPanelWidth: CGFloat = 352
+
+    /// The menu bar's real height, from AppKit's own number for it.
+    ///
+    /// **Not `frame.maxY - visibleFrame.maxY`**, which overshoots: 25 for a
+    /// 24pt bar on a notchless screen (measured off a capture, 1 Oct 2026),
+    /// 43 for a 37pt one on this Mac. A virtual notch a point taller than the
+    /// bar shows as a lip hanging under it.
+    ///
+    /// `menuBarHeight` only answers for the app's main menu, and this app has
+    /// none -- an accessory app with a main menu would show it when active. So
+    /// one is lent for the read and taken straight back, inside one runloop
+    /// turn, which nothing can draw in between.
+    @MainActor static var menuBarHeight: CGFloat {
+        let app = NSApplication.shared, own = app.mainMenu, lent = NSMenu()
+        app.mainMenu = lent
+        defer { app.mainMenu = own }
+        return lent.menuBarHeight
+    }
+
+    @MainActor public init(screen: NSScreen) {
         screenFrame = screen.frame
         let inset = screen.safeAreaInsets.top
         if inset > 0 {
@@ -80,8 +113,10 @@ public struct NotchGeometry: Equatable, Sendable {
             notchHeight = inset
             hasNotch = true
         } else {
+            // The real menu bar, so the virtual notch fills it exactly.
+            let bar = Self.menuBarHeight
             notchWidth = 0
-            notchHeight = NSStatusBar.system.thickness
+            notchHeight = bar > 0 ? bar : Self.fallbackMenuBarHeight
             hasNotch = false
         }
     }
@@ -123,7 +158,22 @@ public struct NotchGeometry: Equatable, Sendable {
     /// (TRAPS #73/#80). Staying inside the menu-bar strip makes that whole
     /// class of bug unreachable, which is what lets hover be this app's
     /// primary gesture.
-    public var collapsedHeight: CGFloat { notchHeight + Self.housingOverhang }
+    ///
+    /// No overhang without a notch: there is no housing to cover, and the
+    /// virtual notch is exactly the menu bar.
+    public var collapsedHeight: CGFloat { notchHeight + (hasNotch ? Self.housingOverhang : 0) }
+
+    /// The open panel. Identical to the peek's width on a notched screen; see
+    /// `virtualPanelWidth` for why it differs without one.
+    public var openWidth: CGFloat { hasNotch ? collapsedWidth : Self.virtualPanelWidth }
+
+    /// The open panel's height: `panelHeight` with its 37pt band swapped for
+    /// the menu bar on a notchless screen. **Literally `panelHeight` on every
+    /// notched screen**, including ones whose inset isn't 37, so nothing there
+    /// moves.
+    public var openHeight: CGFloat {
+        hasNotch ? Self.panelHeight : notchHeight + Self.panelHeight - Self.designedBand
+    }
 
     /// The cutout itself in screen coordinates (origin bottom-left, as
     /// `NSEvent.mouseLocation` reports).
@@ -144,9 +194,9 @@ public struct NotchGeometry: Equatable, Sendable {
     /// window frame -- is what "is the pointer on the panel" should ask, and
     /// what the panel collapses when the pointer leaves.
     public var panelScreenRect: CGRect {
-        CGRect(x: screenFrame.midX - collapsedWidth / 2,
-               y: screenFrame.maxY - Self.panelHeight,
-               width: collapsedWidth, height: Self.panelHeight)
+        CGRect(x: screenFrame.midX - openWidth / 2,
+               y: screenFrame.maxY - openHeight,
+               width: openWidth, height: openHeight)
     }
 
     // MARK: - Where the pointer may travel without losing the hover
@@ -163,23 +213,37 @@ public struct NotchGeometry: Equatable, Sendable {
     /// pointer drifting a few points off the housing on its way down into the
     /// opening panel does not read as having left.
     public var hoverStayScreenRect: CGRect {
-        notchScreenRect.insetBy(dx: -Self.hoverStayMargin, dy: 0)
+        entryScreenRect.insetBy(dx: -Self.hoverStayMargin, dy: 0)
     }
 
+    /// Where the pointer has to arrive to open the panel. The cutout on a
+    /// notched screen. Without one, **exactly the drawn peek, no margin**:
+    /// that strip is real menu bar, with menus and status items under it, and
+    /// `notchScreenRect` is zero wide there -- hover could never begin.
+    public var entryScreenRect: CGRect { hasNotch ? notchScreenRect : collapsedScreenRect }
+
+    /// How long the pointer has to rest on the entry rect before it counts.
+    /// Zero on a notch, which is dead space. On a notchless screen the peek
+    /// sits on the path to the menu bar, and a pointer sweeping across it to
+    /// reach a menu must not pop the panel open.
+    public var entryDwell: TimeInterval { hasNotch ? 0 : 0.3 }
+
     /// Nothing legible may be drawn in this band -- it is behind the camera
-    /// housing, which is physical and cannot be drawn over.
-    public var notchExclusionTop: CGFloat { hasNotch ? notchHeight : 0 }
+    /// housing, which is physical and cannot be drawn over. Without a notch
+    /// it is the menu bar, so the open panel still starts below the bar's
+    /// line rather than putting the title in it.
+    public var notchExclusionTop: CGFloat { notchHeight }
 
     /// The window frame. One width, always -- the drawn width plus room for
     /// the shoulders to overhang it (see `shoulderRadius`). The extra 11pt
     /// either side is transparent, and click-through except while the panel is
     /// open.
-    public var windowWidth: CGFloat { collapsedWidth + Self.shoulderRadius * 2 }
+    public var windowWidth: CGFloat { openWidth + Self.shoulderRadius * 2 }
 
     public func panelFrame() -> CGRect {
         CGRect(x: screenFrame.midX - windowWidth / 2,
-               y: screenFrame.maxY - Self.windowHeight,
-               width: windowWidth, height: Self.windowHeight)
+               y: screenFrame.maxY - windowHeight,
+               width: windowWidth, height: windowHeight)
     }
 
     /// Where the camera housing sits **inside the window**, top-left origin.
@@ -227,10 +291,15 @@ public enum NotchPresence: Equatable, Sendable {
     }
 
     @MainActor public static var current: NotchPresence {
-        of(NSScreen.screens.map { screen in
-            let id = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
-            return (builtIn: id.map { CGDisplayIsBuiltin($0) != 0 } ?? false,
-                    topInset: screen.safeAreaInsets.top)
-        })
+        of(NSScreen.screens.map { (builtIn: $0.isBuiltIn, topInset: $0.safeAreaInsets.top) })
     }
+}
+
+extension NSScreen {
+    public var displayID: CGDirectDisplayID? {
+        deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+    }
+
+    /// The laptop's own panel. Not in `NSScreen.screens` with the lid shut.
+    public var isBuiltIn: Bool { displayID.map { CGDisplayIsBuiltin($0) != 0 } ?? false }
 }

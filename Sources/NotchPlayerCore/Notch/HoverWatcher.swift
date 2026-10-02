@@ -59,6 +59,20 @@ public final class HoverWatcher: ObservableObject {
         return inside ? (stay ?? notch) : notch
     }
 
+    /// One sample's decision. Pure, so the timing can be asserted without a
+    /// pointer or a clock. A change of state only lands once it has held for
+    /// its wait; a sample that agrees with the current state drops whatever
+    /// was pending, which is what makes a sweep across the peek reset the
+    /// dwell rather than add to it.
+    nonisolated static func step(hit: Bool, inside: Bool, since: Date?, now: Date,
+                                 dwell: TimeInterval, grace: TimeInterval)
+        -> (inside: Bool, since: Date?) {
+        guard hit != inside else { return (inside, nil) }
+        let since = since ?? now
+        return now.timeIntervalSince(since) >= (hit ? dwell : grace)
+            ? (hit, nil) : (inside, since)
+    }
+
     private var timer: Timer?
     private var wasPressed = false
     /// Idle rate. Cheap, and good enough to notice the pointer arriving.
@@ -75,7 +89,15 @@ public final class HoverWatcher: ObservableObject {
     /// pointer cross the seam between the peek and the opening panel while the
     /// two rects are mid-swap.
     public static let exitGrace: TimeInterval = 0.25
-    private var outsideSince: Date?
+
+    /// How long the pointer must rest on the entry rect before the hover
+    /// starts. Zero on a notch; see `NotchGeometry.entryDwell`.
+    public var entryDwell: TimeInterval = 0
+
+    /// When the pending change began: arriving (outside, now hitting) or
+    /// leaving (inside, now missing). One date serves both because the two
+    /// can never be pending at once.
+    private var pendingSince: Date?
 
     public init() {}
 
@@ -98,15 +120,12 @@ public final class HoverWatcher: ObservableObject {
         let point = NSEvent.mouseLocation
         let hit = hoverRegion.contains(point)
 
-        // Entering is immediate; leaving waits out `exitGrace`.
-        if hit {
-            outsideSince = nil
-            if !inside { inside = true }
-        } else if inside {
-            let since = outsideSince ?? Date()
-            outsideSince = since
-            if Date().timeIntervalSince(since) >= Self.exitGrace { inside = false }
-        }
+        // Entering waits out `entryDwell` (none on a notch); leaving waits
+        // out `exitGrace`.
+        let next = Self.step(hit: hit, inside: inside, since: pendingSince, now: Date(),
+                             dwell: entryDwell, grace: Self.exitGrace)
+        pendingSince = next.since
+        if next.inside != inside { inside = next.inside }
 
         // Report every press with where it landed; the view decides whether it
         // means anything. Polled, not received, because the panel has to stay

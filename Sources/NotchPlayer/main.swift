@@ -13,8 +13,27 @@ if args.contains("--notchrect") {
         FileHandle.standardError.write(Data("no notched display\n".utf8))
         exit(1)
     }
-    let r = NotchGeometry(screen: screen).captureRect
+    let r = MainActor.assumeIsolated { NotchGeometry(screen: screen).captureRect }
     print("\(Int(r.minX)),\(Int(r.minY)),\(Int(r.width)),\(Int(r.height))")
+    exit(0)
+}
+
+/// Every screen as the app sees it, one line each. Read-only. The first thing
+/// to run on a Mac without a notch, and how a notched one is checked in a
+/// notchless resolution: `safeTop=0` there is what the virtual notch keys on.
+if args.contains("--screens") {
+    for screen in NSScreen.screens {
+        let id = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+        let f = screen.frame
+        print("builtin=\(id.map { CGDisplayIsBuiltin($0) } ?? 0)",
+              "frame=\(Int(f.minX)),\(Int(f.minY)),\(Int(f.width))x\(Int(f.height))",
+              "safeTop=\(screen.safeAreaInsets.top)",
+              "visibleGap=\(f.maxY - screen.visibleFrame.maxY)",
+              "menubar=\(MainActor.assumeIsolated { NotchGeometry(screen: screen).notchHeight })",
+              "thickness=\(NSStatusBar.system.thickness)",
+              "aux=\(screen.auxiliaryTopLeftArea?.width ?? 0)/\(screen.auxiliaryTopRightArea?.width ?? 0)",
+              MainActor.assumeIsolated { AppController.targetScreen == screen } ? "<- draws here" : "")
+    }
     exit(0)
 }
 
@@ -164,11 +183,12 @@ if let i = args.firstIndex(of: "--render") {
 
 /// The transport targets in screen coordinates, for `tools/hit_probe.sh`.
 if args.contains("--hit-rects") {
-    guard let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) else {
-        FileHandle.standardError.write(Data("no notched display\n".utf8))
+    guard let geometry = MainActor.assumeIsolated({
+        AppController.targetScreen.map { NotchGeometry(screen: $0) }
+    }) else {
+        FileHandle.standardError.write(Data("no display to draw on\n".utf8))
         exit(1)
     }
-    let geometry = NotchGeometry(screen: screen)
     for (name, r) in PanelView.transportRects(geometry) {
         print("\(name) \(Int(r.midX)) \(Int(r.midY)) \(Int(r.width)) \(Int(r.height))")
     }

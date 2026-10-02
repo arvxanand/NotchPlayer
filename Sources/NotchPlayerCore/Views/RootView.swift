@@ -23,11 +23,15 @@ public struct RootView: View {
     let setRepeat: (Modes.Repeat) -> Void
     /// The title, the artist or the cover was clicked. A no-op in previews.
     let openLink: (SpotifyLinks.Target, Track) -> Void
+    /// A full-screen app is up on a notchless screen: the closed peek would sit
+    /// on its content, so it goes. Opening still works -- the hover spot is
+    /// where it always was -- and the open panel draws as usual.
+    let concealed: Bool
 
     public init(geometry: NotchGeometry, now: Now, permission: Permission = .granted,
                 expanded: Bool = false,
                 progress: Interpolator? = nil, modes: Modes? = nil, holdBands: [Float]? = nil,
-                probe: Bool = false,
+                probe: Bool = false, concealed: Bool = false,
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
                 send: @escaping (SpotifyBridge.Command) -> Void = { _ in },
                 setRepeat: @escaping (Modes.Repeat) -> Void = { _ in },
@@ -36,6 +40,7 @@ public struct RootView: View {
         self.now = now
         self.permission = permission
         self.expanded = expanded
+        self.concealed = concealed
         self.progress = progress
         self.modes = modes
         self.holdBands = holdBands
@@ -61,6 +66,9 @@ public struct RootView: View {
                     .clipShape(InverseCornerShape(
                         topRadius: NotchGeometry.shoulderRadius,
                         bottomRadius: Shell.bottomRadius(expanded: open)))
+                    // Before the animation, so opening from concealed fades in
+                    // with the growth; concealing alone is instant.
+                    .opacity(concealed && !open ? 0 : 1)
                     .animation(Motion.standard, value: open)
             }
             // Everything else -- Spotify closed, nothing loaded, a read that
@@ -126,7 +134,10 @@ public struct RootView: View {
 }
 
 /// The black body. Its shoulders overhang its frame by `shoulderRadius`, which
-/// is why `NotchGeometry.windowWidth` is wider than `collapsedWidth`.
+/// is why `NotchGeometry.windowWidth` is wider than `openWidth`.
+///
+/// Its width changes only on a notchless screen, where the narrow peek grows
+/// into the full panel; on a notch both widths are the same.
 struct Shell: View {
     let geometry: NotchGeometry
     let fill: Color
@@ -147,7 +158,7 @@ struct Shell: View {
                            bottomRadius: Self.bottomRadius(expanded: expanded),
                            probed: true)
             .fill(fill)
-            .frame(width: geometry.collapsedWidth,
-                   height: expanded ? NotchGeometry.panelHeight : geometry.collapsedHeight)
+            .frame(width: expanded ? geometry.openWidth : geometry.collapsedWidth,
+                   height: expanded ? geometry.openHeight : geometry.collapsedHeight)
     }
 }

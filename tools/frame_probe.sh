@@ -27,7 +27,7 @@ trap 'rm -rf "$TOOLS"' EXIT
 cat > "$TOOLS/act.swift" <<'SWIFT'
 import AppKit
 let a = CommandLine.arguments
-guard let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) else { exit(1) }
+guard let screen = (NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.screens.first) else { exit(1) }
 switch a[1] {
 case "save":
     let p = NSEvent.mouseLocation
