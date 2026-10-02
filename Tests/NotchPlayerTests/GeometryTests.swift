@@ -148,6 +148,50 @@ final class HoverRegionTests: XCTestCase {
                                                 inside: true), notch)
     }
 
+    // MARK: - Waiting: the dwell in, the grace out
+
+    private let t0 = Date(timeIntervalSinceReferenceDate: 0)
+    private func step(hit: Bool, inside: Bool, since: Date?, at: Double, dwell: Double = 0.3)
+        -> (inside: Bool, since: Date?) {
+        HoverWatcher.step(hit: hit, inside: inside, since: since,
+                          now: t0.addingTimeInterval(at), dwell: dwell,
+                          grace: HoverWatcher.exitGrace)
+    }
+
+    func testWithNoDwellArrivingIsImmediate() {
+        // Every notched Mac: exactly as before the dwell existed.
+        let r = step(hit: true, inside: false, since: nil, at: 0, dwell: 0)
+        XCTAssertTrue(r.inside)
+        XCTAssertNil(r.since)
+    }
+
+    func testWithADwellThePointerHasToRestFirst() {
+        var r = step(hit: true, inside: false, since: nil, at: 0)
+        XCTAssertFalse(r.inside)
+        r = step(hit: true, inside: r.inside, since: r.since, at: 0.2)
+        XCTAssertFalse(r.inside, "0.2s is a sweep on the way to a menu")
+        r = step(hit: true, inside: r.inside, since: r.since, at: 0.31)
+        XCTAssertTrue(r.inside)
+    }
+
+    func testSweepingOffResetsTheDwell() {
+        var r = step(hit: true, inside: false, since: nil, at: 0)
+        r = step(hit: false, inside: r.inside, since: r.since, at: 0.2)
+        XCTAssertNil(r.since, "leaving must not bank the time already spent")
+        r = step(hit: true, inside: r.inside, since: r.since, at: 0.25)
+        r = step(hit: true, inside: r.inside, since: r.since, at: 0.5)
+        XCTAssertFalse(r.inside, "0.25s since coming back, not 0.5s")
+    }
+
+    func testLeavingStillWaitsOutTheGrace() {
+        var r = step(hit: false, inside: true, since: nil, at: 0)
+        XCTAssertTrue(r.inside)
+        r = step(hit: false, inside: r.inside, since: r.since, at: HoverWatcher.exitGrace - 0.01)
+        XCTAssertTrue(r.inside)
+        r = step(hit: false, inside: r.inside, since: r.since, at: HoverWatcher.exitGrace)
+        XCTAssertFalse(r.inside)
+    }
+
     func testAPointInTheWingIsNotAnEntryPoint() {
         // The wings are where the album art and the waveform are drawn, which
         // is where the pointer naturally lands on its way past. Lighting the

@@ -54,6 +54,7 @@ public final class Expansion: ObservableObject {
         // leaving takes the wider region. A small door in, a bigger one out.
         watcher.notchRect = geometry.entryScreenRect
         watcher.stayRect = geometry.hoverStayScreenRect
+        watcher.entryDwell = geometry.entryDwell
         watcher.$inside
             .removeDuplicates()
             .sink { [weak self] inside in self?.hover(inside) }
