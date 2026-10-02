@@ -353,6 +353,8 @@ Want to build NotchPlayer from source, or help out? See
 
 ## License
 
+Copyright (C) 2026 Arav Anand
+
 [GPL-3.0](LICENSE). You can use, modify and redistribute this, including
 commercially — but if you distribute a modified version, its source has to stay
 open under the same license.
