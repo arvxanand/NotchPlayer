@@ -178,6 +178,23 @@ final class PeekLayoutTests: XCTestCase {
         }
     }
 
+    func testThePeekIsUnscaledOnANotch() {
+        XCTAssertEqual(PeekView.scale(geometry), 1)
+        XCTAssertEqual(PeekView.artSide(geometry), PeekView.artSide)
+        XCTAssertEqual(PeekView.barHeight(geometry), WaveformView.defaultHeight)
+    }
+
+    func testOnAMenuBarEverythingShrinksToFitWithRoomToSpare() {
+        let virtual = NotchGeometry(screenFrame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+                                    notchWidth: 0, notchHeight: 24, hasNotch: false)
+        for height in [PeekView.artSide(virtual), PeekView.barHeight(virtual).upperBound] {
+            XCTAssertLessThanOrEqual(height + 6, virtual.collapsedHeight,
+                                     "\(height)pt leaves under 3pt either side of a 24pt bar")
+        }
+        // The silent row of dots is the same 2pt everywhere.
+        XCTAssertEqual(PeekView.barHeight(virtual).lowerBound, 2)
+    }
+
     func testTheWaveformWidthMatchesTheBarsItDraws() {
         // Derived, not written twice: the last bar has no gap after it.
         XCTAssertEqual(WaveformView.width,

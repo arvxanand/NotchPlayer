@@ -126,7 +126,10 @@ public struct RootView: View {
 }
 
 /// The black body. Its shoulders overhang its frame by `shoulderRadius`, which
-/// is why `NotchGeometry.windowWidth` is wider than `collapsedWidth`.
+/// is why `NotchGeometry.windowWidth` is wider than `openWidth`.
+///
+/// Its width changes only on a notchless screen, where the narrow peek grows
+/// into the full panel; on a notch both widths are the same.
 struct Shell: View {
     let geometry: NotchGeometry
     let fill: Color
@@ -147,7 +150,7 @@ struct Shell: View {
                            bottomRadius: Self.bottomRadius(expanded: expanded),
                            probed: true)
             .fill(fill)
-            .frame(width: geometry.collapsedWidth,
-                   height: expanded ? NotchGeometry.panelHeight : geometry.collapsedHeight)
+            .frame(width: expanded ? geometry.openWidth : geometry.collapsedWidth,
+                   height: expanded ? geometry.openHeight : geometry.collapsedHeight)
     }
 }

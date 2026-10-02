@@ -55,7 +55,7 @@ func warp(_ x: Double, _ y: Double) {
 switch a[1] {
 case "save":
     let p = NSEvent.mouseLocation
-    guard let s = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) else { exit(1) }
+    guard let s = (NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.screens.first) else { exit(1) }
     print("\(p.x) \(s.frame.maxY - p.y)")
 case "move":
     warp(Double(a[2])!, Double(a[3])!)

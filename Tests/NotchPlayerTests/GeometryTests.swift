@@ -43,7 +43,7 @@ final class GeometryTests: XCTestCase {
         // InverseCornerShape draws outside its own rect. A window sized to the
         // shell exactly clips both shoulders into square corners.
         XCTAssertEqual(builtIn.windowWidth,
-                       builtIn.collapsedWidth + NotchGeometry.shoulderRadius * 2)
+                       builtIn.openWidth + NotchGeometry.shoulderRadius * 2)
         XCTAssertGreaterThan(builtIn.windowWidth, builtIn.collapsedWidth)
         XCTAssertEqual(builtIn.panelFrame().midX, builtIn.notchScreenRect.midX)
     }
@@ -52,7 +52,7 @@ final class GeometryTests: XCTestCase {
         // Every surplus point is a dead zone swallowing clicks while
         // setInteractive(true). Asserting the *gap* rather than the constant,
         // so growing the panel without growing the window also fails.
-        let slack = NotchGeometry.windowHeight - NotchGeometry.panelHeight
+        let slack = builtIn.windowHeight - builtIn.openHeight
         XCTAssertGreaterThanOrEqual(slack, 0)
         XCTAssertLessThanOrEqual(slack, 24)
     }
@@ -76,13 +76,49 @@ final class GeometryTests: XCTestCase {
         XCTAssertEqual(builtIn.captureRect.size, builtIn.notchScreenRect.size)
     }
 
-    func testAScreenWithNoNotchReportsNoNotch() {
-        let external = NotchGeometry(screenFrame: CGRect(x: 0, y: 0, width: 2560, height: 1440),
-                                     notchWidth: 0, notchHeight: 24, hasNotch: false)
-        XCTAssertFalse(external.hasNotch)
-        // The user's choice: built-in only. There is no pill fallback to get
-        // wrong, so the exclusion band is zero and the app draws nothing.
-        XCTAssertEqual(external.notchExclusionTop, 0)
+    /// A 13" MacBook Pro: no cutout, a 24pt menu bar.
+    private let virtual = NotchGeometry(screenFrame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+                                        notchWidth: 0, notchHeight: 24, hasNotch: false)
+
+    func testTheVirtualPeekIsJustItsTwoWingsInTheMenuBar() {
+        XCTAssertEqual(virtual.collapsedWidth, 144)
+        // Exactly the menu bar: no housing to overhang.
+        XCTAssertEqual(virtual.collapsedHeight, 24)
+        XCTAssertEqual(virtual.collapsedScreenRect.maxY, virtual.screenFrame.maxY)
+        XCTAssertEqual(virtual.collapsedScreenRect.midX, virtual.screenFrame.midX)
+    }
+
+    func testTheVirtualPanelGrowsToTheNotchedWidthAndStartsBelowTheMenuBar() {
+        XCTAssertEqual(virtual.openWidth, 352)
+        XCTAssertEqual(virtual.openHeight, 172)
+        XCTAssertEqual(virtual.windowWidth, 374)
+        XCTAssertEqual(virtual.windowHeight, 188)
+        XCTAssertEqual(virtual.notchExclusionTop, 24, "the title would sit in the menu bar")
+        XCTAssertEqual(virtual.panelScreenRect.width, 352)
+    }
+
+    func testTheVirtualEntryIsExactlyThePeekAndWaitsFirst() {
+        // With no cutout the notch rect is zero wide; entering through it
+        // would never happen. And no margin: menus are under it.
+        XCTAssertEqual(virtual.entryScreenRect, virtual.collapsedScreenRect)
+        XCTAssertTrue(virtual.hoverStayScreenRect.contains(virtual.entryScreenRect))
+        XCTAssertEqual(virtual.entryDwell, 0.3)
+    }
+
+    /// The hard rule: on a notched Mac every new property falls back to what
+    /// was there before.
+    func testNothingChangesOnANotchedScreen() {
+        XCTAssertEqual(builtIn.openWidth, builtIn.collapsedWidth)
+        XCTAssertEqual(builtIn.openHeight, 185)
+        XCTAssertEqual(builtIn.windowHeight, 201)
+        XCTAssertEqual(builtIn.windowWidth, 374)
+        XCTAssertEqual(builtIn.notchExclusionTop, 37)
+        XCTAssertEqual(builtIn.entryScreenRect, builtIn.notchScreenRect)
+        XCTAssertEqual(builtIn.entryDwell, 0)
+        // A notch whose inset is not 37 keeps the literal 185 too.
+        let smaller = NotchGeometry(screenFrame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+                                    notchWidth: 185, notchHeight: 32, hasNotch: true)
+        XCTAssertEqual(smaller.openHeight, 185)
     }
 }
 

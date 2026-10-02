@@ -133,8 +133,8 @@ final class PlusTests: XCTestCase {
         let r = PanelView.plusRect(geometry)
         XCTAssertEqual(r.size, CGSize(width: NotchGeometry.minimumHitHeight,
                                       height: NotchGeometry.minimumHitHeight))
-        let panel = CGRect(x: geometry.screenFrame.midX - geometry.collapsedWidth / 2, y: 0,
-                           width: geometry.collapsedWidth, height: NotchGeometry.panelHeight)
+        let panel = CGRect(x: geometry.screenFrame.midX - geometry.openWidth / 2, y: 0,
+                           width: geometry.openWidth, height: geometry.openHeight)
         XCTAssertTrue(panel.contains(r), "\(r) outside \(panel)")
         XCTAssertGreaterThanOrEqual(r.minY, geometry.notchExclusionTop)
     }

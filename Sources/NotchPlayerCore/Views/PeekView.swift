@@ -31,18 +31,23 @@ public struct PeekView: View {
                                            duration: 0, hasArtwork: false)
 
     public var body: some View {
+        // Without a notch the wings are not pinned at 72pt: there is no cutout
+        // to align against, and pinned, the 30pt cover side and 54pt bars side
+        // sat visibly right of centre. Unpinned, the outer frame centres the
+        // pair as one group.
+        let wing: CGFloat? = geometry.hasNotch ? NotchGeometry.collapsedSideWidth : nil
         HStack(spacing: 0) {
-            leftWing.frame(width: NotchGeometry.collapsedSideWidth, alignment: .trailing)
+            leftWing.frame(width: wing, alignment: .trailing)
             // The cutout. Nothing may be drawn here, ever -- it is behind the
             // camera housing, which is physical.
             Color.clear.frame(width: geometry.notchWidth)
-            rightWing.frame(width: NotchGeometry.collapsedSideWidth, alignment: .leading)
+            rightWing.frame(width: wing, alignment: .leading)
         }
         .frame(width: geometry.collapsedWidth, height: geometry.collapsedHeight)
     }
 
     private var leftWing: some View {
-        HStack(spacing: Self.markGap) {
+        HStack(spacing: Self.markGap * scale) {
             // Outboard of the art, so the art is what sits against the cutout.
             // The cover is the identity; the mark only says which app this is.
             //
@@ -50,9 +55,10 @@ public struct PeekView: View {
             // `ArtworkView` draws in the square and two of them side by side
             // read as a rendering bug. The mark appears exactly once, always.
             if Self.showsStandaloneMark(artworkURL: track.artworkURL) {
-                SpotifyMark().frame(width: Self.markSide, height: Self.markSide)
+                SpotifyMark().frame(width: Self.markSide * scale, height: Self.markSide * scale)
             }
-            ArtworkView(url: track.artworkURL, side: Self.artSide, corner: Self.artCorner)
+            ArtworkView(url: track.artworkURL, side: Self.artSide(geometry),
+                        corner: Self.artCorner * scale)
         }
         .padding(.trailing, Self.cutoutInset)
     }
@@ -70,7 +76,8 @@ public struct PeekView: View {
         // hardware. `tools/check_notch.sh` is what noticed.
         Group {
             if showsWaveform {
-                WaveformView(hold: playing ? holdBands : Bands.silent)
+                WaveformView(hold: playing ? holdBands : Bands.silent,
+                             barHeight: Self.barHeight(geometry))
             } else {
                 Color.clear.frame(width: WaveformView.width, height: 1)
             }
@@ -79,6 +86,28 @@ public struct PeekView: View {
     }
 
     // MARK: - Metrics
+
+    /// Every metric below was tuned in a 37pt strip. A notchless menu bar is
+    /// ~24pt, where a 25pt cover does not fit, so there they shrink by the
+    /// ratio of the two -- keeping the same margin-to-strip proportion. **1 on
+    /// every notched screen**, so nothing there changes.
+    public static func scale(_ geometry: NotchGeometry) -> CGFloat {
+        geometry.hasNotch ? 1 : min(1, geometry.collapsedHeight / NotchGeometry.designedBand)
+    }
+
+    /// The cover's side here, whole points so its edges stay sharp.
+    public static func artSide(_ geometry: NotchGeometry) -> CGFloat {
+        (artSide * scale(geometry)).rounded()
+    }
+
+    /// The waveform's range here. Its floor stays 2pt, the row of dots that
+    /// reads as paused.
+    public static func barHeight(_ geometry: NotchGeometry) -> ClosedRange<CGFloat> {
+        WaveformView.defaultHeight.lowerBound
+            ... WaveformView.defaultHeight.upperBound * scale(geometry)
+    }
+
+    private var scale: CGFloat { Self.scale(geometry) }
 
     /// The cover, and the dominant element in the strip.
     ///

@@ -68,7 +68,7 @@ public final class NotchPanel: NSPanel {
     /// store, and `screencapture -l` comes back with something that is not
     /// your window at all (measured: a 1040x74 image for a 374x201 window).
     public func park() {
-        guard let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 })
+        guard let screen = AppController.targetScreen
                 ?? NSScreen.screens.first else { return }
         setFrameOrigin(CGPoint(x: screen.frame.maxX - frame.width, y: screen.frame.minY))
         orderFrontRegardless()

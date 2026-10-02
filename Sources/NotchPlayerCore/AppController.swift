@@ -49,7 +49,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
         super.init()
     }
 
-    /// The notched built-in display, or nil.
+    /// The screen to draw on, or nil: a notched one if there is one, else the
+    /// built-in screen when the virtual notch is on.
     ///
     /// **`safeAreaInsets.top > 0` is the test, not `NSScreen.main`.** `main`
     /// means "the screen with the key window", and this app deliberately never
@@ -57,9 +58,19 @@ public final class AppController: NSObject, NSApplicationDelegate {
     /// the pointer happens to be on. An external monitor has no cutout to
     /// straddle, and with the lid shut the built-in screen is not in
     /// `NSScreen.screens` at all, which is exactly the clamshell case: no
-    /// notch, draw nothing.
-    static var notchedScreen: NSScreen? {
+    /// notch, draw nothing. The virtual notch keeps that: built-in only, so
+    /// an external monitor and a shut lid still get nothing.
+    public static var targetScreen: NSScreen? {
         NSScreen.screens.first { $0.safeAreaInsets.top > 0 }
+            ?? NSScreen.screens.first { virtualEnabled && $0.isBuiltIn }
+    }
+
+    /// Draw a notch on a built-in screen that has none. Ships on.
+    public static let virtualKey = "showVirtualNotch"
+    /// `object(forKey:)`, not `bool(forKey:)`: an unset bool reads false, and
+    /// this defaults to true.
+    public static var virtualEnabled: Bool {
+        UserDefaults.standard.object(forKey: virtualKey) as? Bool ?? true
     }
 
     /// ponytail: appends forever, like the LaunchAgent's log did. Rotate it
@@ -144,8 +155,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
 
     private func build() {
         guard !hidden else { return standDown() }
-        guard let screen = Self.notchedScreen else {
-            NSLog("NotchPlayer: no notched display, drawing nothing")
+        guard let screen = Self.targetScreen else {
+            NSLog("NotchPlayer: no display to draw on, drawing nothing")
             // Nothing is drawn in clamshell, so nothing needs listening to.
             // Holding a process tap open to feed a waveform on no screen is
             // the definition of a background app being a bad citizen.
@@ -240,9 +251,9 @@ public final class AppController: NSObject, NSApplicationDelegate {
             let draws = preview.map {
                 Presentation.of(now: $0.now, permission: $0.permission).draws
             } ?? false
-            let drawnHeight = previewExpanded && draws
-                ? NotchGeometry.panelHeight : geometry.collapsedHeight
-            print("shell \(Int(geometry.collapsedWidth)),\(Int(drawnHeight))")
+            let open = previewExpanded && draws
+            print("shell \(Int(open ? geometry.openWidth : geometry.collapsedWidth)),"
+                  + "\(Int(open ? geometry.openHeight : geometry.collapsedHeight))")
         }
     }
 
@@ -274,14 +285,15 @@ public final class AppController: NSObject, NSApplicationDelegate {
                                    probe: parsed.probe)
                         let drawn = Presentation.of(now: parsed.state.now,
                                                     permission: parsed.state.permission).draws
-                        let height = parsed.expanded && drawn && !parsed.probe
-                            ? NotchGeometry.panelHeight : geometry.collapsedHeight
+                        let open = parsed.expanded && drawn && !parsed.probe
+                        let width = open ? geometry.openWidth : geometry.collapsedWidth
+                        let height = open ? geometry.openHeight : geometry.collapsedHeight
                         // One runloop turn for SwiftUI to lay out and draw,
                         // then say so. Animation is off, so there is nothing
                         // else to wait for.
                         self.armWatchdog()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                            print("ready \(Int(geometry.collapsedWidth)),\(Int(height))")
+                            print("ready \(Int(width)),\(Int(height))")
                         }
                     }
                 }

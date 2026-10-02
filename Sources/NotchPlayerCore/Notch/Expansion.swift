@@ -50,9 +50,9 @@ public final class Expansion: ObservableObject {
 
     public func start(geometry: NotchGeometry) {
         self.geometry = geometry
-        // Entry is the cutout alone; leaving takes the wider region. A small
-        // door in, a bigger one out.
-        watcher.notchRect = geometry.notchScreenRect
+        // Entry is the cutout alone (the drawn peek, without a notch);
+        // leaving takes the wider region. A small door in, a bigger one out.
+        watcher.notchRect = geometry.entryScreenRect
         watcher.stayRect = geometry.hoverStayScreenRect
         watcher.$inside
             .removeDuplicates()
