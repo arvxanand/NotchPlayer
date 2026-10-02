@@ -24,6 +24,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
     /// -- a leaked aggregate device outlives the window that wanted it.
     private let tap = AudioTap()
     private var tapFollow: AnyCancellable?
+    /// Space and app-switch observers, for full-screen hiding. Notchless only.
+    private var fullScreenWatch: [NSObjectProtocol] = []
     private var menuBar: MenuBarItem?
     /// Stood down: no panel, no hover polling, no tap. Survives a relaunch,
     /// because a user who hid this to get matchnotch's notch back does not
@@ -146,6 +148,9 @@ public final class AppController: NSObject, NSApplicationDelegate {
     /// panel that is still polling the pointer and still holding an audio tap
     /// open is hidden from the user and from nobody else.
     private func standDown() {
+        fullScreenWatch.forEach { NSWorkspace.shared.notificationCenter.removeObserver($0) }
+        fullScreenWatch = []
+        expansion.fullScreen = false
         expansion.stop()
         tapFollow = nil
         tap.stop()
@@ -211,6 +216,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
             // made while paused, and opening the panel is when that shows.
             expansion.onOpen = { [weak self] in self?.service.refresh() }
             expansion.start(geometry: geometry)
+            if !geometry.hasNotch, let id = screen.displayID { watchFullScreen(on: id) }
 
             // The tap follows playback rather than running all day: a stopped
             // stream delivers nothing, so an idle tap is a wakeup every 33ms
@@ -254,6 +260,50 @@ public final class AppController: NSObject, NSApplicationDelegate {
             let open = previewExpanded && draws
             print("shell \(Int(open ? geometry.openWidth : geometry.collapsedWidth)),"
                   + "\(Int(open ? geometry.openHeight : geometry.collapsedHeight))")
+        }
+    }
+
+    /// Hide the peek while a full-screen app covers the notchless screen.
+    ///
+    /// **Event-driven, not polled.** Native full screen always switches Space,
+    /// and a borderless "full screen" game or player always activates, so
+    /// those two notifications are when the answer can change. Each one asks
+    /// the window list twice: the list can lag the switch that announced it.
+    private func watchFullScreen(on display: CGDirectDisplayID) {
+        let check = { [weak self] in
+            let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
+                                                     kCGNullWindowID) as? [[String: Any]] ?? []
+            let covered = Self.coversDisplay(windows, CGDisplayBounds(display))
+            if self?.expansion.fullScreen != covered { self?.expansion.fullScreen = covered }
+        }
+        let centre = NSWorkspace.shared.notificationCenter
+        fullScreenWatch = [NSWorkspace.activeSpaceDidChangeNotification,
+                           NSWorkspace.didActivateApplicationNotification].map { name in
+            centre.addObserver(forName: name, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated {
+                    check()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        MainActor.assumeIsolated { check() }
+                    }
+                }
+            }
+        }
+        check()
+    }
+
+    /// Whether an ordinary window covers the whole display. Pure, for tests.
+    ///
+    /// Layer 0 is ordinary app windows; the menu bar, the Dock and overlays
+    /// all sit above it. Bounds and layer are readable without Screen
+    /// Recording permission -- only window titles need it. `contains`, not
+    /// `==`: a full-screen window has been measured a point taller than its
+    /// display (TRAPS #49).
+    nonisolated static func coversDisplay(_ windows: [[String: Any]], _ display: CGRect) -> Bool {
+        windows.contains { window in
+            guard window[kCGWindowLayer as String] as? Int == 0,
+                  let dict = window[kCGWindowBounds as String] as? NSDictionary,
+                  let bounds = CGRect(dictionaryRepresentation: dict) else { return false }
+            return bounds.contains(display)
         }
     }
 
@@ -352,6 +402,7 @@ private struct Live: View {
         RootView(geometry: geometry, now: service.now, permission: service.permission,
                  expanded: expansion.expanded, progress: service.progress,
                  modes: service.modes,
+                 concealed: expansion.fullScreen,
                  onScrubbing: { expansion.hold($0) },
                  send: { service.send($0) },
                  setRepeat: { service.setRepeat($0) },

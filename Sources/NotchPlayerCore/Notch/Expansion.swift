@@ -10,6 +10,12 @@ import Combine
 public final class Expansion: ObservableObject {
     @Published public private(set) var expanded = false
 
+    /// A full-screen app covers the notchless screen, so the closed peek
+    /// hides. Kept here only because `Live` already observes this object.
+    /// Never set on a notched screen: there the notch area stays black in
+    /// full screen, and the peek sits on hardware rather than on content.
+    @Published public var fullScreen = false
+
     private let watcher: HoverWatcher
     private var geometry: NotchGeometry?
     private var bag: Set<AnyCancellable> = []

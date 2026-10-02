@@ -122,6 +122,39 @@ final class GeometryTests: XCTestCase {
     }
 }
 
+/// Full-screen hiding asks the window list whether an ordinary window covers
+/// the notchless display. Bounds are top-left origin, like `CGDisplayBounds`.
+final class FullScreenTests: XCTestCase {
+    private let display = CGRect(x: 0, y: 0, width: 1440, height: 900)
+
+    private func window(_ rect: CGRect, layer: Int = 0) -> [String: Any] {
+        [kCGWindowLayer as String: layer,
+         kCGWindowBounds as String: rect.dictionaryRepresentation as NSDictionary]
+    }
+
+    func testAFullScreenWindowCoversTheDisplay() {
+        XCTAssertTrue(AppController.coversDisplay([window(display)], display))
+        // TRAPS #49: a point taller than the display still counts.
+        XCTAssertTrue(AppController.coversDisplay(
+            [window(CGRect(x: 0, y: 0, width: 1440, height: 901))], display))
+    }
+
+    func testAZoomedWindowBelowTheMenuBarDoesNot() {
+        XCTAssertFalse(AppController.coversDisplay(
+            [window(CGRect(x: 0, y: 24, width: 1440, height: 876))], display))
+    }
+
+    func testOverlaysAboveOrdinaryWindowsDoNot() {
+        XCTAssertFalse(AppController.coversDisplay([window(display, layer: 25)], display))
+    }
+
+    func testAFullScreenWindowOnAnotherDisplayDoesNot() {
+        XCTAssertFalse(AppController.coversDisplay(
+            [window(CGRect(x: 1440, y: 0, width: 2560, height: 1440))], display))
+        XCTAssertFalse(AppController.coversDisplay([], display))
+    }
+}
+
 final class HoverRegionTests: XCTestCase {
     private let notch = CGRect(x: 856, y: 1206, width: 208, height: 37)
     private let stay = CGRect(x: 816, y: 1206, width: 288, height: 37)
