@@ -40,8 +40,9 @@ BIN=".build/debug/NotchPlayer"
 [ -x "$BIN" ] || { echo "swift build first"; exit 1; }
 
 TOOLS="$(mktemp -d)"
-read -r _ CX CY W _ < <("$BIN" --hit-rects | grep '^playpause ')
-read -r _ PX PY PW _ < <("$BIN" --hit-rects | grep '^plus ')
+RECTS=$("$BIN" --hit-rects)
+read -r _ CX CY W _ < <(grep '^playpause ' <<<"$RECTS")
+read -r _ PX PY PW _ < <(grep '^plus ' <<<"$RECTS")
 HALF=$((W / 2))
 PHALF=$((PW / 2))
 
@@ -132,24 +133,47 @@ sleep 3
 "$TOOLS/act" move "$CX" 18
 sleep 1.0
 
+# Which transport target, if any, covers this point. Every click is checked
+# against it first, so a layout change can never aim one at prev or next.
+target_at() { # x y
+    awk -v x="$1" -v y="$2" '$1 ~ /^(shuffle|previous|playpause|next|repeat)$/ &&
+        x >= $2 - $4/2 && x < $2 + $4/2 && y >= $3 - $5/2 && y < $3 + $5/2 { print $1 }' <<<"$RECTS"
+}
+
 fail=0
-probe() { # label x expected(HIT|DEAD)
-    local before after got
+probe() { # label x y expected(HIT|DEAD)
+    local before after got owner
+    owner=$(target_at "$2" "$3")
+    if [ -n "$owner" ] && [ "$owner" != playpause ]; then
+        printf "FAIL  %-44s %s,%s is inside %s; did not click\n" "$1" "$2" "$3" "$owner"; fail=1; return
+    fi
+    # The same check the + gets. Without it a panel that has not opened yet
+    # reads as a dead target, and the DEAD probes pass without testing
+    # anything. It looks at the white disc above the glyph rather than at the
+    # glyph, which is cut out in black and is a gap when paused.
+    if ! "$TOOLS/act" lit "$app_pid" "$CX" "$((CY - HALF / 2))"; then
+        printf "FAIL  %-44s the panel is not drawn there; did not click\n" "$1"; fail=1; return
+    fi
     before=$(state)
-    "$TOOLS/act" click "$2" "$CY"
+    "$TOOLS/act" click "$2" "$3"
     sleep 1.0
     after=$(state)
     [ "$before" != "$after" ] && got=HIT || got=DEAD
-    if [ "$got" = "$3" ]; then printf "ok    %-44s x=%-5s %s\n" "$1" "$2" "$got"
-    else printf "FAIL  %-44s x=%-5s got %s, wanted %s\n" "$1" "$2" "$got" "$3"; fail=1; fi
+    if [ "$got" = "$4" ]; then printf "ok    %-44s %s,%s %s\n" "$1" "$2" "$3" "$got"
+    else printf "FAIL  %-44s %s,%s got %s, wanted %s\n" "$1" "$2" "$3" "$got" "$4"; fail=1; fi
 }
 
 echo "play/pause target: ${W}x${W} centred at $CX,$CY"
-probe "the glyph itself"                      "$CX"                    HIT
-probe "inside the frame, right of the glyph"  "$((CX + HALF - 4))"     HIT
-probe "inside the frame, left of the glyph"   "$((CX - HALF + 4))"     HIT
-probe "past the frame, in the gap"            "$((CX + HALF + 6))"     DEAD
-probe "past the frame, left gap"              "$((CX - HALF - 6))"     DEAD
+# The edges past the frame are probed above and below it, not beside it:
+# prev and next touch play/pause, so there is no gap to the side to click.
+# Below is 4pt into the panel's 10pt bottom margin; above is 4pt into the
+# 8pt gap under the times, clear of the progress line's band.
+probe "the glyph itself"                      "$CX"                 "$CY"                 HIT
+probe "inside the frame, right of the glyph"  "$((CX + HALF - 4))"  "$CY"                 HIT
+probe "inside the frame, left of the glyph"   "$((CX - HALF + 4))"  "$CY"                 HIT
+probe "inside the frame, bottom edge"         "$CX"                 "$((CY + HALF - 4))"  HIT
+probe "past the frame, below"                 "$CX"                 "$((CY + HALF + 4))"  DEAD
+probe "past the frame, above"                 "$CX"                 "$((CY - HALF - 4))"  DEAD
 
 # The +. Both it and the title open Spotify, so the app's log line is the
 # only thing that says which one a click reached. Each hit takes the user
