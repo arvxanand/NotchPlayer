@@ -72,6 +72,15 @@ open --stdout /tmp/bands.txt --stderr /tmp/bands.txt \
 
 Logs go to `~/Library/Logs/NotchPlayer.log`.
 
+**The drawn notch on a Mac without one** can be tested on a notched Mac: in
+Displays, pick a resolution that isn't the default shape (1440×900, say), and
+macOS reports no notch. `--screens` shows what the app sees and where it will
+draw; `safeTop=0` is the no-notch case. Switch back afterwards.
+
+```bash
+.build/debug/NotchPlayer --screens
+```
+
 ## Checks
 
 | | |
