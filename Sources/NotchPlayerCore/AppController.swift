@@ -24,6 +24,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
     /// -- a leaked aggregate device outlives the window that wanted it.
     private let tap = AudioTap()
     private var tapFollow: AnyCancellable?
+    /// Space and app-switch observers, for full-screen hiding. Notchless only.
+    private var fullScreenWatch: [NSObjectProtocol] = []
     private var menuBar: MenuBarItem?
     /// Stood down: no panel, no hover polling, no tap. Survives a relaunch,
     /// because a user who hid this to get matchnotch's notch back does not
@@ -49,7 +51,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
         super.init()
     }
 
-    /// The notched built-in display, or nil.
+    /// The screen to draw on, or nil: a notched one if there is one, else the
+    /// built-in screen when the virtual notch is on.
     ///
     /// **`safeAreaInsets.top > 0` is the test, not `NSScreen.main`.** `main`
     /// means "the screen with the key window", and this app deliberately never
@@ -57,9 +60,19 @@ public final class AppController: NSObject, NSApplicationDelegate {
     /// the pointer happens to be on. An external monitor has no cutout to
     /// straddle, and with the lid shut the built-in screen is not in
     /// `NSScreen.screens` at all, which is exactly the clamshell case: no
-    /// notch, draw nothing.
-    static var notchedScreen: NSScreen? {
+    /// notch, draw nothing. The virtual notch keeps that: built-in only, so
+    /// an external monitor and a shut lid still get nothing.
+    public static var targetScreen: NSScreen? {
         NSScreen.screens.first { $0.safeAreaInsets.top > 0 }
+            ?? NSScreen.screens.first { virtualEnabled && $0.isBuiltIn }
+    }
+
+    /// Draw a notch on a built-in screen that has none. Ships on.
+    public static let virtualKey = "showVirtualNotch"
+    /// `object(forKey:)`, not `bool(forKey:)`: an unset bool reads false, and
+    /// this defaults to true.
+    public static var virtualEnabled: Bool {
+        UserDefaults.standard.object(forKey: virtualKey) as? Bool ?? true
     }
 
     /// ponytail: appends forever, like the LaunchAgent's log did. Rotate it
@@ -96,7 +109,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
                     return (service.now, service.permission)
                 },
                 hidden: { [weak self] in self?.hidden ?? false },
-                setHidden: { [weak self] in self?.setHidden($0) })
+                setHidden: { [weak self] in self?.setHidden($0) },
+                toggleVirtual: { [weak self] in self?.toggleVirtual() ?? AppController.virtualEnabled })
             Updater.changed = { [weak self] in self?.menuBar?.setBadge(Updater.available != nil) }
             Updater.start()
         }
@@ -131,10 +145,24 @@ public final class AppController: NSObject, NSApplicationDelegate {
         if value { standDown() } else { build() }
     }
 
+    /// The settings switch. Rebuilds rather than hiding, because the answer
+    /// changes which screen there is to draw on.
+    private func toggleVirtual() -> Bool {
+        let on = !Self.virtualEnabled
+        UserDefaults.standard.set(on, forKey: Self.virtualKey)
+        print("virtual notch: now \(on ? "on" : "off")")
+        standDown()
+        build()
+        return on
+    }
+
     /// Everything `build` turns on, turned off. Not just `orderOut`: a hidden
     /// panel that is still polling the pointer and still holding an audio tap
     /// open is hidden from the user and from nobody else.
     private func standDown() {
+        fullScreenWatch.forEach { NSWorkspace.shared.notificationCenter.removeObserver($0) }
+        fullScreenWatch = []
+        expansion.fullScreen = false
         expansion.stop()
         tapFollow = nil
         tap.stop()
@@ -144,8 +172,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
 
     private func build() {
         guard !hidden else { return standDown() }
-        guard let screen = Self.notchedScreen else {
-            NSLog("NotchPlayer: no notched display, drawing nothing")
+        guard let screen = Self.targetScreen else {
+            NSLog("NotchPlayer: no display to draw on, drawing nothing")
             // Nothing is drawn in clamshell, so nothing needs listening to.
             // Holding a process tap open to feed a waveform on no screen is
             // the definition of a background app being a bad citizen.
@@ -200,6 +228,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
             // made while paused, and opening the panel is when that shows.
             expansion.onOpen = { [weak self] in self?.service.refresh() }
             expansion.start(geometry: geometry)
+            if !geometry.hasNotch, let id = screen.displayID { watchFullScreen(on: id) }
 
             // The tap follows playback rather than running all day: a stopped
             // stream delivers nothing, so an idle tap is a wakeup every 33ms
@@ -240,9 +269,53 @@ public final class AppController: NSObject, NSApplicationDelegate {
             let draws = preview.map {
                 Presentation.of(now: $0.now, permission: $0.permission).draws
             } ?? false
-            let drawnHeight = previewExpanded && draws
-                ? NotchGeometry.panelHeight : geometry.collapsedHeight
-            print("shell \(Int(geometry.collapsedWidth)),\(Int(drawnHeight))")
+            let open = previewExpanded && draws
+            print("shell \(Int(open ? geometry.openWidth : geometry.collapsedWidth)),"
+                  + "\(Int(open ? geometry.openHeight : geometry.collapsedHeight))")
+        }
+    }
+
+    /// Hide the peek while a full-screen app covers the notchless screen.
+    ///
+    /// **Event-driven, not polled.** Native full screen always switches Space,
+    /// and a borderless "full screen" game or player always activates, so
+    /// those two notifications are when the answer can change. Each one asks
+    /// the window list twice: the list can lag the switch that announced it.
+    private func watchFullScreen(on display: CGDirectDisplayID) {
+        let check = { [weak self] in
+            let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
+                                                     kCGNullWindowID) as? [[String: Any]] ?? []
+            let covered = Self.coversDisplay(windows, CGDisplayBounds(display))
+            if self?.expansion.fullScreen != covered { self?.expansion.fullScreen = covered }
+        }
+        let centre = NSWorkspace.shared.notificationCenter
+        fullScreenWatch = [NSWorkspace.activeSpaceDidChangeNotification,
+                           NSWorkspace.didActivateApplicationNotification].map { name in
+            centre.addObserver(forName: name, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated {
+                    check()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        MainActor.assumeIsolated { check() }
+                    }
+                }
+            }
+        }
+        check()
+    }
+
+    /// Whether an ordinary window covers the whole display. Pure, for tests.
+    ///
+    /// Layer 0 is ordinary app windows; the menu bar, the Dock and overlays
+    /// all sit above it. Bounds and layer are readable without Screen
+    /// Recording permission -- only window titles need it. `contains`, not
+    /// `==`: a full-screen window has been measured a point taller than its
+    /// display (TRAPS #49).
+    nonisolated static func coversDisplay(_ windows: [[String: Any]], _ display: CGRect) -> Bool {
+        windows.contains { window in
+            guard window[kCGWindowLayer as String] as? Int == 0,
+                  let dict = window[kCGWindowBounds as String] as? NSDictionary,
+                  let bounds = CGRect(dictionaryRepresentation: dict) else { return false }
+            return bounds.contains(display)
         }
     }
 
@@ -274,14 +347,15 @@ public final class AppController: NSObject, NSApplicationDelegate {
                                    probe: parsed.probe)
                         let drawn = Presentation.of(now: parsed.state.now,
                                                     permission: parsed.state.permission).draws
-                        let height = parsed.expanded && drawn && !parsed.probe
-                            ? NotchGeometry.panelHeight : geometry.collapsedHeight
+                        let open = parsed.expanded && drawn && !parsed.probe
+                        let width = open ? geometry.openWidth : geometry.collapsedWidth
+                        let height = open ? geometry.openHeight : geometry.collapsedHeight
                         // One runloop turn for SwiftUI to lay out and draw,
                         // then say so. Animation is off, so there is nothing
                         // else to wait for.
                         self.armWatchdog()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                            print("ready \(Int(geometry.collapsedWidth)),\(Int(height))")
+                            print("ready \(Int(width)),\(Int(height))")
                         }
                     }
                 }
@@ -340,6 +414,7 @@ private struct Live: View {
         RootView(geometry: geometry, now: service.now, permission: service.permission,
                  expanded: expansion.expanded, progress: service.progress,
                  modes: service.modes,
+                 concealed: expansion.fullScreen,
                  onScrubbing: { expansion.hold($0) },
                  send: { service.send($0) },
                  setRepeat: { service.setRepeat($0) },

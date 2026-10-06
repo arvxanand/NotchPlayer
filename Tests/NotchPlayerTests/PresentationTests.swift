@@ -113,6 +113,11 @@ final class MenuSummaryTests: XCTestCase {
 
     func testEveryStateSaysSomething() {
         XCTAssertEqual(summary(.notRunning), "Spotify is not running")
+        // A notchless Mac says so, unless the virtual notch is drawing.
+        XCTAssertEqual(MenuBarItem.summary(now: .stopped, permission: .granted, hidden: false,
+                                           notch: .noNotch), "This Mac has no notch")
+        XCTAssertEqual(MenuBarItem.summary(now: .stopped, permission: .granted, hidden: false,
+                                           notch: .noNotch, virtual: true), "Nothing playing")
         XCTAssertEqual(summary(.stopped), "Nothing playing")
         XCTAssertEqual(summary(.unknown("timeout")), "Reading Spotify\u{2026}")
         XCTAssertEqual(summary(.track(song, state: .playing, position: 3)),

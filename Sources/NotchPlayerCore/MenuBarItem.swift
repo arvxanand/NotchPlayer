@@ -26,6 +26,7 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
     private let state: () -> (now: Now, permission: Permission)
     private let hidden: () -> Bool
     private let setHidden: (Bool) -> Void
+    private let toggleVirtual: () -> Bool
     /// When the popover last closed. A `.transient` popover is dismissed by
     /// AppKit on *any* outside click, and the status item is outside it -- so
     /// clicking the icon to close fires both AppKit's dismissal and the
@@ -35,10 +36,12 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
 
     public init(state: @escaping () -> (now: Now, permission: Permission),
                 hidden: @escaping () -> Bool,
-                setHidden: @escaping (Bool) -> Void) {
+                setHidden: @escaping (Bool) -> Void,
+                toggleVirtual: @escaping () -> Bool) {
         self.state = state
         self.hidden = hidden
         self.setHidden = setHidden
+        self.toggleVirtual = toggleVirtual
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         super.init()
 
@@ -92,11 +95,15 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
     private func rebuild() {
         let (now, permission) = state()
         let hidden = hidden()
+        let notch = NotchPresence.current, virtual = AppController.virtualEnabled
+        let virtualRow: Bool? = notch == .noNotch ? virtual : nil
+        popover.contentSize = NSSize(width: MenuPanel.width,
+                                     height: MenuPanel.height(virtualNotch: virtualRow))
         popover.contentViewController = NSHostingController(rootView: MenuPanel(
             track: now.track,
             playing: now.isPlaying,
             subtitle: Self.summary(now: now, permission: permission, hidden: hidden,
-                                   notch: .current),
+                                   notch: notch, virtual: virtual),
             hidden: hidden,
             toggleHidden: { [weak self] in
                 self?.setHidden(!hidden)
@@ -123,6 +130,9 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
                 print("update: checking \(Updater.enabled ? "on" : "off")")
                 return Updater.enabled
             },
+            // Stays open, like the other switches; the notch changes behind it.
+            virtualNotch: virtualRow,
+            toggleVirtual: toggleVirtual,
             version: Updater.current,
             quit: { NSApp.terminate(nil) }))
     }
@@ -188,11 +198,13 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
     /// reason: the track is still named on the line above.
     public nonisolated static func summary(now: Now, permission: Permission,
                                            hidden: Bool,
-                                           notch: NotchPresence = .present) -> String {
+                                           notch: NotchPresence = .present,
+                                           virtual: Bool = false) -> String {
         if hidden { return "Hidden from the notch" }
         switch notch {
         case .present: break
-        case .noNotch: return "This Mac has no notch"
+        // With the virtual notch on there is a notch, so say what's playing.
+        case .noNotch: if !virtual { return "This Mac has no notch" }
         case .noBuiltInScreen: return "No notch on this screen"
         }
         if permission == .denied, now.track == nil { return "Cannot read Spotify" }

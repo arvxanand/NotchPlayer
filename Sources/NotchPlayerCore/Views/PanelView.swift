@@ -86,7 +86,7 @@ public struct PanelView: View {
 
             Spacer(minLength: 0)
         }
-        .frame(width: geometry.collapsedWidth, height: NotchGeometry.panelHeight)
+        .frame(width: geometry.openWidth, height: geometry.openHeight)
     }
 
     private var details: some View {
@@ -279,8 +279,8 @@ public struct PanelView: View {
     /// measured from a capture: a probe that aims at hand-copied numbers
     /// stops testing the panel the first time the panel moves.
     public static func progressRect(_ geometry: NotchGeometry) -> CGRect {
-        let left = geometry.screenFrame.midX - geometry.collapsedWidth / 2 + inset + artSide + gap
-        let right = geometry.screenFrame.midX + geometry.collapsedWidth / 2 - inset
+        let left = geometry.screenFrame.midX - geometry.openWidth / 2 + inset + artSide + gap
+        let right = geometry.screenFrame.midX + geometry.openWidth / 2 - inset
         let centre = geometry.notchExclusionTop + Self.progressCentreBelowNotch
         return CGRect(x: left, y: centre - ProgressLine.hitHeight / 2,
                       width: right - left, height: ProgressLine.hitHeight)
@@ -300,7 +300,7 @@ public struct PanelView: View {
     /// glyph's right edge is the text column's, like the progress line's.
     public static func plusRect(_ geometry: NotchGeometry) -> CGRect {
         let side = NotchGeometry.minimumHitHeight
-        let glyphRight = geometry.screenFrame.midX + geometry.collapsedWidth / 2 - inset
+        let glyphRight = geometry.screenFrame.midX + geometry.openWidth / 2 - inset
         let glyphTop = geometry.notchExclusionTop + topGap + (21 - plusGlyph) / 2
         return CGRect(x: glyphRight - plusGlyph - plusOverhang, y: glyphTop - plusOverhang,
                       width: side, height: side)
@@ -323,7 +323,7 @@ public struct PanelView: View {
 
     /// The panel's height, added up rather than written down.
     ///
-    /// `NotchGeometry.panelHeight` has to agree with this, and a test asserts
+    /// `NotchGeometry.openHeight` has to agree with this, and a test asserts
     /// it does -- a constant that drifts from the layout it describes is how
     /// a panel ends up with its last row clipped, or with a band of dead
     /// space that swallows clicks.
@@ -335,7 +335,7 @@ public struct PanelView: View {
     /// What the text column gets. Derived, so a change to the cover or the
     /// insets cannot leave the two disagreeing.
     public static func detailsWidth(_ geometry: NotchGeometry) -> CGFloat {
-        geometry.collapsedWidth - inset * 2 - artSide - gap
+        geometry.openWidth - inset * 2 - artSide - gap
     }
 
     /// The fixed vertical furniture in the text column, without the flexible
