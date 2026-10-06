@@ -98,7 +98,8 @@ Songs is one item above it); a saved one gets Spotify's picker.
 A waveform icon in the menu bar is the only other control: what's playing,
 **Hide from the Notch** (turns it off without quitting), and Quit. The gear
 opens settings: launch at login, cover colour on the progress bar, the +, and
-checking for updates.
+checking for updates. On a MacBook without a notch, there's also a switch for
+the notch NotchPlayer draws there.
 
 </td>
 </tr>
@@ -108,7 +109,7 @@ checking for updates.
 
 You need:
 
-- a MacBook with a notch (every one of them is Apple Silicon)
+- a MacBook with Apple Silicon (M1 or newer), with or without a notch
 - macOS 15 Sequoia or later
 - the Spotify desktop app, signed in
 
@@ -123,8 +124,14 @@ into the top of the screen, yes. If it sits in the frame above the screen, no.
 | | iMac, Mac mini, Mac Studio, Mac Pro |
 
 Not sure which you have? Apple menu → **About This Mac** shows the model and
-size. On a Mac without a notch, NotchPlayer draws nothing, and its menu bar
-item says "This Mac has no notch".
+size.
+
+**No notch?** NotchPlayer draws its own: a small black shape in the middle of
+the menu bar, with the cover and the waveform. Rest the pointer on it for a
+moment and it opens, the same panel as on a notch. It hides while an app is
+full screen, and the gear has a switch to turn it off. It only draws on a
+Mac's built-in screen, so on an external monitor, a Mac mini, Studio or Pro, or a
+MacBook with its lid closed, it draws nothing and the menu bar item says so.
 
 ### 1. Download it
 
