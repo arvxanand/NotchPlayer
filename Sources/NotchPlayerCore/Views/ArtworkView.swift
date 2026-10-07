@@ -22,6 +22,8 @@ public struct ArtworkView: View {
     let url: URL?
     let side: CGFloat
     let corner: CGFloat
+    /// Whose mark stands in when there is no cover.
+    let source: Source
 
     @ObservedObject private var memory = ArtMemory.shared
 
@@ -31,8 +33,10 @@ public struct ArtworkView: View {
     /// waiting for art.
     let fill: Color
 
-    public init(url: URL?, side: CGFloat, corner: CGFloat, fill: Color = Palette.background) {
-        self.url = url; self.side = side; self.corner = corner; self.fill = fill
+    public init(url: URL?, side: CGFloat, corner: CGFloat, source: Source = .spotify,
+                fill: Color = Palette.background) {
+        self.url = url; self.side = side; self.corner = corner; self.source = source
+        self.fill = fill
     }
 
     private var image: NSImage? { memory.image(for: url) }
@@ -80,7 +84,7 @@ public struct ArtworkView: View {
                     }
                 }
                 if layers.isEmpty, Self.showsPlaceholderMark(url: url, hasImage: false) {
-                    SpotifyMark().frame(width: side * 0.62, height: side * 0.62)
+                    SourceMark(source).frame(width: side * 0.62, height: side * 0.62)
                 }
             }
             .frame(width: side, height: side)

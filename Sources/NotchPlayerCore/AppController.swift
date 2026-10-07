@@ -424,6 +424,7 @@ private struct Live: View {
                  expanded: expansion.expanded, progress: service.progress,
                  modes: service.modes,
                  concealed: expansion.fullScreen || expansion.faded,
+                 source: service.source,
                  onScrubbing: { expansion.hold($0) },
                  send: { service.send($0) },
                  setRepeat: { service.setRepeat($0) },

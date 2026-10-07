@@ -83,10 +83,10 @@ final class PermissionViewTests: XCTestCase {
     }
 
     func testTheNoteSaysWhatIsWrongAndWhatToDo() {
-        XCTAssertTrue(PermissionNote.defaultExplanation.contains("Automation"))
+        XCTAssertTrue(PermissionNote.explanation(for: .spotify).contains("Automation"))
         XCTAssertFalse(PermissionNote.action.isEmpty)
         // Not an error code. -1743 means nothing to anybody.
-        XCTAssertFalse(PermissionNote.defaultExplanation.contains("1743"))
+        XCTAssertFalse(PermissionNote.explanation(for: .spotify).contains("1743"))
     }
 
     /// The permission peek reuses `PeekView`, so the one-mark rule has to hold

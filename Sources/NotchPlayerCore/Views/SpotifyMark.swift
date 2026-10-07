@@ -60,3 +60,35 @@ public struct SpotifyMark: View {
         .aspectRatio(1, contentMode: .fit)
     }
 }
+
+/// Apple Music's mark: a red disc with a note, the same size and place as
+/// Spotify's. Drawn from a system symbol, which is all it takes.
+struct MusicMark: View {
+    var body: some View {
+        GeometryReader { proxy in
+            let s = min(proxy.size.width, proxy.size.height)
+            Circle().fill(Palette.music)
+                .overlay {
+                    Image(systemName: "music.note")
+                        .font(.system(size: s * 0.58, weight: .bold))
+                        .foregroundStyle(Palette.background)
+                }
+                .frame(width: s, height: s)
+        }
+        .aspectRatio(1, contentMode: .fit)
+    }
+}
+
+/// The mark of the app a song is from.
+public struct SourceMark: View {
+    let source: Source
+
+    public init(_ source: Source) { self.source = source }
+
+    public var body: some View {
+        switch source {
+        case .spotify: SpotifyMark()
+        case .appleMusic: MusicMark()
+        }
+    }
+}

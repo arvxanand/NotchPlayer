@@ -55,10 +55,10 @@ public struct PeekView: View {
             // `ArtworkView` draws in the square and two of them side by side
             // read as a rendering bug. The mark appears exactly once, always.
             if Self.showsStandaloneMark(artworkURL: track.artworkURL) {
-                SpotifyMark().frame(width: Self.markSide * scale, height: Self.markSide * scale)
+                SourceMark(track.source).frame(width: Self.markSide * scale, height: Self.markSide * scale)
             }
             ArtworkView(url: track.artworkURL, side: Self.artSide(geometry),
-                        corner: Self.artCorner * scale)
+                        corner: Self.artCorner * scale, source: track.source)
         }
         .padding(.trailing, Self.cutoutInset)
     }

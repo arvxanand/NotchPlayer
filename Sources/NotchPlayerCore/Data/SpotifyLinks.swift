@@ -26,6 +26,8 @@ public enum SpotifyLinks {
     /// started playing -- and clicking a title is not asking for that. An
     /// album or artist URI only navigates (also measured).
     public static func open(_ target: LinkTarget, for track: Track) {
+        // Music has no page to lookup; its titles and covers are not links.
+        guard track.source == .spotify else { return }
         // Read by `tools/hit_probe.sh`: the + and the title both land in
         // Spotify, so only this line says which one was clicked.
         print("link: \(target)")

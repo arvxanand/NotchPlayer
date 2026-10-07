@@ -132,6 +132,8 @@ public enum Palette {
     /// art itself. Spotify's own green, 8.12:1 on black.
     public static let spotify = Color(red: 0x1D / 255, green: 0xB9 / 255, blue: 0x54 / 255)
     public static let spotifyHex = "#1DB954"
+    /// Apple Music's red. Only on its mark, which stands where Spotify's does.
+    public static let music = Color(red: 0xFA / 255, green: 0x24 / 255, blue: 0x3C / 255)
 
     /// The "Update to v0.x" row, and nothing else: the one row a friend has
     /// to notice without being told (the owner's call, 24 Sep 2026). A light

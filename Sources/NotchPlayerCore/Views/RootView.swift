@@ -28,11 +28,13 @@ public struct RootView: View {
     /// Opening still works -- the hover spot is where it always was -- and the
     /// open panel draws as usual.
     let concealed: Bool
+    /// Whose permission state `.permissionNeeded` is about; a track carries its own.
+    let source: Source
 
     public init(geometry: NotchGeometry, now: Now, permission: Permission = .granted,
                 expanded: Bool = false,
                 progress: Interpolator? = nil, modes: Modes? = nil, holdBands: [Float]? = nil,
-                probe: Bool = false, concealed: Bool = false,
+                probe: Bool = false, concealed: Bool = false, source: Source = .spotify,
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
                 send: @escaping (Command) -> Void = { _ in },
                 setRepeat: @escaping (Modes.Repeat) -> Void = { _ in },
@@ -42,6 +44,7 @@ public struct RootView: View {
         self.permission = permission
         self.expanded = expanded
         self.concealed = concealed
+        self.source = source
         self.progress = progress
         self.modes = modes
         self.holdBands = holdBands
@@ -74,7 +77,7 @@ public struct RootView: View {
                     .animation(.easeOut(duration: 0.15), value: concealed)
                     .animation(Motion.standard, value: open)
             }
-            // Everything else -- Spotify closed, nothing loaded, a read that
+            // Everything else -- the player closed, nothing loaded, a read that
             // has not come back -- draws nothing. The notch looks like a notch.
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -104,6 +107,13 @@ public struct RootView: View {
         }
     }
 
+    /// The peek's stand-in track when nothing is known: no title, the player's mark.
+    private var stand: Track {
+        var track = PeekView.unknownTrack
+        track.source = source
+        return track
+    }
+
     @ViewBuilder
     private var peek: some View {
         switch presentation {
@@ -113,7 +123,7 @@ public struct RootView: View {
             // The mark alone, in the slot the cover would take, with no bars
             // -- nothing is known about playback, and a row of dots would
             // claim otherwise. Still exactly one mark on screen.
-            PeekView(geometry: geometry, track: PeekView.unknownTrack,
+            PeekView(geometry: geometry, track: stand,
                      playing: false, holdBands: nil, showsWaveform: false)
         case .nothing:
             EmptyView()
@@ -129,7 +139,7 @@ public struct RootView: View {
                       onScrubbing: onScrubbing, send: send, setRepeat: setRepeat,
                       openLink: { openLink($0, track) })
         case .permissionNeeded:
-            PermissionPanel(geometry: geometry)
+            PermissionPanel(geometry: geometry, source: source)
         case .nothing:
             EmptyView()
         }

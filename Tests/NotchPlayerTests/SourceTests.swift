@@ -121,6 +121,20 @@ final class SourceTests: XCTestCase {
                                            source: .appleMusic), "Cannot read Apple Music")
     }
 
+    // MARK: - What Music does not have yet
+
+    func testMusicHasNoPlus() {
+        var track = PreviewData.track()
+        XCTAssertTrue(PanelView.showsPlus(track))
+        track.source = .appleMusic
+        XCTAssertFalse(PanelView.showsPlus(track))
+    }
+
+    func testThePermissionNoteNamesTheApp() {
+        XCTAssertTrue(PermissionNote.explanation(for: .appleMusic).contains("Apple Music"))
+        XCTAssertFalse(PermissionNote.explanation(for: .spotify).contains("Apple Music"))
+    }
+
     // MARK: - Cover
 
     /// A Music cover is an `.img` file the service wrote; a file that is not an
