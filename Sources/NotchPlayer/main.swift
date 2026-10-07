@@ -111,7 +111,7 @@ if args.contains("--bands") {
     } ?? 15
     setvbuf(stdout, nil, _IONBF, 0)
     MainActor.assumeIsolated {
-        guard let pid = AudioTap.spotifyPID else {
+        guard let pid = AudioTap.pid(of: .spotify) else {
             FileHandle.standardError.write(Data("Spotify is not running\n".utf8))
             exit(1)
         }

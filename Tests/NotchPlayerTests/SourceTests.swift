@@ -83,6 +83,44 @@ final class SourceTests: XCTestCase {
         XCTAssertTrue(Source.appleMusic.notifications.contains("com.apple.Music.playerInfo"))
     }
 
+    // MARK: - Which one the notch shows
+
+    func testWhoeverIsPlayingIsShown() {
+        XCTAssertEqual(Players.pick(last: .spotify, playing: .appleMusic, draws: [.spotify, .appleMusic]),
+                       .appleMusic)
+        XCTAssertEqual(Players.pick(last: .appleMusic, playing: .spotify, draws: [.spotify, .appleMusic]),
+                       .spotify)
+    }
+
+    func testBothPlayingIsSpotify() {
+        XCTAssertEqual(Players.playing(spotify: true, music: true), .spotify)
+        XCTAssertEqual(Players.playing(spotify: false, music: true), .appleMusic)
+        XCTAssertNil(Players.playing(spotify: false, music: false))
+    }
+
+    func testBothPausedKeepsTheLastOne() {
+        for last in Source.allCases {
+            XCTAssertEqual(Players.pick(last: last, playing: nil, draws: [.spotify, .appleMusic]), last)
+        }
+    }
+
+    /// The last one quit; showing nothing while the other holds a paused song
+    /// would hide a song the user can see in its own window.
+    func testALastOneWithNothingToDrawGivesWayToTheOther() {
+        XCTAssertEqual(Players.pick(last: .appleMusic, playing: nil, draws: [.spotify]), .spotify)
+        XCTAssertEqual(Players.pick(last: .spotify, playing: nil, draws: [.appleMusic]), .appleMusic)
+        XCTAssertEqual(Players.pick(last: .appleMusic, playing: nil, draws: []), .appleMusic)
+    }
+
+    // MARK: - The menu line
+
+    func testTheMenuNamesTheAppItIsAbout() {
+        XCTAssertEqual(MenuBarItem.summary(now: .notRunning, permission: .unknown, hidden: false,
+                                           source: .appleMusic), "Apple Music is not running")
+        XCTAssertEqual(MenuBarItem.summary(now: .unknown("x"), permission: .denied, hidden: false,
+                                           source: .appleMusic), "Cannot read Apple Music")
+    }
+
     // MARK: - Cover
 
     /// A Music cover is an `.img` file the service wrote; a file that is not an

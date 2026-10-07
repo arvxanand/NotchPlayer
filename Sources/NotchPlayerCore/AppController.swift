@@ -17,7 +17,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
     /// state and exiting.
     private let captureServer: Bool
     private var stage: CaptureStage?
-    private let service = PlayerService()
+    private let players = Players()
     private let expansion = Expansion()
     /// The live waveform. Owned here rather than by the view, because it holds
     /// system audio objects that have to be torn down when the panel goes away
@@ -99,14 +99,15 @@ public final class AppController: NSObject, NSApplicationDelegate {
         setvbuf(stdout, nil, _IONBF, 0)
 
         build()
-        if preview == nil, !probe { service.start() }
+        if preview == nil, !probe { players.start() }
         // Live runs only. A capture or a preview is driven by a script and
         // must not put anything in the user's menu bar.
         if preview == nil, !probe, !captureServer {
             menuBar = MenuBarItem(
                 state: { [weak self] in
-                    guard let self else { return (.unknown("no controller"), .unknown) }
-                    return (service.now, service.permission)
+                    guard let self else { return (.unknown("no controller"), .unknown, .spotify) }
+                    let service = players.current
+                    return (service.now, service.permission, service.source)
                 },
                 hidden: { [weak self] in self?.hidden ?? false },
                 setHidden: { [weak self] in self?.setHidden($0) },
@@ -209,8 +210,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
                 RootView(geometry: geometry, now: .stopped, probe: true)
             }
         } else {
-            panel = NotchPanel(screen: screen) { [service, expansion, tap] in
-                Live(geometry: geometry, service: service, expansion: expansion)
+            panel = NotchPanel(screen: screen) { [players, expansion, tap] in
+                Live(geometry: geometry, players: players, expansion: expansion)
                     .environment(\.liveBands, tap)
             }
         }
@@ -222,11 +223,12 @@ public final class AppController: NSObject, NSApplicationDelegate {
             expansion.setInteractive = { [weak panel] on in panel?.setInteractive(on) }
             expansion.hasContent = { [weak self] in
                 guard let self else { return false }
+                let service = players.current
                 return Presentation.of(now: service.now, permission: service.permission).draws
             }
             // See `Expansion.onOpen`: the position can be stale after a seek
             // made while paused, and opening the panel is when that shows.
-            expansion.onOpen = { [weak self] in self?.service.refresh() }
+            expansion.onOpen = { [weak self] in self?.players.current.refresh() }
             expansion.start(geometry: geometry)
             if let id = screen.displayID { watchFullScreen(on: id) }
 
@@ -235,11 +237,13 @@ public final class AppController: NSObject, NSApplicationDelegate {
             // to analyse silence. `follow` is idempotent per pid, so the
             // several publishes a minute the service makes while playing cost
             // one comparison each.
-            tapFollow = service.$now.sink { [weak self] now in
-                MainActor.assumeIsolated {
-                    self?.tap.follow(pid: now.isPlaying ? AudioTap.spotifyPID : nil)
+            tapFollow = players.spotify.$now.combineLatest(players.music.$now)
+                .sink { [weak self] spotify, music in
+                    MainActor.assumeIsolated {
+                        let playing = Players.playing(spotify: spotify.isPlaying, music: music.isPlaying)
+                        self?.tap.follow(pid: playing.flatMap { AudioTap.pid(of: $0) })
+                    }
                 }
-            }
         }
 
         // **Emitted so `tools/check_notch.sh` can capture *this window* rather
@@ -411,11 +415,12 @@ public final class AppController: NSObject, NSApplicationDelegate {
 /// through the real hierarchy.
 private struct Live: View {
     let geometry: NotchGeometry
-    @ObservedObject var service: PlayerService
+    @ObservedObject var players: Players
     @ObservedObject var expansion: Expansion
 
     var body: some View {
-        RootView(geometry: geometry, now: service.now, permission: service.permission,
+        let service = players.current
+        return RootView(geometry: geometry, now: service.now, permission: service.permission,
                  expanded: expansion.expanded, progress: service.progress,
                  modes: service.modes,
                  concealed: expansion.fullScreen || expansion.faded,
