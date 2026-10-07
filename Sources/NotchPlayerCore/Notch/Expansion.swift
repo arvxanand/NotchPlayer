@@ -15,6 +15,9 @@ public final class Expansion: ObservableObject {
     /// because `Live` already observes this object.
     @Published public var fullScreen = false
 
+    /// Faded so the menus under the wings show; see `HoverWatcher.faded`.
+    @Published public private(set) var faded = false
+
     private let watcher: HoverWatcher
     private var geometry: NotchGeometry?
     private var bag: Set<AnyCancellable> = []
@@ -60,6 +63,12 @@ public final class Expansion: ObservableObject {
         watcher.notchRect = geometry.entryScreenRect
         watcher.stayRect = geometry.hoverStayScreenRect
         watcher.entryDwell = geometry.entryDwell
+        watcher.wingRects = geometry.wingScreenRects
+        watcher.menuBarRect = geometry.menuBarScreenRect
+        watcher.$faded
+            .removeDuplicates()
+            .sink { [weak self] faded in self?.faded = faded }
+            .store(in: &bag)
         watcher.$inside
             .removeDuplicates()
             .sink { [weak self] inside in self?.hover(inside) }

@@ -418,7 +418,7 @@ private struct Live: View {
         RootView(geometry: geometry, now: service.now, permission: service.permission,
                  expanded: expansion.expanded, progress: service.progress,
                  modes: service.modes,
-                 concealed: expansion.fullScreen,
+                 concealed: expansion.fullScreen || expansion.faded,
                  onScrubbing: { expansion.hold($0) },
                  send: { service.send($0) },
                  setRepeat: { service.setRepeat($0) },

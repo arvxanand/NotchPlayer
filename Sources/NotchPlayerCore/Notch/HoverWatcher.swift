@@ -99,11 +99,52 @@ public final class HoverWatcher: ObservableObject {
     /// can never be pending at once.
     private var pendingSince: Date?
 
+    // MARK: - Fading off the menus
+
+    /// The peek is faded out so the menus under its wings show (#16).
+    @Published public private(set) var faded = false
+    /// Resting on one of these fades the peek. Empty means never.
+    public var wingRects: [CGRect] = []
+    /// A faded peek stays faded while the pointer is anywhere in here.
+    public var menuBarRect: CGRect = .zero
+    private var fadeSince: Date?
+
+    /// How long the peek stays faded once nothing is holding it, so leaving
+    /// one menu for the next across a gap doesn't flash it back.
+    public static let fadeGrace: TimeInterval = 0.4
+
+    /// What holds the fade, for `step`. Pure, for tests.
+    ///
+    /// **Going faded:** resting on a wing, and not on the notch's own hover --
+    /// the stay region overlaps the inner part of each wing, and a pointer on
+    /// its way into the panel is not aiming at a menu. **Staying faded:**
+    /// anywhere on the menu bar, or with a menu open, wherever the pointer is
+    /// -- so the peek doesn't come back over "Help" while its menu is being
+    /// read. `menuOpen` is a closure because it asks the window server, and
+    /// is only asked once the pointer has left the menu bar.
+    nonisolated static func fadeHit(faded: Bool, point: CGPoint, inside: Bool, wings: [CGRect],
+                                    menuBar: CGRect, menuOpen: () -> Bool) -> Bool {
+        if faded { return menuBar.contains(point) || menuOpen() }
+        return !inside && wings.contains { $0.contains(point) }
+    }
+
+    /// Whether any app has a menu open: its windows sit at the pop-up menu
+    /// level. Layer is readable without Screen Recording permission.
+    static func menuOpen() -> Bool {
+        let level = Int(CGWindowLevelForKey(.popUpMenuWindow))
+        let windows = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID)
+            as? [[String: Any]] ?? []
+        return windows.contains { $0[kCGWindowLayer as String] as? Int == level }
+    }
+
     public init() {}
 
     public func start() { schedule(Self.idleInterval) }
 
-    public func stop() { timer?.invalidate(); timer = nil }
+    public func stop() {
+        timer?.invalidate(); timer = nil
+        faded = false; fadeSince = nil
+    }
 
     private func schedule(_ interval: TimeInterval) {
         timer?.invalidate()
@@ -122,10 +163,22 @@ public final class HoverWatcher: ObservableObject {
 
         // Entering waits out `entryDwell` (none on a notch); leaving waits
         // out `exitGrace`.
-        let next = Self.step(hit: hit, inside: inside, since: pendingSince, now: Date(),
+        let now = Date()
+        let next = Self.step(hit: hit, inside: inside, since: pendingSince, now: now,
                              dwell: entryDwell, grace: Self.exitGrace)
         pendingSince = next.since
         if next.inside != inside { inside = next.inside }
+
+        // The same timing rule for the fade: rest on a wing to go faded,
+        // `fadeGrace` without menu bar or menu to come back.
+        if !wingRects.isEmpty {
+            let hold = Self.fadeHit(faded: faded, point: point, inside: inside, wings: wingRects,
+                                    menuBar: menuBarRect, menuOpen: Self.menuOpen)
+            let fade = Self.step(hit: hold, inside: faded, since: fadeSince, now: now,
+                                 dwell: NotchGeometry.wingFadeDwell, grace: Self.fadeGrace)
+            fadeSince = fade.since
+            if fade.inside != faded { faded = fade.inside }
+        }
 
         // Report every press with where it landed; the view decides whether it
         // means anything. Polled, not received, because the panel has to stay

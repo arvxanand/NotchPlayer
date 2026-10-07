@@ -228,6 +228,36 @@ public struct NotchGeometry: Equatable, Sendable {
     /// reach a menu must not pop the panel open.
     public var entryDwell: TimeInterval { hasNotch ? 0 : 0.3 }
 
+    // MARK: - Getting out of the way of the menus beside it
+
+    /// The peek's two wings, beside the cutout, in screen coordinates.
+    ///
+    /// On a narrow screen an app's last menus -- Opera's Window and Help --
+    /// sit right up to the notch, and the left wing covers them (#16). macOS
+    /// keeps menus out from under the hardware, not from under this app.
+    /// Resting the pointer on a wing fades the peek so they show; clicks
+    /// already pass through it. Empty without a notch, where the whole shape
+    /// is the way in and there are no wings to rest on.
+    public var wingScreenRects: [CGRect] {
+        guard hasNotch else { return [] }
+        let peek = collapsedScreenRect, notch = notchScreenRect
+        return [CGRect(x: peek.minX, y: peek.minY, width: notch.minX - peek.minX, height: peek.height),
+                CGRect(x: notch.maxX, y: peek.minY, width: peek.maxX - notch.maxX, height: peek.height)]
+    }
+
+    /// The whole menu bar's strip. A faded peek stays faded while the pointer
+    /// is anywhere in it, so moving along to the next menu doesn't bring the
+    /// peek back over the one being aimed at.
+    public var menuBarScreenRect: CGRect {
+        CGRect(x: screenFrame.minX, y: screenFrame.maxY - collapsedHeight,
+               width: screenFrame.width, height: collapsedHeight)
+    }
+
+    /// How long the pointer rests on a wing before the peek fades. Long
+    /// enough that crossing a wing on the way somewhere doesn't flicker it.
+    /// ponytail: a guess, tune on the machine.
+    public static let wingFadeDwell: TimeInterval = 0.5
+
     /// Nothing legible may be drawn in this band -- it is behind the camera
     /// housing, which is physical and cannot be drawn over. Without a notch
     /// it is the menu bar, so the open panel still starts below the bar's
