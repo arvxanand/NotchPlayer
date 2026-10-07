@@ -19,7 +19,7 @@ public struct PanelView: View {
     let controllable: Bool
     /// Shuffle and repeat, as last read.
     let modes: Modes?
-    let send: (SpotifyBridge.Command) -> Void
+    let send: (Command) -> Void
     let setRepeat: (Modes.Repeat) -> Void
 
     /// Raised while the pointer is dragging the progress line, so the panel
@@ -28,7 +28,7 @@ public struct PanelView: View {
     /// you are dragging with it.
     let onScrubbing: (Bool) -> Void
     /// The title opens the track, the artist their page, the cover the album.
-    let openLink: (SpotifyLinks.Target) -> Void
+    let openLink: (LinkTarget) -> Void
 
     @State private var scrub: Double?
     /// Watched for the cover's colour, which arrives with the cover.
@@ -38,9 +38,9 @@ public struct PanelView: View {
     public init(geometry: NotchGeometry, track: Track, progress: Interpolator?,
                 playing: Bool, controllable: Bool = true, modes: Modes? = nil,
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
-                send: @escaping (SpotifyBridge.Command) -> Void = { _ in },
+                send: @escaping (Command) -> Void = { _ in },
                 setRepeat: @escaping (Modes.Repeat) -> Void = { _ in },
-                openLink: @escaping (SpotifyLinks.Target) -> Void = { _ in }) {
+                openLink: @escaping (LinkTarget) -> Void = { _ in }) {
         self.geometry = geometry; self.track = track; self.progress = progress
         self.playing = playing; self.controllable = controllable; self.modes = modes
         self.onScrubbing = onScrubbing; self.send = send; self.setRepeat = setRepeat
@@ -59,10 +59,11 @@ public struct PanelView: View {
                 // get (`docs/TRAPS.md` #37). No hover underline, because
                 // `.onHover` never fires here (#40).
                 Button { openLink(.album) } label: {
-                    ArtworkView(url: track.artworkURL, side: Self.artSide, corner: Self.artCorner)
+                    ArtworkView(url: track.artworkURL, side: Self.artSide, corner: Self.artCorner,
+                                source: track.source)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Open the album in Spotify")
+                .accessibilityLabel(track.source == .spotify ? "Open the album in Spotify" : "Album cover")
                 details
             }
             .padding(.horizontal, Self.inset)
@@ -79,7 +80,8 @@ public struct PanelView: View {
                 if controllable {
                     TransportRow(playing: playing, modes: modes, send: send, setRepeat: setRepeat)
                 } else {
-                    PermissionNote().padding(.horizontal, Self.inset)
+                    PermissionNote(explanation: PermissionNote.explanation(for: track.source))
+                        .padding(.horizontal, Self.inset)
                 }
             }
             .padding(.top, Self.transportGap)
@@ -104,7 +106,7 @@ public struct PanelView: View {
                             .truncationMode(.tail))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityHint("Opens the song in Spotify")
+                    .accessibilityHint(track.source == .spotify ? "Opens the song in Spotify" : "")
                     Button { openLink(.artist) } label: {
                         changing(Text(track.artist)
                             .font(Type.label())
@@ -113,7 +115,7 @@ public struct PanelView: View {
                             .truncationMode(.tail))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityHint("Opens the artist in Spotify")
+                    .accessibilityHint(track.source == .spotify ? "Opens the artist in Spotify" : "")
                     .padding(.top, 2)
                 }
                 if Self.showsPlus(track) {
@@ -207,10 +209,11 @@ public struct PanelView: View {
         .accessibilityLabel("Save the song")
     }
 
-    /// Only a real track can be saved. A local file, an episode or an ad has
-    /// no `spotify:track:` id, and a + that could do nothing is not drawn.
+    /// Only a real Spotify track can be saved. A local file, an episode or an
+    /// ad has no `spotify:track:` id, and a + that could do nothing is not
+    /// drawn -- nor is one for Apple Music, which has no + yet.
     public nonisolated static func showsPlus(_ track: Track) -> Bool {
-        SpotifyLinks.pageURL(for: track.id) != nil
+        track.source == .spotify && SpotifyLinks.pageURL(for: track.id) != nil
     }
 
     static var textChange: AnyTransition {

@@ -4,9 +4,9 @@ Everything for people who clone the repo. Using the app is in the
 [README](README.md).
 
 NotchPlayer is Swift 6 with SwiftUI and AppKit, and has zero third-party
-dependencies. It reads and controls Spotify through its AppleScript
-dictionary, and the waveform is a real FFT of Spotify's output from a Core
-Audio process tap.
+dependencies. It reads and controls Spotify and Apple Music through
+their AppleScript dictionaries, and the waveform is a real FFT of the playing
+app's output from a Core Audio process tap.
 
 ## Before you open a pull request
 
@@ -58,6 +58,7 @@ falls back to opening the song. `SpotifyPlus.swift` has the details.
 ```bash
 swift build                            # the debug binary these use
 .build/debug/NotchPlayer --read        # what Spotify is actually saying
+.build/debug/NotchPlayer --read --source music   # the same, for Apple Music
 .build/debug/NotchPlayer --watch 30    # every state change, stamped, no UI
 .build/debug/NotchPlayer --list-previews
 ```
@@ -68,6 +69,7 @@ TCC silently hands it nothing but zeros.
 ```bash
 open --stdout /tmp/bands.txt --stderr /tmp/bands.txt \
      ./NotchPlayer.app --args --bands 8   # live bars, or "no live audio"
+                                          # (add --source music for Apple Music)
 ```
 
 A local-file song's cover is found through Spotify's own index

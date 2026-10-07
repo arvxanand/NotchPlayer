@@ -19,7 +19,7 @@ failed=0
 for src in "${movs[@]}"; do
     base="$(basename "$src" .mov)"
     name="${base#[0-9][0-9]-}"          # 01-hero -> hero
-    flag=--no-bezel                     # ponytail: every clip is a tight crop now, --bezel stays opt-in
+    flag=--no-bezel                     # ponytail: every clip is a tight crop now, --bezel stays opt-in; drop it if no clip needs a bezel by the next re-record
     echo
     echo "---- $base ($flag)"
     ./scripts/make-demo.sh "$flag" "$src" "$OUT/$name.gif" || { failed=1; echo "FAIL  $base" >&2; }

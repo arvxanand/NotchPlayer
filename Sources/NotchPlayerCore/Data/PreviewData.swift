@@ -79,6 +79,13 @@ public enum PreviewData {
                                                artist: "Some Podcast", artwork: nil),
                                          state: .playing, position: 12.5),
               bands: nil, caption: "podcast or local file: the mark stands in for the cover, no +"),
+        // Apple Music, no cover: the Music mark stands in, and there is no +.
+        State(name: "music", now: .track(Track(id: "1A2B3C4D5E6F7081", name: "Midnight City",
+                                               artist: "M83", album: "Hurry Up, We're Dreaming",
+                                               duration: 243, hasArtwork: false,
+                                               source: .appleMusic),
+                                         state: .playing, position: 12.5),
+              bands: nil, caption: "Apple Music song with no cover: its mark stands in, no +"),
         // Automation refused, but a notification has already arrived -- so
         // the track, artist and position are all known and only the cover and
         // the buttons are missing. The panel says why instead of showing three

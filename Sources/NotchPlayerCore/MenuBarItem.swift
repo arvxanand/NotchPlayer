@@ -23,7 +23,7 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
     private let item: NSStatusItem
     private let popover = NSPopover()
 
-    private let state: () -> (now: Now, permission: Permission)
+    private let state: () -> (now: Now, permission: Permission, source: Source)
     private let hidden: () -> Bool
     private let setHidden: (Bool) -> Void
     private let toggleVirtual: () -> Bool
@@ -34,7 +34,7 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
     /// this; without it the second click closes and immediately reopens.
     private var closedAt: Date?
 
-    public init(state: @escaping () -> (now: Now, permission: Permission),
+    public init(state: @escaping () -> (now: Now, permission: Permission, source: Source),
                 hidden: @escaping () -> Bool,
                 setHidden: @escaping (Bool) -> Void,
                 toggleVirtual: @escaping () -> Bool) {
@@ -93,7 +93,7 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
     /// The panel is a function of plain values for the same reason `RootView`
     /// is -- so this can hand it a snapshot.
     private func rebuild() {
-        let (now, permission) = state()
+        let (now, permission, source) = state()
         let hidden = hidden()
         let notch = NotchPresence.current, virtual = AppController.virtualEnabled
         let virtualRow: Bool? = notch == .noNotch ? virtual : nil
@@ -103,7 +103,7 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
             track: now.track,
             playing: now.isPlaying,
             subtitle: Self.summary(now: now, permission: permission, hidden: hidden,
-                                   notch: notch, virtual: virtual),
+                                   notch: notch, virtual: virtual, source: source),
             hidden: hidden,
             toggleHidden: { [weak self] in
                 self?.setHidden(!hidden)
@@ -199,7 +199,8 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
     public nonisolated static func summary(now: Now, permission: Permission,
                                            hidden: Bool,
                                            notch: NotchPresence = .present,
-                                           virtual: Bool = false) -> String {
+                                           virtual: Bool = false,
+                                           source: Source = .spotify) -> String {
         if hidden { return "Hidden from the notch" }
         switch notch {
         case .present: break
@@ -207,13 +208,13 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
         case .noNotch: if !virtual { return "This Mac has no notch" }
         case .noBuiltInScreen: return "No notch on this screen"
         }
-        if permission == .denied, now.track == nil { return "Cannot read Spotify" }
+        if permission == .denied, now.track == nil { return "Cannot read \(source.name)" }
         switch now {
-        case .notRunning: return "Spotify is not running"
+        case .notRunning: return "\(source.name) is not running"
         case .stopped: return "Nothing playing"
         // The service only publishes this before its first successful read,
         // so it means "still looking", not "broken".
-        case .unknown: return "Reading Spotify\u{2026}"
+        case .unknown: return "Reading \(source.name)\u{2026}"
         case .track(let track, _, _):
             let line = "\(shorten(track.name)) \u{2014} \(shorten(track.artist))"
             return now.isPlaying ? line : line + " (paused)"

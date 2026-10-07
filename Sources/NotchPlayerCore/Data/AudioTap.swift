@@ -439,16 +439,14 @@ final class AudioRing: @unchecked Sendable {
     }
 }
 
-// MARK: - Finding Spotify
+// MARK: - Finding the player
 
 extension AudioTap {
-    public static let spotifyBundleID = "com.spotify.client"
-
-    /// nil when Spotify is not running, which is also the "stop the tap"
+    /// nil when the app is not running, which is also the "stop the tap"
     /// signal.
-    public static var spotifyPID: pid_t? {
+    public static func pid(of source: Source) -> pid_t? {
         NSRunningApplication
-            .runningApplications(withBundleIdentifier: spotifyBundleID)
+            .runningApplications(withBundleIdentifier: source.bundleID)
             .first?.processIdentifier
     }
 }

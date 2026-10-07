@@ -14,7 +14,7 @@ public struct PermissionNote: View {
     /// than one.
     let explanation: String?
 
-    public init(explanation: String? = PermissionNote.defaultExplanation) {
+    public init(explanation: String? = PermissionNote.explanation(for: .spotify)) {
         self.explanation = explanation
     }
 
@@ -25,7 +25,9 @@ public struct PermissionNote: View {
     public static let settingsURL = URL(
         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!
 
-    public static let defaultExplanation = "Automation access is needed to control Spotify."
+    public static func explanation(for source: Source) -> String {
+        "Automation access is needed to control \(source.name)."
+    }
     public static let action = "Open Settings"
 
     public var body: some View {
@@ -58,22 +60,25 @@ public struct PermissionNote: View {
 
 /// The panel when nothing is known and Automation is refused.
 ///
-/// Spotify is running -- a denial cannot be reported for an app that is not
+/// The app is running -- a denial cannot be reported for an app that is not
 /// open -- so there is something to say and no way to say it in the peek.
 public struct PermissionPanel: View {
     let geometry: NotchGeometry
+    let source: Source
 
-    public init(geometry: NotchGeometry) { self.geometry = geometry }
+    public init(geometry: NotchGeometry, source: Source = .spotify) {
+        self.geometry = geometry; self.source = source
+    }
 
     public var body: some View {
         VStack(spacing: 0) {
             Color.clear.frame(height: geometry.notchExclusionTop)
             HStack(alignment: .top, spacing: PanelView.gap) {
-                SpotifyMark()
+                SourceMark(source)
                     .frame(width: PanelView.artSide * 0.62, height: PanelView.artSide * 0.62)
                     .frame(width: PanelView.artSide, height: PanelView.artSide)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Can't reach Spotify")
+                    Text("Can't reach \(source.name)")
                         .font(Type.title())
                         .foregroundStyle(Palette.primary)
                         .lineLimit(1)

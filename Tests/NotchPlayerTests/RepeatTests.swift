@@ -19,11 +19,11 @@ final class RepeatTests: XCTestCase {
 
     /// Jump back just before the end, never after it.
     func testTheLoopFiresJustBeforeTheEnd() {
-        XCTAssertEqual(SpotifyService.loopDelay(duration: 200, position: 50)!,
-                       200 - 50 - SpotifyService.loopLead, accuracy: 0.001)
+        XCTAssertEqual(PlayerService.loopDelay(duration: 200, position: 50)!,
+                       200 - 50 - PlayerService.loopLead, accuracy: 0.001)
         // Already past the point: at once, not a negative wait.
-        XCTAssertEqual(SpotifyService.loopDelay(duration: 200, position: 199.9), 0)
+        XCTAssertEqual(PlayerService.loopDelay(duration: 200, position: 199.9), 0)
         // A zero-length or tiny track has nothing to loop.
-        XCTAssertNil(SpotifyService.loopDelay(duration: 0, position: 0))
+        XCTAssertNil(PlayerService.loopDelay(duration: 0, position: 0))
     }
 }

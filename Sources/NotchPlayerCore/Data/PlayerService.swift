@@ -14,7 +14,7 @@ import Combine
 /// any notification has fired, the artwork URL (the one field the
 /// notification omits), the reconcile tick, and sending a command.
 @MainActor
-public final class SpotifyService: ObservableObject {
+public final class PlayerService: ObservableObject {
     @Published public private(set) var now: Now = .unknown("not read yet")
     @Published public private(set) var permission: Permission = .unknown
     /// Shuffle and repeat. Read with every full read -- launch, wake, the
@@ -29,7 +29,8 @@ public final class SpotifyService: ObservableObject {
     }
     private var loop: Timer?
 
-    private let bridge: SpotifyBridge
+    public let source: Source
+    private let bridge: PlayerBridge
     private var reconcile: Timer?
     private var retry: Timer?
     private var observers: [Any] = []
@@ -40,29 +41,30 @@ public final class SpotifyService: ObservableObject {
     /// How long to wait after a read that failed for an unknown reason.
     public static let retryInterval: TimeInterval = 2
 
-    /// The bridge is optional rather than defaulted to `SpotifyBridge()`
-    /// because a default argument expression is evaluated nonisolated, and the
-    /// bridge is main-actor bound.
-    public init(bridge: SpotifyBridge? = nil) {
-        self.bridge = bridge ?? SpotifyBridge()
+    public init(source: Source = .spotify) {
+        self.source = source
+        bridge = PlayerBridge(source: source)
     }
 
     // MARK: - Lifecycle
 
     public func start() {
-        observers.append(DistributedNotificationCenter.default().addObserver(
-            forName: Notification.Name("com.spotify.client.PlaybackStateChanged"),
-            object: nil, queue: .main) { [weak self] note in
-                MainActor.assumeIsolated { self?.received(note.userInfo) }
-            })
+        for name in source.notifications {
+            observers.append(DistributedNotificationCenter.default().addObserver(
+                forName: Notification.Name(name),
+                object: nil, queue: .main) { [weak self] note in
+                    MainActor.assumeIsolated { self?.received(note.userInfo) }
+                })
+        }
 
         let workspace = NSWorkspace.shared.notificationCenter
+        let bundleID = source.bundleID
         for name in [NSWorkspace.didLaunchApplicationNotification,
                      NSWorkspace.didTerminateApplicationNotification] {
             observers.append(workspace.addObserver(forName: name, object: nil, queue: .main) {
                 [weak self] note in
                 let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-                guard app?.bundleIdentifier == SpotifyBridge.bundleID else { return }
+                guard app?.bundleIdentifier == bundleID else { return }
                 MainActor.assumeIsolated { self?.refresh() }
             })
         }
@@ -118,6 +120,8 @@ public final class SpotifyService: ObservableObject {
 
     /// The notification path. No Apple Event unless the artwork is missing.
     private func received(_ info: [AnyHashable: Any]?) {
+        // Music's payload is only a signal that something changed.
+        guard source.notificationCarriesTrack else { return refresh() }
         guard let info else { return unresolved("notification with no userInfo") }
         switch Reading.from(notification: info) {
         case .ok(var track, let state, let position):
@@ -165,7 +169,7 @@ public final class SpotifyService: ObservableObject {
         }
     }
 
-    private func handle(_ failure: SpotifyBridge.Failure) {
+    private func handle(_ failure: PlayerBridge.Failure) {
         switch failure {
         case .notRunning: settle(.notRunning)
         case .noTrack:    settle(.stopped)
@@ -183,11 +187,18 @@ public final class SpotifyService: ObservableObject {
 
     private func settle(_ value: Now) {
         var value = value
-        // A local file's cover lives in the file (`LocalCover`): its address
-        // is the file itself, so every view that shows covers shows it.
-        if case .track(var track, let state, let position) = value, track.artworkURL == nil,
-           LocalCover.isLocal(track.id) {
-            track.artworkURL = LocalCover.file(for: track)
+        // A local file's cover lives in the file (`LocalCover`) and Music's is
+        // bytes (`musicCover`): either way the address is a file, so every view
+        // that shows covers shows it.
+        if case .track(var track, let state, let position) = value {
+            track.source = source
+            if track.artworkURL == nil {
+                if LocalCover.isLocal(track.id) {
+                    track.artworkURL = LocalCover.file(for: track)
+                } else if source == .appleMusic {
+                    track.artworkURL = musicCover(track.id)
+                }
+            }
             value = .track(track, state: state, position: position)
         }
         retry?.invalidate(); retry = nil
@@ -199,6 +210,17 @@ public final class SpotifyService: ObservableObject {
         }
         if now != value { now = value }
         scheduleReconcile(value.isPlaying)
+    }
+
+    /// Music's cover, written once per song into the artwork cache and
+    /// addressed by the song's persistent id. Asks Music only when the file is
+    /// not there yet; a song with no cover asks again on the next read, which is
+    /// one Apple Event.
+    private func musicCover(_ id: String) -> URL? {
+        let file = ArtworkCache.coverFile(id)
+        if FileManager.default.fileExists(atPath: file.path) { return file }
+        guard let bytes = bridge.coverData(), NSImage(data: bytes) != nil else { return nil }
+        return (try? bytes.write(to: file)) == nil ? nil : file
     }
 
     /// A failure that is **not** an answer.
@@ -225,12 +247,9 @@ public final class SpotifyService: ObservableObject {
     /// A timer is only cheap if the pixels change (TRAPS #66), so this runs
     /// only while a track is actually advancing.
     ///
-    /// ponytail: no reconcile while paused, so a seek made in Spotify's own
-    /// window while paused leaves our position stale until playback resumes.
-    /// Measured, not assumed -- a `set player position` while paused
-    /// published nothing. Nobody can see it yet (the collapsed peek has no
-    /// progress bar), so the upgrade path is one `refresh()` when the panel
-    /// expands, which is the only moment it becomes visible.
+    /// No reconcile while paused: a seek made in Spotify's own window while
+    /// paused publishes nothing (measured). The panel opening re-reads
+    /// (`Expansion.onOpen`), which is the only moment it becomes visible.
     private func scheduleReconcile(_ playing: Bool) {
         guard playing else { reconcile?.invalidate(); reconcile = nil; return }
         guard reconcile == nil else { return }
@@ -310,7 +329,7 @@ public final class SpotifyService: ObservableObject {
         }
     }
 
-    public func send(_ command: SpotifyBridge.Command) {
+    public func send(_ command: Command) {
         switch bridge.send(command) {
         case .success:
             permission = .granted

@@ -18,11 +18,15 @@ public struct Track: Equatable, Sendable {
     /// in -- and stays nil forever if Automation is refused, which is a
     /// degraded display rather than a broken one.
     public var artworkURL: URL?
+    /// Stamped by the service that read it; the parsers do not know.
+    public var source: Source
 
     public init(id: String, name: String, artist: String, album: String,
-                duration: TimeInterval, hasArtwork: Bool, artworkURL: URL? = nil) {
+                duration: TimeInterval, hasArtwork: Bool, artworkURL: URL? = nil,
+                source: Source = .spotify) {
         self.id = id; self.name = name; self.artist = artist; self.album = album
         self.duration = duration; self.hasArtwork = hasArtwork; self.artworkURL = artworkURL
+        self.source = source
     }
 }
 
@@ -76,6 +80,47 @@ public enum Now: Equatable, Sendable {
     }
     /// Whether the notch should draw anything at all.
     public var draws: Bool { track != nil }
+}
+
+/// Whether shuffle and repeat are on.
+public struct Modes: Equatable, Sendable {
+    public var shuffle: Bool
+    public var repeating: Bool
+    /// False on Spotify's DJ, which has neither.
+    public var allowed: Bool
+    /// Repeat one song. **Not Spotify's** -- its dictionary has only repeat
+    /// on/off, and its menu item only responds while Spotify is frontmost --
+    /// so this app loops the song itself (`PlayerService.armLoop`), with
+    /// Spotify on repeat-all underneath. Never read from Spotify.
+    public var one = false
+
+    public init(shuffle: Bool, repeating: Bool, allowed: Bool = true, one: Bool = false) {
+        self.shuffle = shuffle; self.repeating = repeating; self.allowed = allowed
+        self.one = one
+    }
+
+    public enum Repeat: Equatable, Sendable { case off, all, one }
+
+    public var repeatMode: Repeat { !repeating ? .off : one ? .one : .all }
+
+    /// What a press of the repeat button leads to: Spotify's own order.
+    public nonisolated static func next(after mode: Repeat) -> Repeat {
+        switch mode {
+        case .off: .all
+        case .all: .one
+        case .one: .off
+        }
+    }
+
+    /// `{shuffling, repeating, shuffling enabled}` as AppleScript prints them.
+    /// Nil for anything else, rather than a guess that would draw a wrong
+    /// state.
+    public nonisolated static func from(_ fields: [String]) -> Modes? {
+        func bool(_ s: String) -> Bool? { ["true": true, "false": false][s.lowercased()] }
+        guard fields.count == 3, let s = bool(fields[0]), let r = bool(fields[1]),
+              let a = bool(fields[2]) else { return nil }
+        return Modes(shuffle: s, repeating: r, allowed: a)
+    }
 }
 
 /// Whether this app may talk to Spotify at all.
@@ -180,7 +225,7 @@ extension Reading {
     }
 
     /// From the nine-item AppleScript list. Order is fixed by
-    /// `SpotifyBridge.readScript` and asserted by `fieldCount`.
+    /// `Source.readScript` and asserted by `fieldCount`.
     ///
     /// **A list, not a delimited string.** Building one with `& tab &` inside
     /// a `tell application` block silently produces nothing, because `tab`

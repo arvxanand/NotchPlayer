@@ -52,11 +52,11 @@ public struct TransportRow: View {
     let playing: Bool
     /// Nil until Spotify has been read; drawn as off.
     let modes: Modes?
-    let send: (SpotifyBridge.Command) -> Void
+    let send: (Command) -> Void
     let setRepeat: (Modes.Repeat) -> Void
 
     public init(playing: Bool, modes: Modes? = nil,
-                send: @escaping (SpotifyBridge.Command) -> Void,
+                send: @escaping (Command) -> Void,
                 setRepeat: @escaping (Modes.Repeat) -> Void = { _ in }) {
         self.playing = playing; self.modes = modes; self.send = send; self.setRepeat = setRepeat
     }

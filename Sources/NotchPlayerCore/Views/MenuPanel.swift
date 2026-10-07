@@ -221,7 +221,7 @@ public struct MenuPanel: View {
             // cover is still downloading, so the slot is washed rather than
             // black here. In the peek it stays black -- see `ArtworkView.fill`.
             ArtworkView(url: track?.artworkURL, side: Self.coverSide, corner: 8,
-                        fill: Palette.wash)
+                        source: track?.source ?? .spotify, fill: Palette.wash)
             VStack(alignment: .leading, spacing: 3) {
                 Text(track?.name ?? "Nothing playing")
                     .font(Type.label(13, weight: .semibold))
