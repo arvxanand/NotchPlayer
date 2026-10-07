@@ -29,6 +29,7 @@ public final class PlayerService: ObservableObject {
     }
     private var loop: Timer?
 
+    public let source: Source
     private let bridge: PlayerBridge
     private var reconcile: Timer?
     private var retry: Timer?
@@ -40,29 +41,30 @@ public final class PlayerService: ObservableObject {
     /// How long to wait after a read that failed for an unknown reason.
     public static let retryInterval: TimeInterval = 2
 
-    /// The bridge is optional rather than defaulted to `PlayerBridge()`
-    /// because a default argument expression is evaluated nonisolated, and the
-    /// bridge is main-actor bound.
-    public init(bridge: PlayerBridge? = nil) {
-        self.bridge = bridge ?? PlayerBridge()
+    public init(source: Source = .spotify) {
+        self.source = source
+        bridge = PlayerBridge(source: source)
     }
 
     // MARK: - Lifecycle
 
     public func start() {
-        observers.append(DistributedNotificationCenter.default().addObserver(
-            forName: Notification.Name("com.spotify.client.PlaybackStateChanged"),
-            object: nil, queue: .main) { [weak self] note in
-                MainActor.assumeIsolated { self?.received(note.userInfo) }
-            })
+        for name in source.notifications {
+            observers.append(DistributedNotificationCenter.default().addObserver(
+                forName: Notification.Name(name),
+                object: nil, queue: .main) { [weak self] note in
+                    MainActor.assumeIsolated { self?.received(note.userInfo) }
+                })
+        }
 
         let workspace = NSWorkspace.shared.notificationCenter
+        let bundleID = source.bundleID
         for name in [NSWorkspace.didLaunchApplicationNotification,
                      NSWorkspace.didTerminateApplicationNotification] {
             observers.append(workspace.addObserver(forName: name, object: nil, queue: .main) {
                 [weak self] note in
                 let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-                guard app?.bundleIdentifier == PlayerBridge.bundleID else { return }
+                guard app?.bundleIdentifier == bundleID else { return }
                 MainActor.assumeIsolated { self?.refresh() }
             })
         }
@@ -118,6 +120,8 @@ public final class PlayerService: ObservableObject {
 
     /// The notification path. No Apple Event unless the artwork is missing.
     private func received(_ info: [AnyHashable: Any]?) {
+        // Music's payload is only a signal that something changed.
+        guard source.notificationCarriesTrack else { return refresh() }
         guard let info else { return unresolved("notification with no userInfo") }
         switch Reading.from(notification: info) {
         case .ok(var track, let state, let position):
@@ -183,11 +187,18 @@ public final class PlayerService: ObservableObject {
 
     private func settle(_ value: Now) {
         var value = value
-        // A local file's cover lives in the file (`LocalCover`): its address
-        // is the file itself, so every view that shows covers shows it.
-        if case .track(var track, let state, let position) = value, track.artworkURL == nil,
-           LocalCover.isLocal(track.id) {
-            track.artworkURL = LocalCover.file(for: track)
+        // A local file's cover lives in the file (`LocalCover`) and Music's is
+        // bytes (`musicCover`): either way the address is a file, so every view
+        // that shows covers shows it.
+        if case .track(var track, let state, let position) = value {
+            track.source = source
+            if track.artworkURL == nil {
+                if LocalCover.isLocal(track.id) {
+                    track.artworkURL = LocalCover.file(for: track)
+                } else if source == .appleMusic {
+                    track.artworkURL = musicCover(track.id)
+                }
+            }
             value = .track(track, state: state, position: position)
         }
         retry?.invalidate(); retry = nil
@@ -199,6 +210,17 @@ public final class PlayerService: ObservableObject {
         }
         if now != value { now = value }
         scheduleReconcile(value.isPlaying)
+    }
+
+    /// Music's cover, written once per song into the artwork cache and
+    /// addressed by the song's persistent id. Asks Music only when the file is
+    /// not there yet; a song with no cover asks again on the next read, which is
+    /// one Apple Event.
+    private func musicCover(_ id: String) -> URL? {
+        let file = ArtworkCache.coverFile(id)
+        if FileManager.default.fileExists(atPath: file.path) { return file }
+        guard let bytes = bridge.coverData(), NSImage(data: bytes) != nil else { return nil }
+        return (try? bytes.write(to: file)) == nil ? nil : file
     }
 
     /// A failure that is **not** an answer.

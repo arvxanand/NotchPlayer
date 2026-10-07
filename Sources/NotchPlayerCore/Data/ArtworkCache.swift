@@ -33,11 +33,19 @@ public actor ArtworkCache {
     }
 
     private var memory: [String: Data] = [:]
-    private let directory: URL
+    private let directory = ArtworkCache.directory
+
+    static let directory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("NotchPlayer/artwork", isDirectory: true)
+
+    /// Where Music's cover for a song is kept: an image file named for its
+    /// persistent id (hexadecimal, so safe as a filename). Written by
+    /// `PlayerService`, read back through `data(for:)` as a file URL.
+    nonisolated static func coverFile(_ id: String) -> URL {
+        directory.appendingPathComponent(id + ".img")
+    }
 
     public init() {
-        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        directory = base.appendingPathComponent("NotchPlayer/artwork", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
@@ -48,11 +56,13 @@ public actor ArtworkCache {
         let wanted = Self.fetchURL(for: url)
         let key = wanted.absoluteString
         if let hit = memory[key] { return hit }
-        // A local file's own embedded cover (`LocalCover`). Not copied to the
-        // disk cache: it is already on disk.
+        // Already on disk, so not copied to the disk cache: Music's cover
+        // (`coverFile`, an image) or a local song's own embedded one (`LocalCover`).
         if wanted.isFileURL {
-            guard let bytes = await LocalCover.artwork(in: wanted), NSImage(data: bytes) != nil
-            else { return nil }
+            let bytes: Data?
+            if wanted.pathExtension == "img" { bytes = try? Data(contentsOf: wanted) }
+            else { bytes = await LocalCover.artwork(in: wanted) }
+            guard let bytes, NSImage(data: bytes) != nil else { return nil }
             memory[key] = bytes
             return bytes
         }

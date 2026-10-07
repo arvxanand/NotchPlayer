@@ -1,6 +1,6 @@
 import AppKit
 
-/// Everything that talks to Spotify over Apple Events.
+/// Everything that talks to a music app (`Source`) over Apple Events.
 ///
 /// **Scripts are compiled once and held for the life of the process.** The
 /// measurement that decides this, taken on the target Mac on 14 Sep 2026:
@@ -15,10 +15,6 @@ import AppKit
 /// thread `NSAppleScript` is being driven from.
 @MainActor
 public final class PlayerBridge {
-    // nonisolated so a workspace-notification closure can compare against it
-    // without hopping actors for a string constant.
-    public nonisolated static let bundleID = "com.spotify.client"
-
     /// Why a read did not produce a track. Each one means something different
     /// on screen, which is the whole point of not returning an optional.
     public enum Failure: Error, Equatable, Sendable {
@@ -32,52 +28,25 @@ public final class PlayerBridge {
         case other(Int, String)
     }
 
-    /// Nine fields, in the order `Reading.from(appleScript:)` expects.
-    nonisolated static let readScript = """
-    tell application "Spotify"
-      set t to current track
-      return {name of t, artist of t, album of t, album artist of t, \
-    duration of t, artwork url of t, id of t, player position, player state as text}
-    end tell
-    """
-
-    /// The cheap reconcile read: just the two things that drift.
-    static let positionScript = """
-    tell application "Spotify"
-      return {player position, player state as text}
-    end tell
-    """
-
-    /// Shuffle, repeat, and whether they can be changed at all -- they cannot
-    /// on Spotify's DJ, where a write silently does nothing. `shuffling
-    /// enabled` and `repeating enabled` share the code `pReE`, so they are one
-    /// value and one is read (`docs/TRAPS.md` #46).
-    static let modesScript = """
-    tell application "Spotify"
-      return {shuffling, repeating, shuffling enabled}
-    end tell
-    """
-
-    /// Used only on the notification path, which carries everything else.
-    static let artworkScript = #"tell application "Spotify" to return artwork url of current track"#
-
     private var compiled: [String: NSAppleScript] = [:]
 
-    public init() {}
+    public let source: Source
+
+    public init(source: Source = .spotify) { self.source = source }
 
     public var isRunning: Bool {
-        !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).isEmpty
+        !NSRunningApplication.runningApplications(withBundleIdentifier: source.bundleID).isEmpty
     }
 
     /// A full read. Used at launch, on wake, and whenever the notification
     /// path has not produced anything yet.
     public func read() -> Result<Reading, Failure> {
-        items(Self.readScript).map { Reading.from(appleScript: $0) }
+        items(source.readScript).map { Reading.from(appleScript: $0) }
     }
 
     /// Position and state only.
     public func position() -> Result<(state: PlayerState, position: TimeInterval), Failure> {
-        items(Self.positionScript).flatMap { fields in
+        items(source.positionScript).flatMap { fields in
             guard fields.count == 2, let p = Double(fields[0]),
                   let s = PlayerState(loose: fields[1]) else {
                 return .failure(.other(0, "unexpected position reply: \(fields)"))
@@ -87,7 +56,7 @@ public final class PlayerBridge {
     }
 
     public func modes() -> Result<Modes, Failure> {
-        items(Self.modesScript).flatMap { fields in
+        items(source.modesScript).flatMap { fields in
             Modes.from(fields).map { .success($0) }
                 ?? .failure(.other(0, "unexpected modes reply: \(fields)"))
         }
@@ -95,15 +64,23 @@ public final class PlayerBridge {
 
     /// The one field the playback notification does not carry.
     public func artworkURL() -> Result<URL?, Failure> {
-        run(Self.artworkScript).map { descriptor in
+        run(Source.artworkScript).map { descriptor in
             guard let s = descriptor.stringValue, !s.isEmpty else { return nil }
             return URL(string: s)
         }
     }
 
+    /// Music's cover, as bytes. Nil when the song has none (the script then
+    /// fails, which is an answer here and not an error).
+    public func coverData() -> Data? {
+        guard case .success(let descriptor) = run(Source.coverScript), !descriptor.data.isEmpty
+        else { return nil }
+        return descriptor.data
+    }
+
     @discardableResult
     public func send(_ command: Command) -> Result<Void, Failure> {
-        run(command.source, cache: command.cacheable).map { _ in () }
+        run(command.script(for: source), cache: command.cacheable).map { _ in () }
     }
 
     // MARK: - Plumbing
@@ -202,26 +179,28 @@ public enum Command: Equatable, Sendable {
         }
     }
 
-    var source: String {
+    func script(for source: Source) -> String {
+        let app = #"tell application ""# + source.appName + #"" to "#
         switch self {
-        // Never `activate`. Bringing Spotify forward to talk to it
-        // clobbers whatever the user was doing, and it is never necessary
-        // for a command or a read.
-        case .playpause: return #"tell application "Spotify" to playpause"#
-        case .previous:  return #"tell application "Spotify" to previous track"#
-        case .next:      return #"tell application "Spotify" to next track"#
+        // Never `activate`. Bringing the app forward to talk to it clobbers
+        // whatever the user was doing, and it is never necessary for a
+        // command or a read.
+        case .playpause: return app + "playpause"
+        case .previous:  return app + "previous track"
+        case .next:      return app + "next track"
         case .seek(let seconds):
             // **Three decimals and `String(format:)`, not interpolation.**
             // `"\(seconds)"` on a Double can produce `4.2e+01`, which
             // AppleScript does not parse, and a locale-aware formatter can
             // produce `42,5`, which it parses as a list. This is a
             // program's source code, so it gets C formatting.
-            return #"tell application "Spotify" to set player position to "#
-                + String(format: "%.3f", max(0, seconds))
+            return app + "set player position to " + String(format: "%.3f", max(0, seconds))
         case .shuffle(let on):
-            return #"tell application "Spotify" to set shuffling to "# + (on ? "true" : "false")
+            return app + (source == .spotify ? "set shuffling to " : "set shuffle enabled to ")
+                + (on ? "true" : "false")
         case .repeating(let on):
-            return #"tell application "Spotify" to set repeating to "# + (on ? "true" : "false")
+            return app + (source == .spotify ? "set repeating to " + (on ? "true" : "false")
+                                             : "set song repeat to " + (on ? "all" : "off"))
         }
     }
 

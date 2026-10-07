@@ -18,11 +18,15 @@ public struct Track: Equatable, Sendable {
     /// in -- and stays nil forever if Automation is refused, which is a
     /// degraded display rather than a broken one.
     public var artworkURL: URL?
+    /// Stamped by the service that read it; the parsers do not know.
+    public var source: Source
 
     public init(id: String, name: String, artist: String, album: String,
-                duration: TimeInterval, hasArtwork: Bool, artworkURL: URL? = nil) {
+                duration: TimeInterval, hasArtwork: Bool, artworkURL: URL? = nil,
+                source: Source = .spotify) {
         self.id = id; self.name = name; self.artist = artist; self.album = album
         self.duration = duration; self.hasArtwork = hasArtwork; self.artworkURL = artworkURL
+        self.source = source
     }
 }
 
@@ -221,7 +225,7 @@ extension Reading {
     }
 
     /// From the nine-item AppleScript list. Order is fixed by
-    /// `PlayerBridge.readScript` and asserted by `fieldCount`.
+    /// `Source.readScript` and asserted by `fieldCount`.
     ///
     /// **A list, not a delimited string.** Building one with `& tab &` inside
     /// a `tell application` block silently produces nothing, because `tab`

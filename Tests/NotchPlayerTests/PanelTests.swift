@@ -319,7 +319,7 @@ final class ScrubTests: XCTestCase {
     // MARK: - The command
 
     func testSeekWritesThePositionInSecondsWithADecimalPoint() {
-        let source = Command.seek(42.5).source
+        let source = Command.seek(42.5).script(for: .spotify)
         XCTAssertTrue(source.contains("set player position to 42.500"), source)
         XCTAssertFalse(source.contains(","), "a comma decimal parses as an AppleScript list")
         XCTAssertFalse(source.contains("e+"), "exponent notation does not parse")
@@ -329,14 +329,14 @@ final class ScrubTests: XCTestCase {
     /// read that. A 90-minute DJ set is a real track length.
     func testALongTrackStillProducesPlainDigits() {
         for seconds in [0.0, 0.0001, 5400.0, 99999.5] {
-            let source = Command.seek(seconds).source
+            let source = Command.seek(seconds).script(for: .spotify)
             XCTAssertFalse(source.contains("e+"), source)
             XCTAssertFalse(source.contains("-"), "negative positions are clamped: \(source)")
         }
         // `contains("0.000")` passed "-10.000" here, which is the string this
         // assertion exists to reject. Anchor it to the end.
-        XCTAssertTrue(Command.seek(-10).source.hasSuffix("position to 0.000"),
-                      Command.seek(-10).source)
+        XCTAssertTrue(Command.seek(-10).script(for: .spotify).hasSuffix("position to 0.000"),
+                      Command.seek(-10).script(for: .spotify))
     }
 
     /// Every other script is compiled once and held forever. A seek carries
@@ -356,13 +356,13 @@ final class ScrubTests: XCTestCase {
     }
 
     func testShuffleAndRepeatSetTheValueTheyAreGiven() {
-        XCTAssertEqual(Command.shuffle(true).source,
+        XCTAssertEqual(Command.shuffle(true).script(for: .spotify),
                        #"tell application "Spotify" to set shuffling to true"#)
-        XCTAssertEqual(Command.shuffle(false).source,
+        XCTAssertEqual(Command.shuffle(false).script(for: .spotify),
                        #"tell application "Spotify" to set shuffling to false"#)
-        XCTAssertEqual(Command.repeating(true).source,
+        XCTAssertEqual(Command.repeating(true).script(for: .spotify),
                        #"tell application "Spotify" to set repeating to true"#)
-        XCTAssertEqual(Command.repeating(false).source,
+        XCTAssertEqual(Command.repeating(false).script(for: .spotify),
                        #"tell application "Spotify" to set repeating to false"#)
     }
 

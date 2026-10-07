@@ -98,7 +98,7 @@ final class AppleScriptParsingTests: XCTestCase {
     func testTheFieldOrderIsPinnedToTheScriptThatProducesIt() {
         // If the script grows a field, this is what notices. The count is
         // read from the script rather than written out twice.
-        let returns = PlayerBridge.readScript
+        let returns = Source.spotify.readScript
             .components(separatedBy: "return {")[1]
             .components(separatedBy: "}")[0]
         XCTAssertEqual(returns.components(separatedBy: ",").count, Reading.fieldCount)
@@ -204,7 +204,7 @@ final class BridgeFailureTests: XCTestCase {
         // Bringing Spotify forward to talk to it clobbers whatever the user
         // was doing, and is never necessary.
         for command in Command.simple + [.seek(42), .shuffle(true), .repeating(true)] {
-            XCTAssertFalse(command.source.contains("activate"), "\(command) activates Spotify")
+            XCTAssertFalse(command.script(for: .spotify).contains("activate"), "\(command) activates Spotify")
         }
     }
 }
