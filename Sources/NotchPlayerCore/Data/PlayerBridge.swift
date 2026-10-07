@@ -14,7 +14,7 @@ import AppKit
 /// them a frame path -- and a single actor removes any question about which
 /// thread `NSAppleScript` is being driven from.
 @MainActor
-public final class SpotifyBridge {
+public final class PlayerBridge {
     // nonisolated so a workspace-notification closure can compare against it
     // without hopping actors for a string constant.
     public nonisolated static let bundleID = "com.spotify.client"
@@ -30,70 +30,6 @@ public final class SpotifyBridge {
         /// Spotify is open but has no current track.
         case noTrack
         case other(Int, String)
-    }
-
-    public enum Command: Equatable, Sendable {
-        case playpause, previous, next
-        /// Seconds from the start of the track. `player position` has no
-        /// `access="r"` in Spotify's dictionary -- it is writable, checked
-        /// before anything was built on it.
-        case seek(TimeInterval)
-        /// `shuffling` and `repeating` are writable booleans. **Repeat is on or
-        /// off only**: the dictionary has no repeat-one, so the app can neither
-        /// set it nor tell it apart from repeat-all.
-        case shuffle(Bool)
-        case repeating(Bool)
-
-        /// The three that take no argument. Not `CaseIterable`, which an enum
-        /// with an associated value cannot be, so the tests that sweep every
-        /// command sweep this and `seek` explicitly.
-        public static let simple: [Command] = [.playpause, .previous, .next]
-
-        public var name: String {
-            switch self {
-            case .playpause: return "playpause"
-            case .previous: return "previous"
-            case .next: return "next"
-            case .seek: return "seek"
-            case .shuffle: return "shuffle"
-            case .repeating: return "repeat"
-            }
-        }
-
-        var source: String {
-            switch self {
-            // Never `activate`. Bringing Spotify forward to talk to it
-            // clobbers whatever the user was doing, and it is never necessary
-            // for a command or a read.
-            case .playpause: return #"tell application "Spotify" to playpause"#
-            case .previous:  return #"tell application "Spotify" to previous track"#
-            case .next:      return #"tell application "Spotify" to next track"#
-            case .seek(let seconds):
-                // **Three decimals and `String(format:)`, not interpolation.**
-                // `"\(seconds)"` on a Double can produce `4.2e+01`, which
-                // AppleScript does not parse, and a locale-aware formatter can
-                // produce `42,5`, which it parses as a list. This is a
-                // program's source code, so it gets C formatting.
-                return #"tell application "Spotify" to set player position to "#
-                    + String(format: "%.3f", max(0, seconds))
-            case .shuffle(let on):
-                return #"tell application "Spotify" to set shuffling to "# + (on ? "true" : "false")
-            case .repeating(let on):
-                return #"tell application "Spotify" to set repeating to "# + (on ? "true" : "false")
-            }
-        }
-
-        /// Whether the compiled script is worth keeping.
-        ///
-        /// Every other script in this file is one fixed string compiled once
-        /// and held for the life of the process. A seek's source carries its
-        /// argument, so caching it would add an entry per distinct position --
-        /// an unbounded dictionary of near-identical scripts in a process that
-        /// runs for weeks.
-        var cacheable: Bool {
-            if case .seek = self { return false }
-            return true
-        }
     }
 
     /// Nine fields, in the order `Reading.from(appleScript:)` expects.
@@ -238,43 +174,66 @@ public final class SpotifyBridge {
     }
 }
 
-/// Whether shuffle and repeat are on.
-public struct Modes: Equatable, Sendable {
-    public var shuffle: Bool
-    public var repeating: Bool
-    /// False on Spotify's DJ, which has neither.
-    public var allowed: Bool
-    /// Repeat one song. **Not Spotify's** -- its dictionary has only repeat
-    /// on/off, and its menu item only responds while Spotify is frontmost --
-    /// so this app loops the song itself (`SpotifyService.armLoop`), with
-    /// Spotify on repeat-all underneath. Never read from Spotify.
-    public var one = false
+public enum Command: Equatable, Sendable {
+    case playpause, previous, next
+    /// Seconds from the start of the track. `player position` has no
+    /// `access="r"` in Spotify's dictionary -- it is writable, checked
+    /// before anything was built on it.
+    case seek(TimeInterval)
+    /// `shuffling` and `repeating` are writable booleans. **Repeat is on or
+    /// off only**: the dictionary has no repeat-one, so the app can neither
+    /// set it nor tell it apart from repeat-all.
+    case shuffle(Bool)
+    case repeating(Bool)
 
-    public init(shuffle: Bool, repeating: Bool, allowed: Bool = true, one: Bool = false) {
-        self.shuffle = shuffle; self.repeating = repeating; self.allowed = allowed
-        self.one = one
-    }
+    /// The three that take no argument. Not `CaseIterable`, which an enum
+    /// with an associated value cannot be, so the tests that sweep every
+    /// command sweep this and `seek` explicitly.
+    public static let simple: [Command] = [.playpause, .previous, .next]
 
-    public enum Repeat: Equatable, Sendable { case off, all, one }
-
-    public var repeatMode: Repeat { !repeating ? .off : one ? .one : .all }
-
-    /// What a press of the repeat button leads to: Spotify's own order.
-    public nonisolated static func next(after mode: Repeat) -> Repeat {
-        switch mode {
-        case .off: .all
-        case .all: .one
-        case .one: .off
+    public var name: String {
+        switch self {
+        case .playpause: return "playpause"
+        case .previous: return "previous"
+        case .next: return "next"
+        case .seek: return "seek"
+        case .shuffle: return "shuffle"
+        case .repeating: return "repeat"
         }
     }
 
-    /// `{shuffling, repeating, shuffling enabled}` as AppleScript prints them.
-    /// Nil for anything else, rather than a guess that would draw a wrong
-    /// state.
-    public nonisolated static func from(_ fields: [String]) -> Modes? {
-        func bool(_ s: String) -> Bool? { ["true": true, "false": false][s.lowercased()] }
-        guard fields.count == 3, let s = bool(fields[0]), let r = bool(fields[1]),
-              let a = bool(fields[2]) else { return nil }
-        return Modes(shuffle: s, repeating: r, allowed: a)
+    var source: String {
+        switch self {
+        // Never `activate`. Bringing Spotify forward to talk to it
+        // clobbers whatever the user was doing, and it is never necessary
+        // for a command or a read.
+        case .playpause: return #"tell application "Spotify" to playpause"#
+        case .previous:  return #"tell application "Spotify" to previous track"#
+        case .next:      return #"tell application "Spotify" to next track"#
+        case .seek(let seconds):
+            // **Three decimals and `String(format:)`, not interpolation.**
+            // `"\(seconds)"` on a Double can produce `4.2e+01`, which
+            // AppleScript does not parse, and a locale-aware formatter can
+            // produce `42,5`, which it parses as a list. This is a
+            // program's source code, so it gets C formatting.
+            return #"tell application "Spotify" to set player position to "#
+                + String(format: "%.3f", max(0, seconds))
+        case .shuffle(let on):
+            return #"tell application "Spotify" to set shuffling to "# + (on ? "true" : "false")
+        case .repeating(let on):
+            return #"tell application "Spotify" to set repeating to "# + (on ? "true" : "false")
+        }
+    }
+
+    /// Whether the compiled script is worth keeping.
+    ///
+    /// Every other script in this file is one fixed string compiled once
+    /// and held for the life of the process. A seek's source carries its
+    /// argument, so caching it would add an entry per distinct position --
+    /// an unbounded dictionary of near-identical scripts in a process that
+    /// runs for weeks.
+    var cacheable: Bool {
+        if case .seek = self { return false }
+        return true
     }
 }

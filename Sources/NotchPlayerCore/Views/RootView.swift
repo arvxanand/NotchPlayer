@@ -19,10 +19,10 @@ public struct RootView: View {
     /// for as long as it is.
     let onScrubbing: (Bool) -> Void
     /// A no-op in previews, so a capture cannot control the user's playback.
-    let send: (SpotifyBridge.Command) -> Void
+    let send: (Command) -> Void
     let setRepeat: (Modes.Repeat) -> Void
     /// The title, the artist or the cover was clicked. A no-op in previews.
-    let openLink: (SpotifyLinks.Target, Track) -> Void
+    let openLink: (LinkTarget, Track) -> Void
     /// The closed peek steps aside: the menu bar is gone (full screen, #17),
     /// or the pointer is resting on a wing to reach a menu under it (#16).
     /// Opening still works -- the hover spot is where it always was -- and the
@@ -34,9 +34,9 @@ public struct RootView: View {
                 progress: Interpolator? = nil, modes: Modes? = nil, holdBands: [Float]? = nil,
                 probe: Bool = false, concealed: Bool = false,
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
-                send: @escaping (SpotifyBridge.Command) -> Void = { _ in },
+                send: @escaping (Command) -> Void = { _ in },
                 setRepeat: @escaping (Modes.Repeat) -> Void = { _ in },
-                openLink: @escaping (SpotifyLinks.Target, Track) -> Void = { _, _ in }) {
+                openLink: @escaping (LinkTarget, Track) -> Void = { _, _ in }) {
         self.geometry = geometry
         self.now = now
         self.permission = permission

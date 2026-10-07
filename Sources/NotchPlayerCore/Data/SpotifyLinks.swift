@@ -12,12 +12,12 @@ import AppKit
 /// **only on a click**, never in the background, and a failed one falls back to
 /// a Spotify search for the name -- a click that lands on search results beats
 /// a click that does nothing.
+/// `save` is the panel's +, which is not a link at all -- see `SpotifyPlus`. It
+/// rides this path so the view needs no second callback.
+public enum LinkTarget: Equatable, Sendable { case track, album, artist, save }
+
 @MainActor
 public enum SpotifyLinks {
-    /// `save` is the panel's +, which is not a link at all -- see
-    /// `SpotifyPlus`. It rides this path so the view needs no second callback.
-    public enum Target: Equatable, Sendable { case track, album, artist, save }
-
     /// Album and artist pages, per track, so a second click costs nothing.
     private static var found: [String: Page] = [:]
 
@@ -25,7 +25,7 @@ public enum SpotifyLinks {
     /// Opening `spotify:track:…` *plays* it -- measured: a paused Spotify
     /// started playing -- and clicking a title is not asking for that. An
     /// album or artist URI only navigates (also measured).
-    public static func open(_ target: Target, for track: Track) {
+    public static func open(_ target: LinkTarget, for track: Track) {
         // Read by `tools/hit_probe.sh`: the + and the title both land in
         // Spotify, so only this line says which one was clicked.
         print("link: \(target)")
@@ -42,7 +42,7 @@ public enum SpotifyLinks {
         }
     }
 
-    nonisolated static func fallbackTerm(_ target: Target, _ track: Track) -> String {
+    nonisolated static func fallbackTerm(_ target: LinkTarget, _ track: Track) -> String {
         switch target {
         case .track, .save: "\(track.name) \(track.artist)"
         case .album: "\(track.album) \(track.artist)"
@@ -94,7 +94,7 @@ public enum SpotifyLinks {
         /// The first `music:musician`, which is the primary artist.
         public let artist: URL?
 
-        public func link(_ target: Target, track id: String) -> URL? {
+        public func link(_ target: LinkTarget, track id: String) -> URL? {
             switch target {
             case .album: album
             case .artist: artist

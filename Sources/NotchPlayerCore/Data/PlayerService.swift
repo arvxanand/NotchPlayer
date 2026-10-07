@@ -14,7 +14,7 @@ import Combine
 /// any notification has fired, the artwork URL (the one field the
 /// notification omits), the reconcile tick, and sending a command.
 @MainActor
-public final class SpotifyService: ObservableObject {
+public final class PlayerService: ObservableObject {
     @Published public private(set) var now: Now = .unknown("not read yet")
     @Published public private(set) var permission: Permission = .unknown
     /// Shuffle and repeat. Read with every full read -- launch, wake, the
@@ -29,7 +29,7 @@ public final class SpotifyService: ObservableObject {
     }
     private var loop: Timer?
 
-    private let bridge: SpotifyBridge
+    private let bridge: PlayerBridge
     private var reconcile: Timer?
     private var retry: Timer?
     private var observers: [Any] = []
@@ -40,11 +40,11 @@ public final class SpotifyService: ObservableObject {
     /// How long to wait after a read that failed for an unknown reason.
     public static let retryInterval: TimeInterval = 2
 
-    /// The bridge is optional rather than defaulted to `SpotifyBridge()`
+    /// The bridge is optional rather than defaulted to `PlayerBridge()`
     /// because a default argument expression is evaluated nonisolated, and the
     /// bridge is main-actor bound.
-    public init(bridge: SpotifyBridge? = nil) {
-        self.bridge = bridge ?? SpotifyBridge()
+    public init(bridge: PlayerBridge? = nil) {
+        self.bridge = bridge ?? PlayerBridge()
     }
 
     // MARK: - Lifecycle
@@ -62,7 +62,7 @@ public final class SpotifyService: ObservableObject {
             observers.append(workspace.addObserver(forName: name, object: nil, queue: .main) {
                 [weak self] note in
                 let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-                guard app?.bundleIdentifier == SpotifyBridge.bundleID else { return }
+                guard app?.bundleIdentifier == PlayerBridge.bundleID else { return }
                 MainActor.assumeIsolated { self?.refresh() }
             })
         }
@@ -165,7 +165,7 @@ public final class SpotifyService: ObservableObject {
         }
     }
 
-    private func handle(_ failure: SpotifyBridge.Failure) {
+    private func handle(_ failure: PlayerBridge.Failure) {
         switch failure {
         case .notRunning: settle(.notRunning)
         case .noTrack:    settle(.stopped)
@@ -307,7 +307,7 @@ public final class SpotifyService: ObservableObject {
         }
     }
 
-    public func send(_ command: SpotifyBridge.Command) {
+    public func send(_ command: Command) {
         switch bridge.send(command) {
         case .success:
             permission = .granted

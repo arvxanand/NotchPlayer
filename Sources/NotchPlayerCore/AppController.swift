@@ -17,7 +17,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
     /// state and exiting.
     private let captureServer: Bool
     private var stage: CaptureStage?
-    private let service = SpotifyService()
+    private let service = PlayerService()
     private let expansion = Expansion()
     /// The live waveform. Owned here rather than by the view, because it holds
     /// system audio objects that have to be torn down when the panel goes away
@@ -411,7 +411,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
 /// through the real hierarchy.
 private struct Live: View {
     let geometry: NotchGeometry
-    @ObservedObject var service: SpotifyService
+    @ObservedObject var service: PlayerService
     @ObservedObject var expansion: Expansion
 
     var body: some View {

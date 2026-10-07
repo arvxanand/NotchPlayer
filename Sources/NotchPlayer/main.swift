@@ -41,7 +41,7 @@ if args.contains("--screens") {
 /// actually saying, and the first thing to run when the panel looks wrong.
 if args.contains("--read") {
     MainActor.assumeIsolated {
-        let bridge = SpotifyBridge()
+        let bridge = PlayerBridge()
         print("spotify running: \(bridge.isRunning)")
         switch bridge.read() {
         case .success(.ok(let track, let state, let position)):
@@ -72,7 +72,7 @@ if args.contains("--watch") {
     } ?? 30
     setvbuf(stdout, nil, _IONBF, 0)
     MainActor.assumeIsolated {
-        let service = SpotifyService()
+        let service = PlayerService()
         let start = Date()
         var bag: Any?
         bag = service.$now.sink { value in
@@ -219,7 +219,7 @@ if args.contains("--find-plus") {
 /// process, the way the app does it. Launch it like `--trusted`.
 if args.contains("--local-cover") {
     MainActor.assumeIsolated {
-        guard case .success(.ok(let track, _, _)) = SpotifyBridge().read() else {
+        guard case .success(.ok(let track, _, _)) = PlayerBridge().read() else {
             print("local cover: nothing playing"); exit(1)
         }
         guard LocalCover.isLocal(track.id) else { print("local cover: not a local file"); exit(0) }

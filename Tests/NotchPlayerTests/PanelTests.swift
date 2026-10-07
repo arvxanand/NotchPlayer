@@ -319,7 +319,7 @@ final class ScrubTests: XCTestCase {
     // MARK: - The command
 
     func testSeekWritesThePositionInSecondsWithADecimalPoint() {
-        let source = SpotifyBridge.Command.seek(42.5).source
+        let source = Command.seek(42.5).source
         XCTAssertTrue(source.contains("set player position to 42.500"), source)
         XCTAssertFalse(source.contains(","), "a comma decimal parses as an AppleScript list")
         XCTAssertFalse(source.contains("e+"), "exponent notation does not parse")
@@ -329,40 +329,40 @@ final class ScrubTests: XCTestCase {
     /// read that. A 90-minute DJ set is a real track length.
     func testALongTrackStillProducesPlainDigits() {
         for seconds in [0.0, 0.0001, 5400.0, 99999.5] {
-            let source = SpotifyBridge.Command.seek(seconds).source
+            let source = Command.seek(seconds).source
             XCTAssertFalse(source.contains("e+"), source)
             XCTAssertFalse(source.contains("-"), "negative positions are clamped: \(source)")
         }
         // `contains("0.000")` passed "-10.000" here, which is the string this
         // assertion exists to reject. Anchor it to the end.
-        XCTAssertTrue(SpotifyBridge.Command.seek(-10).source.hasSuffix("position to 0.000"),
-                      SpotifyBridge.Command.seek(-10).source)
+        XCTAssertTrue(Command.seek(-10).source.hasSuffix("position to 0.000"),
+                      Command.seek(-10).source)
     }
 
     /// Every other script is compiled once and held forever. A seek carries
     /// its argument in its source, so caching it would grow a dictionary of
     /// near-identical scripts for the life of the process.
     func testSeekScriptsAreNotCachedAndTheFixedOnesAre() {
-        XCTAssertFalse(SpotifyBridge.Command.seek(1).cacheable)
-        for command in SpotifyBridge.Command.simple + [.shuffle(true), .repeating(false)] {
+        XCTAssertFalse(Command.seek(1).cacheable)
+        for command in Command.simple + [.shuffle(true), .repeating(false)] {
             XCTAssertTrue(command.cacheable)
         }
     }
 
     func testEveryCommandHasAName() {
-        for command in SpotifyBridge.Command.simple + [.seek(1), .shuffle(true), .repeating(true)] {
+        for command in Command.simple + [.seek(1), .shuffle(true), .repeating(true)] {
             XCTAssertFalse(command.name.isEmpty)
         }
     }
 
     func testShuffleAndRepeatSetTheValueTheyAreGiven() {
-        XCTAssertEqual(SpotifyBridge.Command.shuffle(true).source,
+        XCTAssertEqual(Command.shuffle(true).source,
                        #"tell application "Spotify" to set shuffling to true"#)
-        XCTAssertEqual(SpotifyBridge.Command.shuffle(false).source,
+        XCTAssertEqual(Command.shuffle(false).source,
                        #"tell application "Spotify" to set shuffling to false"#)
-        XCTAssertEqual(SpotifyBridge.Command.repeating(true).source,
+        XCTAssertEqual(Command.repeating(true).source,
                        #"tell application "Spotify" to set repeating to true"#)
-        XCTAssertEqual(SpotifyBridge.Command.repeating(false).source,
+        XCTAssertEqual(Command.repeating(false).source,
                        #"tell application "Spotify" to set repeating to false"#)
     }
 

@@ -98,7 +98,7 @@ final class AppleScriptParsingTests: XCTestCase {
     func testTheFieldOrderIsPinnedToTheScriptThatProducesIt() {
         // If the script grows a field, this is what notices. The count is
         // read from the script rather than written out twice.
-        let returns = SpotifyBridge.readScript
+        let returns = PlayerBridge.readScript
             .components(separatedBy: "return {")[1]
             .components(separatedBy: "}")[0]
         XCTAssertEqual(returns.components(separatedBy: ",").count, Reading.fieldCount)
@@ -188,22 +188,22 @@ final class BridgeFailureTests: XCTestCase {
     /// Four outcomes, each meaning something different on screen. Collapsing
     /// them into "no music" produces a UI that lies.
     func testEveryErrorCodeMapsToItsOwnAnswer() {
-        XCTAssertEqual(SpotifyBridge.failure(from: error(-1743)), .denied)
-        XCTAssertEqual(SpotifyBridge.failure(from: error(-600)), .notRunning)
-        XCTAssertEqual(SpotifyBridge.failure(from: error(-609)), .notRunning)
-        XCTAssertEqual(SpotifyBridge.failure(from: error(-1728)), .noTrack)
-        XCTAssertEqual(SpotifyBridge.failure(from: error(-42)), .other(-42, "code -42"))
+        XCTAssertEqual(PlayerBridge.failure(from: error(-1743)), .denied)
+        XCTAssertEqual(PlayerBridge.failure(from: error(-600)), .notRunning)
+        XCTAssertEqual(PlayerBridge.failure(from: error(-609)), .notRunning)
+        XCTAssertEqual(PlayerBridge.failure(from: error(-1728)), .noTrack)
+        XCTAssertEqual(PlayerBridge.failure(from: error(-42)), .other(-42, "code -42"))
     }
 
     func testPermissionDeniedIsNotTheSameAsNoMusic() {
-        XCTAssertNotEqual(SpotifyBridge.failure(from: error(-1743)),
-                          SpotifyBridge.failure(from: error(-1728)))
+        XCTAssertNotEqual(PlayerBridge.failure(from: error(-1743)),
+                          PlayerBridge.failure(from: error(-1728)))
     }
 
     func testNoCommandActivatesSpotify() {
         // Bringing Spotify forward to talk to it clobbers whatever the user
         // was doing, and is never necessary.
-        for command in SpotifyBridge.Command.simple + [.seek(42), .shuffle(true), .repeating(true)] {
+        for command in Command.simple + [.seek(42), .shuffle(true), .repeating(true)] {
             XCTAssertFalse(command.source.contains("activate"), "\(command) activates Spotify")
         }
     }
