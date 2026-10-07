@@ -64,7 +64,7 @@ public enum LocalCover {
     /// the artist must follow the title directly. The path is the next string
     /// starting with "/", up to the first control byte, which no path contains.
     /// ponytail: title and artist only, not album. Two files sharing both give
-    /// the first that exists.
+    /// the first that exists; match the album too if anyone reports a wrong cover.
     public nonisolated static func paths(in index: Data, title: String, artist: String) -> [String] {
         let bytes = [UInt8](index), title = Array(title.utf8), artist = Array(artist.utf8)
         guard !title.isEmpty, !artist.isEmpty else { return [] }

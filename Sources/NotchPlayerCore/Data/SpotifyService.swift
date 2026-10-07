@@ -225,12 +225,9 @@ public final class SpotifyService: ObservableObject {
     /// A timer is only cheap if the pixels change (TRAPS #66), so this runs
     /// only while a track is actually advancing.
     ///
-    /// ponytail: no reconcile while paused, so a seek made in Spotify's own
-    /// window while paused leaves our position stale until playback resumes.
-    /// Measured, not assumed -- a `set player position` while paused
-    /// published nothing. Nobody can see it yet (the collapsed peek has no
-    /// progress bar), so the upgrade path is one `refresh()` when the panel
-    /// expands, which is the only moment it becomes visible.
+    /// No reconcile while paused: a seek made in Spotify's own window while
+    /// paused publishes nothing (measured). The panel opening re-reads
+    /// (`Expansion.onOpen`), which is the only moment it becomes visible.
     private func scheduleReconcile(_ playing: Bool) {
         guard playing else { reconcile?.invalidate(); reconcile = nil; return }
         guard reconcile == nil else { return }

@@ -255,7 +255,7 @@ public struct NotchGeometry: Equatable, Sendable {
 
     /// How long the pointer rests on a wing before the peek fades. Long
     /// enough that crossing a wing on the way somewhere doesn't flicker it.
-    /// ponytail: a guess, tune on the machine.
+    /// ponytail: a guess, tune on the machine; revisit if the 13" owners say it fades too soon or too late.
     public static let wingFadeDwell: TimeInterval = 0.5
 
     /// Nothing legible may be drawn in this band -- it is behind the camera
