@@ -4,7 +4,7 @@
 
 # NotchPlayer
 
-**Spotify now-playing, in the MacBook notch.**
+**Spotify and Apple Music now-playing, in the MacBook notch.**
 
 [![macOS](https://img.shields.io/badge/macOS-15.0%2B-black?logo=apple&logoColor=white)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift&logoColor=white)](https://swift.org)
@@ -28,9 +28,9 @@ opens into a panel with the cover, the song, a progress bar you can drag, and
 play, pause and skip buttons. When nothing is playing, it draws nothing and
 the notch looks like a notch.
 
-No login and no Spotify account setup. It only goes online for the album
-cover, Spotify's public page for a song when you click its title or artist,
-and a daily check for a new version of NotchPlayer, which you can turn off.
+No login and no Spotify account setup. It only goes online for Spotify's
+album cover, Spotify's public page for a song when you click its title or
+artist, and a daily check for a new version of NotchPlayer, which you can turn off.
 
 ## Features
 
@@ -111,7 +111,8 @@ You need:
 
 - a MacBook with Apple Silicon (M1 or newer), with or without a notch
 - macOS 15 Sequoia or later
-- the Spotify desktop app, signed in
+- the Spotify desktop app, signed in, and/or the Music app (Apple Music).
+  Either one works; with both open, the notch shows whichever is playing
 
 **Does my Mac have a notch?** If the camera sits in a black cutout that dips
 into the top of the screen, yes. If it sits in the frame above the screen, no.
@@ -188,8 +189,8 @@ macOS 15, so use the steps above.
 
 | Permission | Why | When |
 |---|---|---|
-| **Automation** | read the track and send play/pause/skip to Spotify | first launch |
-| **Audio Recording** | the waveform — Spotify's output only, analysed in memory | first launch |
+| **Automation** | read the track and send play/pause/skip to Spotify or Music | first launch, once per app |
+| **Audio Recording** | the waveform — the playing app's output only, analysed in memory | first launch |
 | **Accessibility** | optional, only for opening Spotify's playlist list from the **+** | when you enable it |
 
 Click **Allow** for both on first launch. Then turn on **Launch at Login**
@@ -200,11 +201,11 @@ from the menu bar item (the waveform) → the gear.
 macOS asks for "System Audio Recording" because that's the name Apple uses
 for the permission. Here's what NotchPlayer actually does with it:
 
-- **It only hears Spotify.** It listens to Spotify's audio output, the music
-  you're already hearing. It never uses the microphone, and it doesn't hear
+- **It only hears your music app.** It listens to Spotify's or Music's audio
+  output, the music you're already hearing. It never uses the microphone, and it doesn't hear
   other apps, calls, videos or anything else on your Mac.
-- **It only listens while Spotify is playing.** It stops when you pause,
-  when Spotify quits, and when you choose **Hide from the Notch**.
+- **It only listens while a song is playing.** It stops when you pause,
+  when the app quits, and when you choose **Hide from the Notch**.
 - **Nothing is saved.** The audio passes through a buffer in memory that
   holds about a tenth of a second and is constantly written over. The app
   turns each slice into 14 bar heights for the waveform and throws the
@@ -228,8 +229,9 @@ Security**. Quit NotchPlayer (menu bar item → Quit) and open it again
 afterwards.
 
 - **The notch says "Can't reach Spotify"**, or the menu bar item says
-  "Cannot read Spotify". That's **Automation**: go to **Privacy & Security →
-  Automation**, click **NotchPlayer**, and turn on **Spotify**.
+  "Cannot read Spotify" (or "Apple Music"). That's **Automation**: go to
+  **Privacy & Security → Automation**, click **NotchPlayer**, and turn on
+  **Spotify** or **Music**.
 - **The cover shows, but the bars don't follow the music.** That's **Audio
   Recording**: go to **Privacy & Security → Screen & System Audio
   Recording**, scroll down to **System Audio Recording Only**, and turn on
@@ -301,6 +303,14 @@ finds the file through Spotify's own list and only reads the picture, on
 your Mac. It never looks in Downloads, Documents, Desktop, iCloud Drive or
 external drives, because macOS would ask first; songs kept there show the
 Spotify logo instead.
+
+**Apple Music** works the same for the notch, the cover, the waveform, the
+progress bar, play, pause, skip, shuffle and repeat. The cover comes from
+Music itself, with no network. Clicking the title, artist or cover does
+nothing for Apple Music, and there is no **+** yet. It has been tried with
+songs from your own library; streamed Apple Music songs haven't been checked,
+and the waveform may stay a simple animation for them if macOS doesn't hand
+over protected audio.
 
 With **Save with Spotify's +** on, the + brings Spotify to the front and opens
 its playlist list for you. If it can't, it opens the song instead. Local
