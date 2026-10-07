@@ -50,9 +50,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 	<key>LSMinimumSystemVersion</key><string>15.0</string>
 	<!-- Agent app: notch only, no dock icon, no menu bar item. -->
 	<key>LSUIElement</key><true/>
-	<key>NSAppleEventsUsageDescription</key><string>NotchPlayer reads the track Spotify is playing, and sends play, pause and skip when you use the controls in the notch.</string>
+	<key>NSAppleEventsUsageDescription</key><string>NotchPlayer reads the track Spotify or Apple Music is playing, and sends play, pause and skip when you use the controls in the notch.</string>
 	<!-- Typed by hand: Xcode does not offer this key in its dropdown. -->
-	<key>NSAudioCaptureUsageDescription</key><string>NotchPlayer listens to Spotify's own audio to draw the waveform beside the notch. Nothing is recorded or sent anywhere.</string>
+	<key>NSAudioCaptureUsageDescription</key><string>NotchPlayer listens to Spotify's or Apple Music's own audio to draw the waveform beside the notch. Nothing is recorded or sent anywhere.</string>
 </dict>
 </plist>
 PLIST

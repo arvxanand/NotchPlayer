@@ -5,6 +5,12 @@ import NotchPlayerCore
 
 let args = CommandLine.arguments
 
+/// `--source spotify|music`, for the flags that read a player. Spotify if absent.
+let playerSource: Source = args.firstIndex(of: "--source").flatMap { i -> Source? in
+    guard i + 1 < args.count else { return nil }
+    return ["spotify": .spotify, "music": .appleMusic][args[i + 1]]
+} ?? .spotify
+
 /// The camera-housing rect in `screencapture -R` coordinates, so
 /// `tools/check_notch.sh` can ask rather than hard-code this display's
 /// numbers. Prints nothing and exits 1 when there is no notched display.
@@ -37,12 +43,12 @@ if args.contains("--screens") {
     exit(0)
 }
 
-/// One full Apple Event read, printed. The quickest way to see what Spotify is
+/// One full Apple Event read, printed. The quickest way to see what the player is
 /// actually saying, and the first thing to run when the panel looks wrong.
 if args.contains("--read") {
     MainActor.assumeIsolated {
-        let bridge = PlayerBridge()
-        print("spotify running: \(bridge.isRunning)")
+        let bridge = PlayerBridge(source: playerSource)
+        print("\(playerSource.name) running: \(bridge.isRunning)")
         switch bridge.read() {
         case .success(.ok(let track, let state, let position)):
             print("state:    \(state.rawValue)")
@@ -72,7 +78,7 @@ if args.contains("--watch") {
     } ?? 30
     setvbuf(stdout, nil, _IONBF, 0)
     MainActor.assumeIsolated {
-        let service = PlayerService()
+        let service = PlayerService(source: playerSource)
         let start = Date()
         var bag: Any?
         bag = service.$now.sink { value in
@@ -111,8 +117,8 @@ if args.contains("--bands") {
     } ?? 15
     setvbuf(stdout, nil, _IONBF, 0)
     MainActor.assumeIsolated {
-        guard let pid = AudioTap.pid(of: .spotify) else {
-            FileHandle.standardError.write(Data("Spotify is not running\n".utf8))
+        guard let pid = AudioTap.pid(of: playerSource) else {
+            FileHandle.standardError.write(Data("\(playerSource.name) is not running\n".utf8))
             exit(1)
         }
         let tap = AudioTap()
