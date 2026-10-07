@@ -80,7 +80,10 @@ final class SourceTests: XCTestCase {
         XCTAssertEqual(Source.appleMusic.bundleID, "com.apple.Music")
         XCTAssertTrue(Source.spotify.notificationCarriesTrack)
         XCTAssertFalse(Source.appleMusic.notificationCarriesTrack)
-        XCTAssertTrue(Source.appleMusic.notifications.contains("com.apple.Music.playerInfo"))
+        // One name each: Music also posts the old iTunes name with the same
+        // payload, and watching both reads twice per event.
+        XCTAssertEqual(Source.appleMusic.notifications, ["com.apple.Music.playerInfo"])
+        XCTAssertEqual(Source.spotify.notifications, ["com.spotify.client.PlaybackStateChanged"])
     }
 
     // MARK: - Which one the notch shows

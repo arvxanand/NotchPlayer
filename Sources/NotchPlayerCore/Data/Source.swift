@@ -20,14 +20,13 @@ public enum Source: Equatable, Sendable, CaseIterable {
     var appName: String { self == .spotify ? "Spotify" : "Music" }
 
     /// Distributed notifications that mean "the player changed". Spotify's
-    /// carries the whole track. Music's payload keys are **not relied on**: it
-    /// only triggers a read, so a key Apple renames costs one Apple Event and
-    /// nothing else. Both names Music has used are watched; a repeat read of
-    /// the same state publishes nothing.
+    /// carries the whole track. Music's payload is **not parsed**: it only
+    /// triggers a read, so a key Apple renames costs nothing. Measured on macOS
+    /// 15.7.7 (7 Oct 2026): pause and play each post it; a seek posts nothing.
+    /// Music also posts the old `com.apple.iTunes.playerInfo` at the same
+    /// instant with the same payload -- watching both reads twice per event.
     var notifications: [String] {
-        self == .spotify
-            ? ["com.spotify.client.PlaybackStateChanged"]
-            : ["com.apple.Music.playerInfo", "com.apple.iTunes.playerInfo"]
+        [self == .spotify ? "com.spotify.client.PlaybackStateChanged" : "com.apple.Music.playerInfo"]
     }
 
     /// Whether the notification's `userInfo` is parsed (`Reading.from(notification:)`).
