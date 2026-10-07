@@ -122,36 +122,88 @@ final class GeometryTests: XCTestCase {
     }
 }
 
-/// Full-screen hiding asks the window list whether an ordinary window covers
-/// the notchless display. Bounds are top-left origin, like `CGDisplayBounds`.
+/// Full-screen hiding asks the window list whether the menu bar is on the
+/// display. Bounds are top-left origin, like `CGDisplayBounds`.
 final class FullScreenTests: XCTestCase {
-    private let display = CGRect(x: 0, y: 0, width: 1440, height: 900)
+    private let display = CGRect(x: 0, y: 0, width: 1920, height: 1243)
+    private let menuLevel = Int(CGWindowLevelForKey(.mainMenuWindow))
 
-    private func window(_ rect: CGRect, layer: Int = 0) -> [String: Any] {
+    private func window(_ rect: CGRect, layer: Int) -> [String: Any] {
         [kCGWindowLayer as String: layer,
          kCGWindowBounds as String: rect.dictionaryRepresentation as NSDictionary]
     }
 
-    func testAFullScreenWindowCoversTheDisplay() {
-        XCTAssertTrue(AppController.coversDisplay([window(display)], display))
-        // TRAPS #49: a point taller than the display still counts.
-        XCTAssertTrue(AppController.coversDisplay(
-            [window(CGRect(x: 0, y: 0, width: 1440, height: 901))], display))
+    func testTheMenuBarOnThisDisplayCountsAsShown() {
+        // Measured on this Mac: the Window Server's menu bar, 1920x42.
+        let bar = window(CGRect(x: 0, y: 0, width: 1920, height: 42), layer: menuLevel)
+        XCTAssertTrue(AppController.menuBarShown([bar], display))
     }
 
-    func testAZoomedWindowBelowTheMenuBarDoesNot() {
-        XCTAssertFalse(AppController.coversDisplay(
-            [window(CGRect(x: 0, y: 24, width: 1440, height: 876))], display))
+    func testNoMenuBarMeansFullScreen() {
+        // A full-screen window on a notched Mac stops below the notch
+        // (TRAPS #49) -- which is why the menu bar is asked for instead.
+        let app = window(CGRect(x: 0, y: 42, width: 1920, height: 1201), layer: 0)
+        XCTAssertFalse(AppController.menuBarShown([app], display))
+        XCTAssertFalse(AppController.menuBarShown([], display))
     }
 
-    func testOverlaysAboveOrdinaryWindowsDoNot() {
-        XCTAssertFalse(AppController.coversDisplay([window(display, layer: 25)], display))
+    func testStatusItemsAndOtherDisplaysDoNotCount() {
+        // Status items sit one level up, at the menu bar's height.
+        let item = window(CGRect(x: 1318, y: 0, width: 38, height: 42), layer: menuLevel + 1)
+        let elsewhere = window(CGRect(x: 1920, y: 0, width: 2560, height: 25), layer: menuLevel)
+        XCTAssertFalse(AppController.menuBarShown([item, elsewhere], display))
+    }
+}
+
+/// Resting on a wing fades the peek so the menus under it show (#16).
+final class WingFadeTests: XCTestCase {
+    private let builtIn = NotchGeometry(screenFrame: CGRect(x: 0, y: 0, width: 1920, height: 1243),
+                                        notchWidth: 208, notchHeight: 37, hasNotch: true)
+
+    func testTheWingsAreThePeekEitherSideOfTheNotch() {
+        let wings = builtIn.wingScreenRects
+        XCTAssertEqual(wings.count, 2)
+        XCTAssertEqual(wings[0].maxX, builtIn.notchScreenRect.minX)
+        XCTAssertEqual(wings[1].minX, builtIn.notchScreenRect.maxX)
+        XCTAssertEqual(wings[0].width, NotchGeometry.collapsedSideWidth)
+        XCTAssertEqual(wings[1].width, NotchGeometry.collapsedSideWidth)
+        XCTAssertEqual(wings[0].height, builtIn.collapsedHeight)
+        // Nothing to rest on without a notch: the whole shape opens it.
+        let virtual = NotchGeometry(screenFrame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+                                    notchWidth: 0, notchHeight: 24, hasNotch: false)
+        XCTAssertTrue(virtual.wingScreenRects.isEmpty)
     }
 
-    func testAFullScreenWindowOnAnotherDisplayDoesNot() {
-        XCTAssertFalse(AppController.coversDisplay(
-            [window(CGRect(x: 1440, y: 0, width: 2560, height: 1440))], display))
-        XCTAssertFalse(AppController.coversDisplay([], display))
+    private func hit(faded: Bool, _ point: CGPoint, inside: Bool = false,
+                     menuOpen: Bool = false) -> Bool {
+        HoverWatcher.fadeHit(faded: faded, point: point, inside: inside,
+                             wings: builtIn.wingScreenRects,
+                             menuBar: builtIn.menuBarScreenRect, menuOpen: { menuOpen })
+    }
+
+    func testRestingOnAWingFadesButTheNotchDoesNot() {
+        let leftWing = CGPoint(x: 820, y: 1225)
+        XCTAssertTrue(hit(faded: false, leftWing))
+        XCTAssertFalse(hit(faded: false, CGPoint(x: 960, y: 1225)), "the notch opens, not fades")
+        XCTAssertFalse(hit(faded: false, CGPoint(x: 300, y: 1225)), "a menu far from the peek")
+        // On its way into the panel, the pointer is not aiming at a menu.
+        XCTAssertFalse(hit(faded: false, leftWing, inside: true))
+    }
+
+    func testAFadedPeekStaysFadedOnTheMenuBarOrWithAMenuOpen() {
+        XCTAssertTrue(hit(faded: true, CGPoint(x: 300, y: 1225)), "moving along the menu bar")
+        let inAMenu = CGPoint(x: 820, y: 1000)
+        XCTAssertTrue(hit(faded: true, inAMenu, menuOpen: true), "reading the menu it opened")
+        XCTAssertFalse(hit(faded: true, inAMenu), "menu closed, pointer gone: come back")
+    }
+
+    func testTheMenuIsOnlyAskedForOnceThePointerLeavesTheMenuBar() {
+        var asked = false
+        _ = HoverWatcher.fadeHit(faded: true, point: CGPoint(x: 300, y: 1225), inside: false,
+                                 wings: builtIn.wingScreenRects,
+                                 menuBar: builtIn.menuBarScreenRect,
+                                 menuOpen: { asked = true; return false })
+        XCTAssertFalse(asked, "the window list is not free, 12 times a second")
     }
 }
 

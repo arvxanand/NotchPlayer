@@ -10,11 +10,13 @@ import Combine
 public final class Expansion: ObservableObject {
     @Published public private(set) var expanded = false
 
-    /// A full-screen app covers the notchless screen, so the closed peek
-    /// hides. Kept here only because `Live` already observes this object.
-    /// Never set on a notched screen: there the notch area stays black in
-    /// full screen, and the peek sits on hardware rather than on content.
+    /// The menu bar is gone -- an app is full screen, or it auto-hides -- so
+    /// the closed peek hides until the pointer opens it (#17). Kept here only
+    /// because `Live` already observes this object.
     @Published public var fullScreen = false
+
+    /// Faded so the menus under the wings show; see `HoverWatcher.faded`.
+    @Published public private(set) var faded = false
 
     private let watcher: HoverWatcher
     private var geometry: NotchGeometry?
@@ -61,6 +63,12 @@ public final class Expansion: ObservableObject {
         watcher.notchRect = geometry.entryScreenRect
         watcher.stayRect = geometry.hoverStayScreenRect
         watcher.entryDwell = geometry.entryDwell
+        watcher.wingRects = geometry.wingScreenRects
+        watcher.menuBarRect = geometry.menuBarScreenRect
+        watcher.$faded
+            .removeDuplicates()
+            .sink { [weak self] faded in self?.faded = faded }
+            .store(in: &bag)
         watcher.$inside
             .removeDuplicates()
             .sink { [weak self] inside in self?.hover(inside) }

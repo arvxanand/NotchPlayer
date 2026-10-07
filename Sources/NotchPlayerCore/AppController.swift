@@ -228,7 +228,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
             // made while paused, and opening the panel is when that shows.
             expansion.onOpen = { [weak self] in self?.service.refresh() }
             expansion.start(geometry: geometry)
-            if !geometry.hasNotch, let id = screen.displayID { watchFullScreen(on: id) }
+            if let id = screen.displayID { watchFullScreen(on: id) }
 
             // The tap follows playback rather than running all day: a stopped
             // stream delivers nothing, so an idle tap is a wakeup every 33ms
@@ -275,7 +275,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Hide the peek while a full-screen app covers the notchless screen.
+    /// Hide the peek while the menu bar is gone from its screen (#17): an app
+    /// is full screen, or the menu bar auto-hides. Hovering still opens it.
     ///
     /// **Event-driven, not polled.** Native full screen always switches Space,
     /// and a borderless "full screen" game or player always activates, so
@@ -285,8 +286,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
         let check = { [weak self] in
             let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
                                                      kCGNullWindowID) as? [[String: Any]] ?? []
-            let covered = Self.coversDisplay(windows, CGDisplayBounds(display))
-            if self?.expansion.fullScreen != covered { self?.expansion.fullScreen = covered }
+            let gone = !Self.menuBarShown(windows, CGDisplayBounds(display))
+            if self?.expansion.fullScreen != gone { self?.expansion.fullScreen = gone }
         }
         let centre = NSWorkspace.shared.notificationCenter
         fullScreenWatch = [NSWorkspace.activeSpaceDidChangeNotification,
@@ -303,19 +304,22 @@ public final class AppController: NSObject, NSApplicationDelegate {
         check()
     }
 
-    /// Whether an ordinary window covers the whole display. Pure, for tests.
+    /// Whether the menu bar is on this display. Pure, for tests.
     ///
-    /// Layer 0 is ordinary app windows; the menu bar, the Dock and overlays
-    /// all sit above it. Bounds and layer are readable without Screen
-    /// Recording permission -- only window titles need it. `contains`, not
-    /// `==`: a full-screen window has been measured a point taller than its
-    /// display (TRAPS #49).
-    nonisolated static func coversDisplay(_ windows: [[String: Any]], _ display: CGRect) -> Bool {
-        windows.contains { window in
-            guard window[kCGWindowLayer as String] as? Int == 0,
+    /// **Asks for the menu bar itself, not for a window covering the
+    /// screen.** The menu bar is a window at the main-menu level, the width of
+    /// its display, and it leaves the list in full screen. The first version
+    /// looked for an ordinary window covering the whole display instead, which
+    /// never fires on a notched Mac: full-screen windows stop below the notch
+    /// (1920x1201 on this 1243pt display, TRAPS #49). Layer and bounds are
+    /// readable without Screen Recording permission.
+    nonisolated static func menuBarShown(_ windows: [[String: Any]], _ display: CGRect) -> Bool {
+        let level = Int(CGWindowLevelForKey(.mainMenuWindow))
+        return windows.contains { window in
+            guard window[kCGWindowLayer as String] as? Int == level,
                   let dict = window[kCGWindowBounds as String] as? NSDictionary,
                   let bounds = CGRect(dictionaryRepresentation: dict) else { return false }
-            return bounds.contains(display)
+            return bounds.intersects(display)
         }
     }
 
@@ -414,7 +418,7 @@ private struct Live: View {
         RootView(geometry: geometry, now: service.now, permission: service.permission,
                  expanded: expansion.expanded, progress: service.progress,
                  modes: service.modes,
-                 concealed: expansion.fullScreen,
+                 concealed: expansion.fullScreen || expansion.faded,
                  onScrubbing: { expansion.hold($0) },
                  send: { service.send($0) },
                  setRepeat: { service.setRepeat($0) },

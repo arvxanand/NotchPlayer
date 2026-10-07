@@ -23,9 +23,10 @@ public struct RootView: View {
     let setRepeat: (Modes.Repeat) -> Void
     /// The title, the artist or the cover was clicked. A no-op in previews.
     let openLink: (SpotifyLinks.Target, Track) -> Void
-    /// A full-screen app is up on a notchless screen: the closed peek would sit
-    /// on its content, so it goes. Opening still works -- the hover spot is
-    /// where it always was -- and the open panel draws as usual.
+    /// The closed peek steps aside: the menu bar is gone (full screen, #17),
+    /// or the pointer is resting on a wing to reach a menu under it (#16).
+    /// Opening still works -- the hover spot is where it always was -- and the
+    /// open panel draws as usual.
     let concealed: Bool
 
     public init(geometry: NotchGeometry, now: Now, permission: Permission = .granted,
@@ -66,9 +67,11 @@ public struct RootView: View {
                     .clipShape(InverseCornerShape(
                         topRadius: NotchGeometry.shoulderRadius,
                         bottomRadius: Shell.bottomRadius(expanded: open)))
-                    // Before the animation, so opening from concealed fades in
-                    // with the growth; concealing alone is instant.
+                    // Before the open animation, so opening from concealed
+                    // fades in with the growth. Concealing alone is a quick
+                    // dissolve: a blink reads as a glitch.
                     .opacity(concealed && !open ? 0 : 1)
+                    .animation(.easeOut(duration: 0.15), value: concealed)
                     .animation(Motion.standard, value: open)
             }
             // Everything else -- Spotify closed, nothing loaded, a read that
