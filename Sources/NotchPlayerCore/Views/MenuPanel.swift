@@ -33,6 +33,10 @@ public struct MenuPanel: View {
     /// The virtual notch. Nil hides the switch: only a notchless Mac has it.
     @State private var virtualNotch: Bool?
     let toggleVirtual: () -> Bool
+    /// The notch's picks, which can only be removed here. State, so a row
+    /// goes the moment its − is pressed.
+    @State private var picks: [Pick]
+    let removePick: (String) -> [Pick]
     let version: String
     let quit: () -> Void
     /// Read by `PanelView` too, which redraws the line when it changes.
@@ -42,9 +46,10 @@ public struct MenuPanel: View {
     /// + pressing Spotify's button (Accessibility).
     public enum Grant: Sendable { case off, on, needsApproval }
 
-    /// Behind the gear. `rawValue` is the side a page sits on: settings is to
-    /// the right of the glance, so it arrives from the right.
-    public enum Page: Int, Sendable { case main, settings }
+    /// Behind the gear, and behind the grid beside it. `rawValue` is the side
+    /// a page sits on: both are to the right of the glance, so they arrive
+    /// from the right.
+    public enum Page: Int, Sendable { case main, settings, playlists }
     /// A fresh panel is built on every open (`MenuBarItem.rebuild`), so the
     /// popover always opens on `.main`.
     @State private var page: Page
@@ -59,6 +64,7 @@ public struct MenuPanel: View {
                 update: String? = nil, installUpdate: @escaping () -> Void = {},
                 checkUpdates: Bool? = nil, toggleUpdates: @escaping () -> Bool = { false },
                 virtualNotch: Bool? = nil, toggleVirtual: @escaping () -> Bool = { false },
+                picks: [Pick] = [], removePick: @escaping (String) -> [Pick] = { _ in [] },
                 version: String = "",
                 quit: @escaping () -> Void,
                 page: Page = .main, animateIn: Bool = true) {
@@ -69,6 +75,7 @@ public struct MenuPanel: View {
         self.update = update; self.installUpdate = installUpdate
         _checkUpdates = State(initialValue: checkUpdates); self.toggleUpdates = toggleUpdates
         _virtualNotch = State(initialValue: virtualNotch); self.toggleVirtual = toggleVirtual
+        _picks = State(initialValue: picks); self.removePick = removePick
         self.version = version
         _page = State(initialValue: page)
         // An offscreen render never appears, so it would stay invisible.
@@ -121,6 +128,7 @@ public struct MenuPanel: View {
         ZStack(alignment: .topLeading) {
             pageView(main, .main)
             pageView(settings, .settings)
+            pageView(playlists, .playlists)
         }
         .frame(width: Self.width, height: height, alignment: .topLeading)
         .clipped()
@@ -168,9 +176,14 @@ public struct MenuPanel: View {
             // The update row takes its room.
             if update == nil { footer }
         }
+        // A glyph, not a row: a row would make the popover taller on every
+        // Mac, and the notch's picks button is the same grid.
         .overlay(alignment: .topTrailing) {
-            Glyph(symbol: "gearshape", label: "Settings") { go(.settings) }
-                .padding(.top, 4).padding(.trailing, 4)
+            HStack(spacing: 0) {
+                Glyph(symbol: "square.grid.2x2", label: "Playlists in the notch") { go(.playlists) }
+                Glyph(symbol: "gearshape", label: "Settings") { go(.settings) }
+            }
+            .padding(.top, 4).padding(.trailing, 4)
         }
     }
 
@@ -207,6 +220,50 @@ public struct MenuPanel: View {
         }
     }
 
+    /// The notch's picks, each with a − to remove it. Adding is in the notch,
+    /// where the + reads the copied link.
+    var playlists: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 0) {
+                Glyph(symbol: "chevron.left", label: "Back") { go(.main) }
+                Text("Playlists in the notch")
+                    .font(Type.label(13, weight: .semibold))
+                    .foregroundStyle(Palette.primary)
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, 4)
+            .frame(height: 44)
+            divider
+            if picks.isEmpty {
+                Text("Copy a playlist or album link in Spotify, then tap + on the notch's second page.")
+                    .font(Type.label(11))
+                    .foregroundStyle(Palette.secondary)
+                    .padding(Self.margin)
+            } else {
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        ForEach(picks) { pick in
+                            HStack(spacing: 9) {
+                                Text(pick.name)
+                                    .font(Type.label(11))
+                                    .foregroundStyle(Palette.primary)
+                                    .lineLimit(1).truncationMode(.tail)
+                                Spacer(minLength: 8)
+                                Glyph(symbol: "minus.circle", label: "Remove \(pick.name)") {
+                                    picks = removePick(pick.uri)
+                                }
+                            }
+                            .padding(.leading, Self.margin).padding(.trailing, 4)
+                            .frame(height: 38)
+                            divider
+                        }
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
     static let privacy = URL(string: "https://github.com/arvxanand/NotchPlayer#what-audio-recording-actually-records")!
 
     /// Small and grey: which version this is, and what the app does with
@@ -235,8 +292,8 @@ public struct MenuPanel: View {
                 }
                 state
             }
-            // Clear of the gear in the corner, so a long title stops short of it.
-            .padding(.trailing, 18)
+            // Clear of the two glyphs in the corner, so a long title stops short of them.
+            .padding(.trailing, 48)
             Spacer(minLength: 0)
         }
         .padding(Self.margin)

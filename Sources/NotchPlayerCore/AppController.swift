@@ -112,7 +112,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
                 },
                 hidden: { [weak self] in self?.hidden ?? false },
                 setHidden: { [weak self] in self?.setHidden($0) },
-                toggleVirtual: { [weak self] in self?.toggleVirtual() ?? AppController.virtualEnabled })
+                toggleVirtual: { [weak self] in self?.toggleVirtual() ?? AppController.virtualEnabled },
+                picks: picks)
             Updater.changed = { [weak self] in self?.menuBar?.setBadge(Updater.available != nil) }
             Updater.start()
         }
