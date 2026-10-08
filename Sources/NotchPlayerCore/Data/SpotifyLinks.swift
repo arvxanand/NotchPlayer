@@ -77,9 +77,14 @@ public enum SpotifyLinks {
     public nonisolated static func pageURL(for id: String) -> URL? {
         let parts = id.split(separator: ":")
         guard parts.count == 3, parts[0] == "spotify", parts[1] == "track",
-              !parts[2].isEmpty, parts[2].allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) })
-        else { return nil }
+              isID(parts[2]) else { return nil }
         return URL(string: "https://open.spotify.com/track/\(parts[2])")
+    }
+
+    /// Spotify's ids are letters and digits. Checked wherever one is about to
+    /// be put into a link or a script.
+    nonisolated static func isID(_ id: Substring) -> Bool {
+        !id.isEmpty && id.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber) }
     }
 
     /// A search inside Spotify, for when the page did not answer.
@@ -126,12 +131,13 @@ public enum SpotifyLinks {
         }
 
         /// `https://open.spotify.com/album/X` to `spotify:album:X`, or nil if
-        /// the link is not the kind it claims to be.
+        /// the link is not the kind it claims to be. Some regions' share
+        /// links carry a language first (`/intl-de/album/X`), which is skipped.
         nonisolated static func uri(_ link: String, kind: String) -> URL? {
             guard let url = URL(string: link), url.host == "open.spotify.com" else { return nil }
-            let path = url.pathComponents.filter { $0 != "/" }
-            guard path.count == 2, path[0] == kind,
-                  path[1].allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) else { return nil }
+            var path = url.pathComponents.filter { $0 != "/" }
+            if path.first?.hasPrefix("intl-") == true { path.removeFirst() }
+            guard path.count == 2, path[0] == kind, isID(Substring(path[1])) else { return nil }
             return URL(string: "spotify:\(kind):\(path[1])")
         }
     }

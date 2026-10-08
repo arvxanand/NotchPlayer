@@ -203,7 +203,7 @@ final class BridgeFailureTests: XCTestCase {
     func testNoCommandActivatesSpotify() {
         // Bringing Spotify forward to talk to it clobbers whatever the user
         // was doing, and is never necessary.
-        for command in Command.simple + [.seek(42), .shuffle(true), .repeating(true)] {
+        for command in Command.simple + [.seek(42), .shuffle(true), .repeating(true), .play(Pick.dj.uri)] {
             XCTAssertFalse(command.script(for: .spotify).contains("activate"), "\(command) activates Spotify")
         }
     }

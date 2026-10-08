@@ -350,7 +350,7 @@ final class ScrubTests: XCTestCase {
     }
 
     func testEveryCommandHasAName() {
-        for command in Command.simple + [.seek(1), .shuffle(true), .repeating(true)] {
+        for command in Command.simple + [.seek(1), .shuffle(true), .repeating(true), .play(Pick.dj.uri)] {
             XCTAssertFalse(command.name.isEmpty)
         }
     }

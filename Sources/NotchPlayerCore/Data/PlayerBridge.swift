@@ -162,6 +162,9 @@ public enum Command: Equatable, Sendable {
     /// set it nor tell it apart from repeat-all.
     case shuffle(Bool)
     case repeating(Bool)
+    /// A playlist, an album, DJ or Liked Songs, by `spotify:` URI (`Picks`).
+    /// Spotify only: Music's dictionary has no such command.
+    case play(String)
 
     /// The three that take no argument. Not `CaseIterable`, which an enum
     /// with an associated value cannot be, so the tests that sweep every
@@ -176,6 +179,7 @@ public enum Command: Equatable, Sendable {
         case .seek: return "seek"
         case .shuffle: return "shuffle"
         case .repeating: return "repeat"
+        case .play: return "play"
         }
     }
 
@@ -201,18 +205,28 @@ public enum Command: Equatable, Sendable {
         case .repeating(let on):
             return app + (source == .spotify ? "set repeating to " + (on ? "true" : "false")
                                              : "set song repeat to " + (on ? "all" : "off"))
+        case .play(let uri):
+            // **Checked again here, not only where the link was read.** The
+            // URI goes inside a quoted string in a program, so anything that
+            // is not exactly a valid one becomes a harmless read instead.
+            guard source == .spotify, Picks.uri(fromLink: uri) == uri else {
+                return app + "get player state"
+            }
+            return app + "play track \"" + uri + "\""
         }
     }
 
     /// Whether the compiled script is worth keeping.
     ///
     /// Every other script in this file is one fixed string compiled once
-    /// and held for the life of the process. A seek's source carries its
+    /// and held for the life of the process. A seek's or a play's source carries its
     /// argument, so caching it would add an entry per distinct position --
     /// an unbounded dictionary of near-identical scripts in a process that
     /// runs for weeks.
     var cacheable: Bool {
-        if case .seek = self { return false }
-        return true
+        switch self {
+        case .seek, .play: false
+        default: true
+        }
     }
 }
