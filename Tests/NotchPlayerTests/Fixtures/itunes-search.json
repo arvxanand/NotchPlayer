@@ -1,0 +1,29 @@
+{
+ "resultCount": 3,
+ "results": [
+  {
+   "wrapperType": "track",
+   "kind": "song",
+   "trackName": "Adventure of a Lifetime",
+   "artistName": "Coldplay",
+   "collectionName": "A Head Full of Dreams",
+   "artworkUrl100": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/c8/0a/6d/c80a6df9-e55a-fb83-0311-f4776984ac67/mzm.lasidxkv.jpg/100x100bb.jpg"
+  },
+  {
+   "wrapperType": "track",
+   "kind": "song",
+   "trackName": "Adventure of a Lifetime (Matoma Remix)",
+   "artistName": "Coldplay",
+   "collectionName": "Adventure of a Lifetime (Matoma Remix) - Single",
+   "artworkUrl100": "https://is1-ssl.mzstatic.com/image/thumb/Music69/v4/9c/d9/92/9cd9929e-35c5-4eeb-0b13-91f9e9b193bc/825646327331.jpg/100x100bb.jpg"
+  },
+  {
+   "wrapperType": "track",
+   "kind": "song",
+   "trackName": "Adventure of a Lifetime (Live In Buenos Aires)",
+   "artistName": "Coldplay",
+   "collectionName": "Live In Buenos Aires",
+   "artworkUrl100": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/1b/28/6b/1b286b92-a0ef-d94f-ba3a-e9b9072530f5/190295530983.jpg/100x100bb.jpg"
+  }
+ ]
+}

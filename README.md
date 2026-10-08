@@ -212,7 +212,9 @@ for the permission. Here's what NotchPlayer actually does with it:
   sound away. No audio ever goes to a file.
 - **Nothing is sent anywhere.** The app has no account, no analytics and no
   server. Its only network requests are the album cover, Spotify's public
-  page for a song when you click its title or artist, and a daily check of
+  page for a song when you click its title or artist, Apple's public iTunes
+  Search for the cover of an Apple Music song that Music won't share, and a
+  daily check of
   this repo's GitHub releases for a newer NotchPlayer. That check sends
   nothing about you or your music, and **Check for updates** behind the gear
   turns it off.
@@ -315,7 +317,10 @@ Spotify logo instead.
 
 **Apple Music** works the same for the notch, the cover, the waveform, the
 progress bar, play, pause, skip, shuffle and repeat. The cover comes from
-Music itself, with no network. Clicking the title, artist or cover does
+Music itself when the song file has one. For songs streamed from Apple Music,
+or added to your library from it, Music doesn't share the cover with other
+apps, so NotchPlayer looks it up by artist and title in Apple's public iTunes
+Search, once per song. Clicking the title, artist or cover does
 nothing for Apple Music, and there is no **+** yet. It has been tried with
 songs from your own library; streamed Apple Music songs haven't been checked,
 and the waveform may stay a simple animation for them if macOS doesn't hand
