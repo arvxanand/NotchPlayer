@@ -18,6 +18,18 @@ public final class Expansion: ObservableObject {
     /// Faded so the menus under the wings show; see `HoverWatcher.faded`.
     @Published public private(set) var faded = false
 
+    /// Which page the open panel shows. Every open starts on the player, so
+    /// leaving the picks without choosing is just moving away.
+    public enum Page: Sendable { case player, picks }
+    @Published public private(set) var page = Page.player
+
+    /// Whether there is a picks page to go to: Spotify's, so not while Music
+    /// is the one showing.
+    public var hasPicks: () -> Bool = { false }
+
+    private var scrollMonitor: Any?
+    private var swipeSum = CGSize.zero
+
     private let watcher: HoverWatcher
     private var geometry: NotchGeometry?
     private var bag: Set<AnyCancellable> = []
@@ -125,13 +137,59 @@ public final class Expansion: ObservableObject {
         // travel down into it without it collapsing underfoot.
         watcher.activeRect = geometry.panelScreenRect
         setInteractive?(true)
+        // **Local, so no permission**: it only sees scrolls sent to this app,
+        // which the open panel gets because it is under the pointer. Not the
+        // global monitor matchnotch had (`docs/DECISIONS.md`). Passed on
+        // untouched, so the picks still scroll.
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            MainActor.assumeIsolated { self?.scrolled(event) }
+            return event
+        }
         onOpen?()
     }
 
     private func collapse() {
         guard expanded else { return }
         expanded = false
+        page = .player
+        scrollMonitor.map(NSEvent.removeMonitor)
+        scrollMonitor = nil
         watcher.activeRect = nil
         setInteractive?(false)
+    }
+
+    public func show(_ page: Page) {
+        guard expanded, page == .player || hasPicks() else { return }
+        self.page = page
+    }
+
+    /// One trackpad gesture, added up from its first touch to its last.
+    /// A mouse wheel has no phases, so it never flips a page.
+    private func scrolled(_ event: NSEvent) {
+        switch event.phase {
+        case .began:
+            swipeSum = .zero
+        case .changed:
+            swipeSum.width += event.scrollingDeltaX
+            swipeSum.height += event.scrollingDeltaY
+        case .ended, .cancelled:
+            // The way the fingers moved, whichever way scrolling is set.
+            let fingers = event.isDirectionInvertedFromDevice ? swipeSum.width : -swipeSum.width
+            if let page = Self.swipe(dx: fingers, dy: swipeSum.height,
+                                     precise: event.hasPreciseScrollingDeltas) {
+                show(page)
+            }
+            swipeSum = .zero
+        default:
+            break
+        }
+    }
+
+    /// Fingers moving left bring in the page on the right, the picks; moving
+    /// right go back. Mostly sideways and at least 40pt, so scrolling the
+    /// picks up and down never flips the page.
+    nonisolated static func swipe(dx: CGFloat, dy: CGFloat, precise: Bool) -> Page? {
+        guard precise, abs(dx) >= 40, abs(dx) > 2 * abs(dy) else { return nil }
+        return dx < 0 ? .picks : .player
     }
 }

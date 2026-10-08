@@ -110,3 +110,66 @@ final class PicksTests: XCTestCase {
         XCTAssertFalse(Command.play("spotify:collection:tracks").script(for: .appleMusic).contains("play track"))
     }
 }
+
+/// The picks page and the way to it.
+final class PicksPageTests: XCTestCase {
+    private let geometries = [
+        NotchGeometry(screenFrame: CGRect(x: 0, y: 0, width: 1920, height: 1243),
+                      notchWidth: 208, notchHeight: 37, hasNotch: true),
+        // A narrower notch, where four 72pt covers do not fit.
+        NotchGeometry(screenFrame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+                      notchWidth: 185, notchHeight: 32, hasNotch: true),
+        NotchGeometry(screenFrame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+                      notchWidth: 0, notchHeight: 24, hasNotch: false),
+    ]
+
+    func testFourCoversFillTheRowAndStayTappable() {
+        for g in geometries {
+            let side = PicksView.side(g), gap = PicksView.gap(g)
+            XCTAssertEqual(side * 4 + gap * 3, g.openWidth - PanelView.inset * 2, accuracy: 0.01)
+            XCTAssertLessThanOrEqual(side, PanelView.artSide)
+            XCTAssertGreaterThanOrEqual(side, NotchGeometry.minimumHitHeight)
+            XCTAssertGreaterThanOrEqual(gap, PicksView.minimumGap)
+        }
+        XCTAssertEqual(PicksView.side(geometries[0]), 72, "the player's size where it fits")
+    }
+
+    /// One whole row shows, and some of the next -- the hint that it scrolls.
+    func testOneRowFitsAndTheNextPeeks() {
+        let name: CGFloat = 16
+        for g in geometries {
+            let page = g.openHeight - g.notchExclusionTop - PanelView.bottomGap
+            let row = PicksView.side(g) + PicksView.nameGap + name
+            XCTAssertLessThan(PicksView.topGap + row, page)
+            XCTAssertGreaterThan(page - PicksView.topGap - row - PicksView.rowGap, 12)
+        }
+    }
+
+    func testThePicksButtonIsATargetOfItsOwn() {
+        for g in geometries {
+            let r = PanelView.picksRect(g)
+            let repeatRect = PanelView.transportRects(g).first { $0.name == "repeat" }!.rect
+            XCTAssertEqual(r.width, NotchGeometry.minimumHitHeight)
+            XCTAssertEqual(r.height, NotchGeometry.minimumHitHeight)
+            XCTAssertGreaterThanOrEqual(r.minY, g.notchExclusionTop)
+            XCTAssertLessThanOrEqual(r.maxX, g.screenFrame.midX + g.openWidth / 2)
+            XCTAssertLessThanOrEqual(r.maxY, g.openHeight)
+            XCTAssertGreaterThan(r.minX, repeatRect.maxX, "touches repeat")
+        }
+    }
+
+    func testOnlyASidewaysTrackpadSwipeFlipsThePage() {
+        XCTAssertEqual(Expansion.swipe(dx: -60, dy: 5, precise: true), .picks)
+        XCTAssertEqual(Expansion.swipe(dx: 60, dy: -5, precise: true), .player)
+        XCTAssertNil(Expansion.swipe(dx: -60, dy: 40, precise: true), "mostly scrolling")
+        XCTAssertNil(Expansion.swipe(dx: -30, dy: 0, precise: true), "too short")
+        XCTAssertNil(Expansion.swipe(dx: -200, dy: 0, precise: false), "a mouse wheel")
+    }
+
+    @MainActor func testAClosedPanelHasNoPageToShow() {
+        let expansion = Expansion()
+        expansion.hasPicks = { true }
+        expansion.show(.picks)
+        XCTAssertEqual(expansion.page, .player)
+    }
+}
