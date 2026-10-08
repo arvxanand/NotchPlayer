@@ -72,6 +72,13 @@ open --stdout /tmp/bands.txt --stderr /tmp/bands.txt \
                                           # (add --source music for Apple Music)
 ```
 
+A private playlist on the picks page gets its name and cover from Spotify's
+own database (`SpotifyCache.swift`), read-only. To see what it finds:
+
+```bash
+.build/debug/NotchPlayer --playlist spotify:playlist:<id>
+```
+
 A local-file song's cover is found through Spotify's own index
 (`LocalCover.swift`). To check it from the app's own process, with a local
 song playing:

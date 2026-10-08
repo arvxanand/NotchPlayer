@@ -43,4 +43,10 @@ final class MenuPanelTests: XCTestCase {
         XCTAssertEqual(MenuPanel.height(virtualNotch: nil), MenuPanel.height,
                        "a notched Mac's popover must not grow")
     }
+
+    /// Empty, the playlists page explains how to add one, and that has to fit
+    /// too. With picks it scrolls, so it always does.
+    func testTheEmptyPlaylistsPageFits() {
+        XCTAssertLessThanOrEqual(height(panel(login: .on).playlists), MenuPanel.height)
+    }
 }

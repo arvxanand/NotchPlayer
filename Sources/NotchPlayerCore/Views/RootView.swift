@@ -30,15 +30,26 @@ public struct RootView: View {
     let concealed: Bool
     /// Whose permission state `.permissionNeeded` is about; a track carries its own.
     let source: Source
+    /// Which page the open panel shows, and what the picks page lists.
+    let page: Expansion.Page
+    let picks: [Pick]
+    /// Nil when there is no picks page (Music is showing): no button, no dots.
+    let showPage: ((Expansion.Page) -> Void)?
+    let play: (Pick) -> Void
+    let addPick: () async -> Picks.Added
 
     public init(geometry: NotchGeometry, now: Now, permission: Permission = .granted,
                 expanded: Bool = false,
                 progress: Interpolator? = nil, modes: Modes? = nil, holdBands: [Float]? = nil,
                 probe: Bool = false, concealed: Bool = false, source: Source = .spotify,
+                page: Expansion.Page = .player, picks: [Pick] = [],
+                showPage: ((Expansion.Page) -> Void)? = nil,
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
                 send: @escaping (Command) -> Void = { _ in },
                 setRepeat: @escaping (Modes.Repeat) -> Void = { _ in },
-                openLink: @escaping (LinkTarget, Track) -> Void = { _, _ in }) {
+                openLink: @escaping (LinkTarget, Track) -> Void = { _, _ in },
+                play: @escaping (Pick) -> Void = { _ in },
+                addPick: @escaping () async -> Picks.Added = { .notALink }) {
         self.geometry = geometry
         self.now = now
         self.permission = permission
@@ -53,6 +64,8 @@ public struct RootView: View {
         self.send = send
         self.setRepeat = setRepeat
         self.openLink = openLink
+        self.page = page; self.picks = picks; self.showPage = showPage
+        self.play = play; self.addPick = addPick
     }
 
     private var presentation: Presentation { .of(now: now, permission: permission) }
@@ -134,15 +147,58 @@ public struct RootView: View {
     private var panel: some View {
         switch presentation {
         case .track(let track, let playing, let controllable):
-            PanelView(geometry: geometry, track: track, progress: progress,
-                      playing: playing, controllable: controllable, modes: modes,
-                      onScrubbing: onScrubbing, send: send, setRepeat: setRepeat,
-                      openLink: { openLink($0, track) })
+            let picking = page == .picks && showPage != nil
+            ZStack(alignment: .top) {
+                pageView(PanelView(geometry: geometry, track: track, progress: progress,
+                                   playing: playing, controllable: controllable, modes: modes,
+                                   onScrubbing: onScrubbing, send: send, setRepeat: setRepeat,
+                                   openLink: { openLink($0, track) },
+                                   showPicks: showPage.map { show in { show(.picks) } }),
+                         on: !picking, travel: -Self.travel)
+                if showPage != nil {
+                    pageView(PicksView(geometry: geometry, picks: picks, play: play, add: addPick),
+                             on: picking, travel: Self.travel)
+                    dots(picking)
+                }
+            }
+            .animation(Self.pageMotion, value: picking)
         case .permissionNeeded:
             PermissionPanel(geometry: geometry, source: source)
         case .nothing:
             EmptyView()
         }
+    }
+}
+
+extension RootView {
+    /// The same move as the menu panel's pages (`MenuPanel.pageMotion`): both
+    /// pages always exist, and only opacity and a short offset animate, which
+    /// are transforms -- nothing is laid out again mid-move.
+    static var pageMotion: Animation { MenuPanel.pageMotion }
+    static let travel: CGFloat = 14
+
+    /// Faded, nudged, and inert when it is not the page showing, so the
+    /// invisible one cannot swallow the visible one's clicks.
+    func pageView(_ content: some View, on: Bool, travel: CGFloat) -> some View {
+        content
+            .opacity(on ? 1 : 0)
+            .offset(x: on ? 0 : travel)
+            .allowsHitTesting(on)
+            .accessibilityHidden(!on)
+    }
+
+    /// Which page this is, in the bottom gap under the transport.
+    func dots(_ picking: Bool) -> some View {
+        HStack(spacing: 5) {
+            ForEach([false, true], id: \.self) { picks in
+                Circle()
+                    .fill(picks == picking ? Palette.primary : Palette.secondary.opacity(0.5))
+                    .frame(width: 5, height: 5)
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .bottom)
+        .padding(.bottom, 3)
+        .accessibilityHidden(true)
     }
 }
 
