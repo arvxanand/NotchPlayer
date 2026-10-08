@@ -196,7 +196,10 @@ public final class PlayerService: ObservableObject {
                 if LocalCover.isLocal(track.id) {
                     track.artworkURL = LocalCover.file(for: track)
                 } else if source == .appleMusic {
-                    track.artworkURL = musicCover(track.id)
+                    // The store's answer first once there is one: Music had
+                    // none, and asking again is an Apple Event per read.
+                    track.artworkURL = (storeCovers[track.id] ?? nil) ?? musicCover(track.id)
+                    if track.artworkURL == nil { lookUpCover(for: track) }
                 }
             }
             value = .track(track, state: state, position: position)
@@ -221,6 +224,28 @@ public final class PlayerService: ObservableObject {
         if FileManager.default.fileExists(atPath: file.path) { return file }
         guard let bytes = bridge.coverData(), NSImage(data: bytes) != nil else { return nil }
         return (try? bytes.write(to: file)) == nil ? nil : file
+    }
+
+    /// Apple Music songs whose cover came from the store (`StoreCover`), by
+    /// persistent id. Nil means looked up and not found, so a song is asked
+    /// about once per launch.
+    private var storeCovers: [String: URL?] = [:]
+
+    /// A streamed Apple Music song has no cover Music will hand over, so ask
+    /// the store, then put the answer on the song if it is still the one
+    /// playing.
+    private func lookUpCover(for track: Track) {
+        guard storeCovers[track.id] == nil else { return }
+        storeCovers[track.id] = .some(nil)
+        Task { [weak self] in
+            let found = await StoreCover.url(for: track)
+            guard let self else { return }
+            storeCovers[track.id] = .some(found)
+            guard let found, case .track(var current, let state, let position) = now,
+                  current.id == track.id, current.artworkURL == nil else { return }
+            current.artworkURL = found
+            now = .track(current, state: state, position: position)
+        }
     }
 
     /// A failure that is **not** an answer.
