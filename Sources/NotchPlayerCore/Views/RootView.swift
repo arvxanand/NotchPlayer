@@ -151,7 +151,7 @@ public struct RootView: View {
                                    showStats: showPage.map { show in { show(.stats) } }),
                          on: !stats, travel: -Self.travel)
                 if showPage != nil {
-                    pageView(StatsView(geometry: geometry, plays: plays),
+                    pageView(StatsView(geometry: geometry, plays: plays, artwork: track.artworkURL),
                              on: stats, travel: Self.travel)
                     dots(stats)
                 }

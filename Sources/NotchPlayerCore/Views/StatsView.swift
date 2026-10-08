@@ -11,14 +11,26 @@ import SwiftUI
 public struct StatsView: View {
     let geometry: NotchGeometry
     let plays: [Play]
+    /// The playing song's cover, whose colour tints the page like the
+    /// progress line (`Accent`).
+    let artwork: URL?
     /// Fixed in previews, so a capture is the same whenever it is taken.
     let now: Date
 
     @State private var range = Stats.Range.today
     @State private var songs = false
+    @ObservedObject private var memory = ArtMemory.shared
+    @AppStorage(Accent.enabledKey) private var coverAccent = true
 
-    public init(geometry: NotchGeometry, plays: [Play], now: Date = Date()) {
-        self.geometry = geometry; self.plays = plays; self.now = now
+    public init(geometry: NotchGeometry, plays: [Play], artwork: URL? = nil, now: Date = Date()) {
+        self.geometry = geometry; self.plays = plays; self.artwork = artwork; self.now = now
+    }
+
+    /// The cover's colour, already legible on black; white for a grey cover,
+    /// or when the switch for the progress line's colour is off.
+    private var accent: Color {
+        memory.accent(for: coverAccent ? artwork : nil).map { Color(red: $0.r, green: $0.g, blue: $0.b) }
+            ?? Palette.primary
     }
 
     public var body: some View {
@@ -35,7 +47,7 @@ public struct StatsView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(Stats.duration(summary.seconds))
                         .font(Type.title(24))
-                        .foregroundStyle(Palette.primary)
+                        .foregroundStyle(accent)
                     Text("listened")
                         .font(Type.label(11))
                         .foregroundStyle(Palette.secondary)
@@ -69,24 +81,37 @@ public struct StatsView: View {
                 .foregroundStyle(Palette.secondary)
                 .frame(height: Self.lineHeight)
         } else {
+            let most = entries.map { songs ? Double($0.plays) : $0.seconds }.max() ?? 1
             ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
-                HStack(spacing: 6) {
-                    Text("\(index + 1)")
-                        .font(Type.clock())
-                        .foregroundStyle(Palette.secondary)
-                        .frame(width: 10, alignment: .leading)
-                    Text(entry.name)
-                        .font(Type.label(12))
-                        .foregroundStyle(Palette.primary)
-                        .lineLimit(1).truncationMode(.tail)
-                    Spacer(minLength: 6)
-                    Text(songs ? (entry.plays == 1 ? "1 play" : "\(entry.plays) plays")
-                               : Stats.duration(entry.seconds))
-                        .font(Type.clock())
-                        .foregroundStyle(Palette.secondary)
-                        .fixedSize()
+                let share = (songs ? Double(entry.plays) : entry.seconds) / max(most, 1)
+                VStack(alignment: .leading, spacing: Self.barGap) {
+                    HStack(spacing: 6) {
+                        Text("\(index + 1)")
+                            .font(Type.clock())
+                            .foregroundStyle(Palette.secondary)
+                            .frame(width: Self.rankWidth - 6, alignment: .leading)
+                        Text(entry.name)
+                            .font(Type.label(12))
+                            .foregroundStyle(Palette.primary)
+                            .lineLimit(1).truncationMode(.tail)
+                        Spacer(minLength: 6)
+                        Text(songs ? (entry.plays == 1 ? "1 play" : "\(entry.plays) plays")
+                                   : Stats.duration(entry.seconds))
+                            .font(Type.clock())
+                            .foregroundStyle(Palette.secondary)
+                            .fixedSize()
+                    }
+                    // How it compares with the first: full width for #1, then
+                    // shorter and fainter, so the three read as a ranking.
+                    GeometryReader { box in
+                        Capsule()
+                            .fill(accent.opacity(1 - Double(index) * 0.25))
+                            .frame(width: max(Self.barHeight, box.size.width * share))
+                    }
+                    .frame(height: Self.barHeight)
+                    .padding(.leading, Self.rankWidth)
                 }
-                .frame(height: Self.lineHeight)
+                .frame(height: Self.lineHeight, alignment: .top)
             }
         }
     }
@@ -96,10 +121,10 @@ public struct StatsView: View {
         Button(action: action) {
             Text(title)
                 .font(Type.label(11, weight: on ? .semibold : .medium))
-                .foregroundStyle(on ? Palette.primary : Palette.secondary)
+                .foregroundStyle(on ? accent : Palette.secondary)
                 .padding(.horizontal, 8)
                 .frame(height: Self.tabHeight)
-                .background(on ? Palette.wash : .clear, in: Capsule())
+                .background(on ? accent.opacity(0.18) : .clear, in: Capsule())
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -112,7 +137,10 @@ public struct StatsView: View {
     static let rowGap: CGFloat = 8
     static let columnGap: CGFloat = 16
     static let tabHeight: CGFloat = 24
-    static let lineHeight: CGFloat = 20
+    static let lineHeight: CGFloat = 22
+    static let barHeight: CGFloat = 2.5
+    static let barGap: CGFloat = 2
+    static let rankWidth: CGFloat = 16
     static let totalsWidth: CGFloat = 96
 
     /// Everything below the camera band, top to bottom, at its tallest.

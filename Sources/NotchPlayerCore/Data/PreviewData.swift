@@ -106,8 +106,11 @@ public enum PreviewData {
               now: .unknown("Automation permission refused (-1743)"), bands: nil,
               caption: "Automation refused at launch: the only no-music state that draws",
               permission: .denied),
-        State(name: "stats", now: .track(track(), state: .playing, position: 23.69),
-              bands: nil, caption: "the stats page: a long day, a long artist name, the top three",
+        // A colourful cover, so the page's tint shows; the others are grey.
+        State(name: "stats", now: .track(track(artwork: URL(string:
+                  "https://image-cdn-ak.spotifycdn.com/image/ab67616d00001e022c5b24ecfa39523a75c993c4")),
+                                         state: .playing, position: 23.69),
+              bands: nil, caption: "the stats page: a long day, a long artist name, the top three, the cover's tint",
               plays: samplePlays),
         State(name: "stats-empty", now: .track(track(), state: .playing, position: 23.69),
               bands: nil, caption: "the stats page before anything has been counted",
