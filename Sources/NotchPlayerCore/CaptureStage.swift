@@ -61,8 +61,6 @@ public struct CaptureStageView: View {
         RootView(geometry: geometry, now: stage.state.now,
                  permission: stage.state.permission, expanded: stage.expanded,
                  progress: stage.state.progress, holdBands: stage.state.bands,
-                 probe: stage.probe,
-                 page: stage.state.page, picks: stage.state.picks ?? [],
-                 showPage: stage.state.hasPicks ? { _ in } : nil)
+                 probe: stage.probe)
     }
 }

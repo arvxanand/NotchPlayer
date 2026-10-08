@@ -29,8 +29,6 @@ public struct PanelView: View {
     let onScrubbing: (Bool) -> Void
     /// The title opens the track, the artist their page, the cover the album.
     let openLink: (LinkTarget) -> Void
-    /// Opens the picks page. Nil draws no button: Music has no picks.
-    let showPicks: (() -> Void)?
 
     @State private var scrub: Double?
     /// Watched for the cover's colour, which arrives with the cover.
@@ -42,12 +40,11 @@ public struct PanelView: View {
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
                 send: @escaping (Command) -> Void = { _ in },
                 setRepeat: @escaping (Modes.Repeat) -> Void = { _ in },
-                openLink: @escaping (LinkTarget) -> Void = { _ in },
-                showPicks: (() -> Void)? = nil) {
+                openLink: @escaping (LinkTarget) -> Void = { _ in }) {
         self.geometry = geometry; self.track = track; self.progress = progress
         self.playing = playing; self.controllable = controllable; self.modes = modes
         self.onScrubbing = onScrubbing; self.send = send; self.setRepeat = setRepeat
-        self.openLink = openLink; self.showPicks = showPicks
+        self.openLink = openLink
     }
 
     public var body: some View {
@@ -82,8 +79,6 @@ public struct PanelView: View {
             Group {
                 if controllable {
                     TransportRow(playing: playing, modes: modes, send: send, setRepeat: setRepeat)
-                        .frame(maxWidth: .infinity)
-                        .overlay(alignment: .trailing) { picksButton }
                 } else {
                     PermissionNote(explanation: PermissionNote.explanation(for: track.source))
                         .padding(.horizontal, Self.inset)
@@ -214,25 +209,6 @@ public struct PanelView: View {
         .accessibilityLabel("Save the song")
     }
 
-    /// The way to the picks, at the right end of the transport line, out of
-    /// the row's own spacing so the five controls stay exactly where they were.
-    /// The trackpad swipe does the same; this is for a mouse.
-    @ViewBuilder
-    private var picksButton: some View {
-        if let showPicks {
-            Button(action: showPicks) {
-                Image(systemName: "square.grid.2x2")
-                    .font(.system(size: Self.picksGlyph, weight: .regular))
-                    .foregroundStyle(Palette.secondary)
-                    .frame(width: NotchGeometry.minimumHitHeight, height: NotchGeometry.minimumHitHeight)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(.trailing, Self.picksInset)
-            .accessibilityLabel("Show your playlists")
-        }
-    }
-
     /// Only a real Spotify track can be saved. A local file, an episode or an
     /// ad has no `spotify:track:` id, and a + that could do nothing is not
     /// drawn -- nor is one for Apple Music, which has no + yet.
@@ -288,10 +264,6 @@ public struct PanelView: View {
     static let plusOverhang: CGFloat = (NotchGeometry.minimumHitHeight - plusGlyph) / 2
     static let plusGap: CGFloat = plusOverhang + 4
     public static let bottomGap: CGFloat = 10
-    static let picksGlyph: CGFloat = 14
-    /// From the panel's right edge to the picks target's. Half the inset, so
-    /// the 44pt target stays clear of the bottom corner's curve.
-    static let picksInset: CGFloat = inset / 2
 
     /// Where the transport targets land on screen, top-left origin -- what
     /// `CGWarpMouseCursorPosition` and `screencapture -R` want.
@@ -350,14 +322,6 @@ public struct PanelView: View {
         return targets.map { name, offset, width in
             (name, CGRect(x: centreX + offset - width / 2, y: top, width: width, height: side))
         }
-    }
-
-    /// The picks button's target, same coordinates.
-    public static func picksRect(_ geometry: NotchGeometry) -> CGRect {
-        let side = NotchGeometry.minimumHitHeight
-        let right = geometry.screenFrame.midX + geometry.openWidth / 2 - picksInset
-        let top = geometry.notchExclusionTop + topGap + artSide + transportGap
-        return CGRect(x: right - side, y: top, width: side, height: side)
     }
 
     /// The panel's height, added up rather than written down.

@@ -99,8 +99,7 @@ A waveform icon in the menu bar is the only other control: what's playing,
 **Hide from the Notch** (turns it off without quitting), and Quit. The gear
 opens settings: launch at login, cover colour on the progress bar, the +, and
 checking for updates. On a MacBook without a notch, there's also a switch for
-the notch NotchPlayer draws there. The grid beside the gear lists your
-playlists on the notch, to reorder or remove.
+the notch NotchPlayer draws there.
 
 </td>
 </tr>
@@ -213,8 +212,7 @@ for the permission. Here's what NotchPlayer actually does with it:
   sound away. No audio ever goes to a file.
 - **Nothing is sent anywhere.** The app has no account, no analytics and no
   server. Its only network requests are the album cover, Spotify's public
-  page for a song when you click its title or artist, Spotify's public link
-  preview for a playlist or album when you add one, and a daily check of
+  page for a song when you click its title or artist, and a daily check of
   this repo's GitHub releases for a newer NotchPlayer. That check sends
   nothing about you or your music, and **Check for updates** behind the gear
   turns it off.
@@ -298,16 +296,6 @@ yourself (in Finder, **Go → Go to Folder…** and paste each path):
 Point at the notch to open the panel; move the pointer away and it closes.
 Click the title, artist or cover to open that thing in Spotify. The title
 opens the album with the song highlighted, without restarting it.
-
-**Your playlists, a swipe away.** Swipe two fingers left on the open notch,
-or click the grid button at the end of the controls, for a row of covers: DJ,
-Liked Songs, and any playlist or album you add. Tap one to play it; scroll
-for the next row. To add one, choose **Share → Copy link** on it in Spotify,
-then tap **+** on that page. Reorder or remove them from the grid beside the
-gear in the menu-bar panel. When one starts, Spotify jumps to the front for a
-moment (Spotify's own doing) and NotchPlayer switches you straight back. A
-private playlist's name and cover come from Spotify's own files on your Mac,
-since nothing public knows them. DJ needs Spotify Premium.
 
 **Songs you added to Spotify from your own Mac** (Spotify's local files)
 show the cover saved inside the song file, like Spotify does. NotchPlayer
