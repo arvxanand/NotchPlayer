@@ -18,6 +18,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
     private let captureServer: Bool
     private var stage: CaptureStage?
     private let players = Players()
+    private let listening = Listening()
     private let expansion = Expansion()
     /// The live waveform. Owned here rather than by the view, because it holds
     /// system audio objects that have to be torn down when the panel goes away
@@ -100,6 +101,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
 
         build()
         if preview == nil, !probe { players.start() }
+        // Live runs only: a capture's fixed states are not listening.
+        if preview == nil, !probe, !captureServer { listening.follow(players) }
         // Live runs only. A capture or a preview is driven by a script and
         // must not put anything in the user's menu bar.
         if preview == nil, !probe, !captureServer {
@@ -202,7 +205,9 @@ public final class AppController: NSObject, NSApplicationDelegate {
                     RootView(geometry: geometry, now: flipped ? PreviewData.nextTrack : preview.now,
                              permission: preview.permission, expanded: open,
                              progress: preview.progress, holdBands: preview.bands,
-                             probe: probing)
+                             probe: probing,
+                             page: preview.page, plays: preview.plays ?? [],
+                             showPage: { _ in })
                 }
             }
         } else if probing {
@@ -210,8 +215,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
                 RootView(geometry: geometry, now: .stopped, probe: true)
             }
         } else {
-            panel = NotchPanel(screen: screen) { [players, expansion, tap] in
-                Live(geometry: geometry, players: players, expansion: expansion)
+            panel = NotchPanel(screen: screen) { [players, expansion, listening, tap] in
+                Live(geometry: geometry, players: players, expansion: expansion, listening: listening)
                     .environment(\.liveBands, tap)
             }
         }
@@ -394,6 +399,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
     /// A status item outlives the app that made it and leaves a dead icon in
     /// the menu bar until the next login.
     public func applicationWillTerminate(_ note: Notification) {
+        listening.flush()
         menuBar?.remove()
         tap.stop()
     }
@@ -417,6 +423,7 @@ private struct Live: View {
     let geometry: NotchGeometry
     @ObservedObject var players: Players
     @ObservedObject var expansion: Expansion
+    @ObservedObject var listening: Listening
 
     var body: some View {
         let service = players.current
@@ -425,6 +432,8 @@ private struct Live: View {
                  modes: service.modes,
                  concealed: expansion.fullScreen || expansion.faded,
                  source: service.source,
+                 page: expansion.page, plays: listening.plays,
+                 showPage: { expansion.show($0) },
                  onScrubbing: { expansion.hold($0) },
                  send: { service.send($0) },
                  setRepeat: { service.setRepeat($0) },

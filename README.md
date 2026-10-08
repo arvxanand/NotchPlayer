@@ -297,6 +297,15 @@ Point at the notch to open the panel; move the pointer away and it closes.
 Click the title, artist or cover to open that thing in Spotify. The title
 opens the album with the song highlighted, without restarting it.
 
+**Your listening stats.** Swipe two fingers left on the open notch, or click
+the chart button at the end of the controls: time listened, songs played,
+and your top three artists or songs, for today, this week, this month or all
+time. Spotify and Apple Music both count. A song counts as played after 30
+seconds, like Spotify's own count; only time actually playing adds up, and
+only while NotchPlayer is running. It's kept in one file on your Mac
+(`~/Library/Application Support/NotchPlayer/listening.json`) and never sent
+anywhere; delete that file to start over.
+
 **Songs you added to Spotify from your own Mac** (Spotify's local files)
 show the cover saved inside the song file, like Spotify does. NotchPlayer
 finds the file through Spotify's own list and only reads the picture, on

@@ -18,6 +18,10 @@ public enum PreviewData {
         /// Whether Apple Events are available. `.denied` is a whole second
         /// axis of rendering, not a variant of "no music".
         public var permission: Permission = .granted
+        /// Set, the open panel shows the stats page counting these.
+        public var plays: [Play]? = nil
+
+        public var page: Expansion.Page { plays == nil ? .player : .stats }
 
         /// A stopped clock, so the panel's progress bar renders the same in
         /// every capture. `advancing: false` is what makes it reproducible.
@@ -102,11 +106,35 @@ public enum PreviewData {
               now: .unknown("Automation permission refused (-1743)"), bands: nil,
               caption: "Automation refused at launch: the only no-music state that draws",
               permission: .denied),
+        State(name: "stats", now: .track(track(), state: .playing, position: 23.69),
+              bands: nil, caption: "the stats page: a long day, a long artist name, the top three",
+              plays: samplePlays),
+        State(name: "stats-empty", now: .track(track(), state: .playing, position: 23.69),
+              bands: nil, caption: "the stats page before anything has been counted",
+              plays: []),
         State(name: "stopped", now: .stopped, bands: nil,
               caption: "Spotify open, nothing loaded -- draws nothing"),
         State(name: "notrunning", now: .notRunning, bands: nil,
               caption: "Spotify not launched -- draws nothing"),
     ]
+
+    /// Today, an hour ago and earlier: over two hours, a name long enough to
+    /// truncate, and a skip that counts as time but not as a play.
+    static let samplePlays: [Play] = {
+        let now = Date()
+        func play(_ id: String, _ name: String, _ artist: String, minutes: Double, ago: Double) -> Play {
+            Play(id: id, name: name, artist: artist, started: now.addingTimeInterval(-ago * 60),
+                 seconds: minutes * 60)
+        }
+        return [
+            play("a", "D>E>A>T>H>M>E>T>A>L", "Panchiko", minutes: 48, ago: 10),
+            play("b", "Adventure of a Lifetime", "Coldplay", minutes: 18, ago: 60),
+            play("c", "No Pole", "Don Toliver", minutes: 31, ago: 90),
+            play("d", "Everything In Its Right Place (Remastered)", "Radiohead & A Very Long Collaborator Name",
+                 minutes: 37, ago: 120),
+            play("a", "D>E>A>T>H>M>E>T>A>L", "Panchiko", minutes: 0.2, ago: 5),
+        ]
+    }()
 
     /// Nil for an unknown name, on purpose.
     ///
