@@ -87,6 +87,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
     }
 
     public func applicationDidFinishLaunching(_ note: Notification) {
+        // Before anything loads a cover: see `WhatsNew.atLaunch`.
+        if preview == nil, !probe, !captureServer { expansion.whatsNew = WhatsNew.atLaunch(current: Updater.current) }
         // **Launched by LaunchServices -- at login, by `open`, from Finder --
         // stdout is /dev/null**, and every log line with it. Only then: a
         // terminal, or `open --stdout FILE` (TRAPS #30), keeps its own.
@@ -207,7 +209,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
                              progress: preview.progress, holdBands: preview.bands,
                              probe: probing,
                              page: preview.page, plays: preview.plays ?? [],
-                             showPage: { _ in })
+                             showPage: { _ in }, whatsNew: preview.whatsNew)
                 }
             }
         } else if probing {
@@ -434,6 +436,7 @@ private struct Live: View {
                  source: service.source,
                  page: expansion.page, plays: listening.plays,
                  showPage: { expansion.show($0) },
+                 whatsNew: expansion.whatsNew, dismissWhatsNew: { expansion.dismissWhatsNew() },
                  onScrubbing: { expansion.hold($0) },
                  send: { service.send($0) },
                  setRepeat: { service.setRepeat($0) },

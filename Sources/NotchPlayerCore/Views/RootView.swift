@@ -35,6 +35,9 @@ public struct RootView: View {
     let plays: [Play]
     /// Nil draws the player alone: no stats button, no dots.
     let showPage: ((Expansion.Page) -> Void)?
+    /// Set, the open panel shows what's new instead, until dismissed.
+    let whatsNew: WhatsNew.Note?
+    let dismissWhatsNew: () -> Void
 
     public init(geometry: NotchGeometry, now: Now, permission: Permission = .granted,
                 expanded: Bool = false,
@@ -42,6 +45,7 @@ public struct RootView: View {
                 probe: Bool = false, concealed: Bool = false, source: Source = .spotify,
                 page: Expansion.Page = .player, plays: [Play] = [],
                 showPage: ((Expansion.Page) -> Void)? = nil,
+                whatsNew: WhatsNew.Note? = nil, dismissWhatsNew: @escaping () -> Void = {},
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
                 send: @escaping (Command) -> Void = { _ in },
                 setRepeat: @escaping (Modes.Repeat) -> Void = { _ in },
@@ -61,6 +65,7 @@ public struct RootView: View {
         self.setRepeat = setRepeat
         self.openLink = openLink
         self.page = page; self.plays = plays; self.showPage = showPage
+        self.whatsNew = whatsNew; self.dismissWhatsNew = dismissWhatsNew
     }
 
     private var presentation: Presentation { .of(now: now, permission: permission) }
@@ -141,6 +146,8 @@ public struct RootView: View {
     @ViewBuilder
     private var panel: some View {
         switch presentation {
+        case .track(_, _, _) where whatsNew != nil:
+            WhatsNewView(geometry: geometry, note: whatsNew!, dismiss: dismissWhatsNew)
         case .track(let track, let playing, let controllable):
             let stats = page == .stats && showPage != nil
             ZStack(alignment: .top) {

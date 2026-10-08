@@ -18,6 +18,11 @@ public final class Expansion: ObservableObject {
     /// Faded so the menus under the wings show; see `HoverWatcher.faded`.
     @Published public private(set) var faded = false
 
+    /// "New in this version", shown in the open panel until it is dismissed or
+    /// the panel closes over it (`WhatsNew`). Kept here only because `Live`
+    /// already observes this object.
+    @Published public var whatsNew: WhatsNew.Note?
+
     /// Which page the open panel shows. Every open starts on the player, so
     /// leaving the stats is just moving away.
     public enum Page: Sendable { case player, stats }
@@ -148,10 +153,18 @@ public final class Expansion: ObservableObject {
         guard expanded else { return }
         expanded = false
         page = .player
+        // Closing the notch over the note counts as having read it.
+        dismissWhatsNew()
         scrollMonitor.map(NSEvent.removeMonitor)
         scrollMonitor = nil
         watcher.activeRect = nil
         setInteractive?(false)
+    }
+
+    public func dismissWhatsNew() {
+        guard let note = whatsNew else { return }
+        whatsNew = nil
+        WhatsNew.seen(note.version)
     }
 
     public func show(_ page: Page) {

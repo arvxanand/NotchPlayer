@@ -127,22 +127,27 @@ something huge. It also fails if the frame timing comes out uneven.
 
 For the maintainer.
 
-1. Tag `main` and push the tag. The version is the tag without the `v`.
+1. Add the version's "what's new" lines to `WhatsNew.notes`
+   (`Sources/NotchPlayerCore/Data/WhatsNew.swift`): up to three short lines,
+   in plain words, merged before tagging. Everyone who updates sees them once
+   in the notch. Use the same lines as the release notes on GitHub.
+
+2. Tag `main` and push the tag. The version is the tag without the `v`.
 
    ```bash
    git tag v0.3 origin/main && git push origin v0.3
    ```
 
-2. The `release` workflow builds `NotchPlayer.dmg` with Xcode 16.0, signs
+3. The `release` workflow builds `NotchPlayer.dmg` with Xcode 16.0, signs
    it with the NotchPlayer certificate (repo secrets `SIGNING_P12` and
    `SIGNING_P12_PASSWORD`), checks its signer, entitlement, version and
    bundle id from inside the dmg, and attaches it to a **draft** release,
    which only people with write access can see. Run by hand from a branch
    (Actions → release → Run workflow), it only builds and checks.
-3. Download the dmg from the draft, try it, and click **Publish release**.
+4. Download the dmg from the draft, try it, and click **Publish release**.
    **Publishing is what updates everyone:** the README's download link and
    every copy's update check only see published releases.
-4. Update the cask in
+5. Update the cask in
    [homebrew-notchplayer](https://github.com/arvxanand/homebrew-notchplayer)
    (`Casks/notchplayer.rb`): set `version` to the new version and `sha256` to
    the value in the workflow's job summary. Until then, `brew upgrade` keeps

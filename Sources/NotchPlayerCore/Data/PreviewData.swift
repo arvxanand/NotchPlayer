@@ -22,6 +22,8 @@ public enum PreviewData {
         public var plays: [Play]? = nil
 
         public var page: Expansion.Page { plays == nil ? .player : .stats }
+        /// Set, the open panel shows this note instead.
+        public var whatsNew: WhatsNew.Note? = nil
 
         /// A stopped clock, so the panel's progress bar renders the same in
         /// every capture. `advancing: false` is what makes it reproducible.
@@ -115,6 +117,9 @@ public enum PreviewData {
         State(name: "stats-empty", now: .track(track(), state: .playing, position: 23.69),
               bands: nil, caption: "the stats page before anything has been counted",
               plays: []),
+        State(name: "whatsnew", now: .track(track(), state: .playing, position: 23.69),
+              bands: nil, caption: "after an update: the newest version's note, once",
+              whatsNew: WhatsNew.Note(version: "0.6", lines: WhatsNew.notes["0.6"] ?? [])),
         State(name: "stopped", now: .stopped, bands: nil,
               caption: "Spotify open, nothing loaded -- draws nothing"),
         State(name: "notrunning", now: .notRunning, bands: nil,
