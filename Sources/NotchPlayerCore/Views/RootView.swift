@@ -30,26 +30,22 @@ public struct RootView: View {
     let concealed: Bool
     /// Whose permission state `.permissionNeeded` is about; a track carries its own.
     let source: Source
-    /// Which page the open panel shows, and what the picks page lists.
+    /// Which page the open panel shows, and what the stats page counts.
     let page: Expansion.Page
-    let picks: [Pick]
-    /// Nil when there is no picks page (Music is showing): no button, no dots.
+    let plays: [Play]
+    /// Nil draws the player alone: no stats button, no dots.
     let showPage: ((Expansion.Page) -> Void)?
-    let play: (Pick) -> Void
-    let addPick: () async -> Picks.Added
 
     public init(geometry: NotchGeometry, now: Now, permission: Permission = .granted,
                 expanded: Bool = false,
                 progress: Interpolator? = nil, modes: Modes? = nil, holdBands: [Float]? = nil,
                 probe: Bool = false, concealed: Bool = false, source: Source = .spotify,
-                page: Expansion.Page = .player, picks: [Pick] = [],
+                page: Expansion.Page = .player, plays: [Play] = [],
                 showPage: ((Expansion.Page) -> Void)? = nil,
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
                 send: @escaping (Command) -> Void = { _ in },
                 setRepeat: @escaping (Modes.Repeat) -> Void = { _ in },
-                openLink: @escaping (LinkTarget, Track) -> Void = { _, _ in },
-                play: @escaping (Pick) -> Void = { _ in },
-                addPick: @escaping () async -> Picks.Added = { .notALink }) {
+                openLink: @escaping (LinkTarget, Track) -> Void = { _, _ in }) {
         self.geometry = geometry
         self.now = now
         self.permission = permission
@@ -64,8 +60,7 @@ public struct RootView: View {
         self.send = send
         self.setRepeat = setRepeat
         self.openLink = openLink
-        self.page = page; self.picks = picks; self.showPage = showPage
-        self.play = play; self.addPick = addPick
+        self.page = page; self.plays = plays; self.showPage = showPage
     }
 
     private var presentation: Presentation { .of(now: now, permission: permission) }
@@ -147,21 +142,21 @@ public struct RootView: View {
     private var panel: some View {
         switch presentation {
         case .track(let track, let playing, let controllable):
-            let picking = page == .picks && showPage != nil
+            let stats = page == .stats && showPage != nil
             ZStack(alignment: .top) {
                 pageView(PanelView(geometry: geometry, track: track, progress: progress,
                                    playing: playing, controllable: controllable, modes: modes,
                                    onScrubbing: onScrubbing, send: send, setRepeat: setRepeat,
                                    openLink: { openLink($0, track) },
-                                   showPicks: showPage.map { show in { show(.picks) } }),
-                         on: !picking, travel: -Self.travel)
+                                   showStats: showPage.map { show in { show(.stats) } }),
+                         on: !stats, travel: -Self.travel)
                 if showPage != nil {
-                    pageView(PicksView(geometry: geometry, picks: picks, play: play, add: addPick),
-                             on: picking, travel: Self.travel)
-                    dots(picking)
+                    pageView(StatsView(geometry: geometry, plays: plays, artwork: track.artworkURL),
+                             on: stats, travel: Self.travel)
+                    dots(stats)
                 }
             }
-            .animation(Self.pageMotion, value: picking)
+            .animation(Self.pageMotion, value: stats)
         case .permissionNeeded:
             PermissionPanel(geometry: geometry, source: source)
         case .nothing:
@@ -188,11 +183,11 @@ extension RootView {
     }
 
     /// Which page this is, in the bottom gap under the transport.
-    func dots(_ picking: Bool) -> some View {
+    func dots(_ onStats: Bool) -> some View {
         HStack(spacing: 5) {
-            ForEach([false, true], id: \.self) { picks in
+            ForEach([false, true], id: \.self) { second in
                 Circle()
-                    .fill(picks == picking ? Palette.primary : Palette.secondary.opacity(0.5))
+                    .fill(second == onStats ? Palette.primary : Palette.secondary.opacity(0.5))
                     .frame(width: 5, height: 5)
             }
         }

@@ -18,7 +18,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
     private let captureServer: Bool
     private var stage: CaptureStage?
     private let players = Players()
-    private let picks = Picks()
+    private let listening = Listening()
     private let expansion = Expansion()
     /// The live waveform. Owned here rather than by the view, because it holds
     /// system audio objects that have to be torn down when the panel goes away
@@ -101,6 +101,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
 
         build()
         if preview == nil, !probe { players.start() }
+        // Live runs only: a capture's fixed states are not listening.
+        if preview == nil, !probe, !captureServer { listening.follow(players) }
         // Live runs only. A capture or a preview is driven by a script and
         // must not put anything in the user's menu bar.
         if preview == nil, !probe, !captureServer {
@@ -112,8 +114,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
                 },
                 hidden: { [weak self] in self?.hidden ?? false },
                 setHidden: { [weak self] in self?.setHidden($0) },
-                toggleVirtual: { [weak self] in self?.toggleVirtual() ?? AppController.virtualEnabled },
-                picks: picks)
+                toggleVirtual: { [weak self] in self?.toggleVirtual() ?? AppController.virtualEnabled })
             Updater.changed = { [weak self] in self?.menuBar?.setBadge(Updater.available != nil) }
             Updater.start()
         }
@@ -205,8 +206,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
                              permission: preview.permission, expanded: open,
                              progress: preview.progress, holdBands: preview.bands,
                              probe: probing,
-                             page: preview.page, picks: preview.picks ?? [],
-                             showPage: preview.hasPicks ? { _ in } : nil)
+                             page: preview.page, plays: preview.plays ?? [],
+                             showPage: { _ in })
                 }
             }
         } else if probing {
@@ -214,8 +215,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
                 RootView(geometry: geometry, now: .stopped, probe: true)
             }
         } else {
-            panel = NotchPanel(screen: screen) { [players, expansion, picks, tap] in
-                Live(geometry: geometry, players: players, expansion: expansion, picks: picks)
+            panel = NotchPanel(screen: screen) { [players, expansion, listening, tap] in
+                Live(geometry: geometry, players: players, expansion: expansion, listening: listening)
                     .environment(\.liveBands, tap)
             }
         }
@@ -233,7 +234,6 @@ public final class AppController: NSObject, NSApplicationDelegate {
             // See `Expansion.onOpen`: the position can be stale after a seek
             // made while paused, and opening the panel is when that shows.
             expansion.onOpen = { [weak self] in self?.players.current.refresh() }
-            expansion.hasPicks = { [weak self] in self?.players.current.source == .spotify }
             expansion.start(geometry: geometry)
             if let id = screen.displayID { watchFullScreen(on: id) }
 
@@ -399,6 +399,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
     /// A status item outlives the app that made it and leaves a dead icon in
     /// the menu bar until the next login.
     public func applicationWillTerminate(_ note: Notification) {
+        listening.flush()
         menuBar?.remove()
         tap.stop()
     }
@@ -422,7 +423,7 @@ private struct Live: View {
     let geometry: NotchGeometry
     @ObservedObject var players: Players
     @ObservedObject var expansion: Expansion
-    @ObservedObject var picks: Picks
+    @ObservedObject var listening: Listening
 
     var body: some View {
         let service = players.current
@@ -431,40 +432,12 @@ private struct Live: View {
                  modes: service.modes,
                  concealed: expansion.fullScreen || expansion.faded,
                  source: service.source,
-                 page: expansion.page, picks: picks.all,
-                 showPage: service.source == .spotify ? { expansion.show($0) } : nil,
+                 page: expansion.page, plays: listening.plays,
+                 showPage: { expansion.show($0) },
                  onScrubbing: { expansion.hold($0) },
                  send: { service.send($0) },
                  setRepeat: { service.setRepeat($0) },
-                 openLink: { SpotifyLinks.open($0, for: $1) },
-                 play: { pick in
-                     Self.playBehind(pick, on: players.spotify)
-                     expansion.show(.player)
-                 },
-                 addPick: { await picks.add(link: NSPasteboard.general.string(forType: .string)) })
-    }
-}
-
-extension Live {
-    /// Plays a pick and hands the front back to whatever had it.
-    ///
-    /// **Spotify's `play track` brings Spotify forward**, a bug of its own
-    /// since 1.2.31 (reported on its forum). Sending the raw event without
-    /// asking to switch apps changes nothing: Spotify activates itself. So
-    /// the app that was in front is reopened once Spotify has taken over.
-    /// Measured 9 Oct 2026, Spotify 1.3.3: switching back at once loses to
-    /// Spotify's own activation, 0.15s later wins; 0.2s for margin. A full
-    /// screen Spotify still shows as a quick slide there and back.
-    static func playBehind(_ pick: Pick, on spotify: PlayerService) {
-        let front = NSWorkspace.shared.frontmostApplication
-        spotify.send(.play(pick.uri))
-        guard let front, front.bundleIdentifier != Source.spotify.bundleID,
-              let url = front.bundleURL else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Source.spotify.bundleID
-            else { return }
-            NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
-        }
+                 openLink: { SpotifyLinks.open($0, for: $1) })
     }
 }
 

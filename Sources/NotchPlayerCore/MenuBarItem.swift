@@ -27,7 +27,6 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
     private let hidden: () -> Bool
     private let setHidden: (Bool) -> Void
     private let toggleVirtual: () -> Bool
-    private let picks: Picks
     /// When the popover last closed. A `.transient` popover is dismissed by
     /// AppKit on *any* outside click, and the status item is outside it -- so
     /// clicking the icon to close fires both AppKit's dismissal and the
@@ -38,10 +37,8 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
     public init(state: @escaping () -> (now: Now, permission: Permission, source: Source),
                 hidden: @escaping () -> Bool,
                 setHidden: @escaping (Bool) -> Void,
-                toggleVirtual: @escaping () -> Bool,
-                picks: Picks) {
+                toggleVirtual: @escaping () -> Bool) {
         self.state = state
-        self.picks = picks
         self.hidden = hidden
         self.setHidden = setHidden
         self.toggleVirtual = toggleVirtual
@@ -136,15 +133,6 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
             // Stays open, like the other switches; the notch changes behind it.
             virtualNotch: virtualRow,
             toggleVirtual: toggleVirtual,
-            picks: picks.all,
-            removePick: { [picks] uri in
-                picks.remove(uri)
-                return picks.all
-            },
-            movePicks: { [picks] from, to in
-                picks.move(from: from, to: to)
-                return picks.all
-            },
             version: Updater.current,
             quit: { NSApp.terminate(nil) }))
     }

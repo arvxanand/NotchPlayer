@@ -19,13 +19,9 @@ public final class Expansion: ObservableObject {
     @Published public private(set) var faded = false
 
     /// Which page the open panel shows. Every open starts on the player, so
-    /// leaving the picks without choosing is just moving away.
-    public enum Page: Sendable { case player, picks }
+    /// leaving the stats is just moving away.
+    public enum Page: Sendable { case player, stats }
     @Published public private(set) var page = Page.player
-
-    /// Whether there is a picks page to go to: Spotify's, so not while Music
-    /// is the one showing.
-    public var hasPicks: () -> Bool = { false }
 
     private var scrollMonitor: Any?
     private var swipeSum = CGSize.zero
@@ -140,7 +136,7 @@ public final class Expansion: ObservableObject {
         // **Local, so no permission**: it only sees scrolls sent to this app,
         // which the open panel gets because it is under the pointer. Not the
         // global monitor matchnotch had (`docs/DECISIONS.md`). Passed on
-        // untouched, so the picks still scroll.
+        // untouched, so anything that scrolls still does.
         scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
             MainActor.assumeIsolated { self?.scrolled(event) }
             return event
@@ -159,7 +155,7 @@ public final class Expansion: ObservableObject {
     }
 
     public func show(_ page: Page) {
-        guard expanded, page == .player || hasPicks() else { return }
+        guard expanded else { return }
         self.page = page
     }
 
@@ -185,11 +181,11 @@ public final class Expansion: ObservableObject {
         }
     }
 
-    /// Fingers moving left bring in the page on the right, the picks; moving
-    /// right go back. Mostly sideways and at least 40pt, so scrolling the
-    /// picks up and down never flips the page.
+    /// Fingers moving left bring in the page on the right, the stats; moving
+    /// right go back. Mostly sideways and at least 40pt, so a scroll that is
+    /// mostly up and down never flips the page.
     nonisolated static func swipe(dx: CGFloat, dy: CGFloat, precise: Bool) -> Page? {
         guard precise, abs(dx) >= 40, abs(dx) > 2 * abs(dy) else { return nil }
-        return dx < 0 ? .picks : .player
+        return dx < 0 ? .stats : .player
     }
 }

@@ -62,7 +62,7 @@ public struct CaptureStageView: View {
                  permission: stage.state.permission, expanded: stage.expanded,
                  progress: stage.state.progress, holdBands: stage.state.bands,
                  probe: stage.probe,
-                 page: stage.state.page, picks: stage.state.picks ?? [],
-                 showPage: stage.state.hasPicks ? { _ in } : nil)
+                 page: stage.state.page, plays: stage.state.plays ?? [],
+                 showPage: { _ in })
     }
 }

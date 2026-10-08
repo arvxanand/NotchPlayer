@@ -18,12 +18,10 @@ public enum PreviewData {
         /// Whether Apple Events are available. `.denied` is a whole second
         /// axis of rendering, not a variant of "no music".
         public var permission: Permission = .granted
-        /// Set, the open panel shows the picks page with these.
-        public var picks: [Pick]? = nil
+        /// Set, the open panel shows the stats page counting these.
+        public var plays: [Play]? = nil
 
-        public var page: Expansion.Page { picks == nil ? .player : .picks }
-        /// Whether there is a picks page at all: not for Music.
-        public var hasPicks: Bool { now.track?.source != .appleMusic }
+        public var page: Expansion.Page { plays == nil ? .player : .stats }
 
         /// A stopped clock, so the panel's progress bar renders the same in
         /// every capture. `advancing: false` is what makes it reproducible.
@@ -108,29 +106,38 @@ public enum PreviewData {
               now: .unknown("Automation permission refused (-1743)"), bands: nil,
               caption: "Automation refused at launch: the only no-music state that draws",
               permission: .denied),
-        State(name: "picks", now: .track(track(), state: .playing, position: 23.69),
-              bands: nil, caption: "the picks page: built-ins, covers, one without a cover, the +, scrolls",
-              picks: samplePicks),
-        State(name: "picks-few", now: .track(track(), state: .playing, position: 23.69),
-              bands: nil, caption: "the picks page as first seen: DJ, Liked Songs and the +",
-              picks: Pick.builtIns),
+        // A colourful cover, so the page's tint shows; the others are grey.
+        State(name: "stats", now: .track(track(artwork: URL(string:
+                  "https://image-cdn-ak.spotifycdn.com/image/ab67616d00001e022c5b24ecfa39523a75c993c4")),
+                                         state: .playing, position: 23.69),
+              bands: nil, caption: "the stats page: a long day, a long artist name, the top three, the cover's tint",
+              plays: samplePlays),
+        State(name: "stats-empty", now: .track(track(), state: .playing, position: 23.69),
+              bands: nil, caption: "the stats page before anything has been counted",
+              plays: []),
         State(name: "stopped", now: .stopped, bands: nil,
               caption: "Spotify open, nothing loaded -- draws nothing"),
         State(name: "notrunning", now: .notRunning, bands: nil,
               caption: "Spotify not launched -- draws nothing"),
     ]
 
-    /// Real covers from both of Spotify's image hosts, a long name, and a
-    /// private playlist's fallback (no cover, so the mark).
-    static let samplePicks: [Pick] = Pick.builtIns + [
-        Pick(uri: "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M", name: "Today’s Top Hits",
-             cover: URL(string: "https://i.scdn.co/image/ab67706f0000000271992d3b45eb1297df9c6bf7")),
-        Pick(uri: "spotify:album:4aawyAB9vmqN3uQ7FjRGTy", name: "Global Warming",
-             cover: URL(string: "https://image-cdn-ak.spotifycdn.com/image/ab67616d00001e022c5b24ecfa39523a75c993c4")),
-        Pick(uri: "spotify:album:0000000000000000000001", name: "D>E>A>T>H>M>E>T>A>L (Deluxe Edition)",
-             cover: cover),
-        Pick(uri: "spotify:playlist:0000000000000000000002", name: "Playlist"),
-    ]
+    /// Today, an hour ago and earlier: over two hours, a name long enough to
+    /// truncate, and a skip that counts as time but not as a play.
+    static let samplePlays: [Play] = {
+        let now = Date()
+        func play(_ id: String, _ name: String, _ artist: String, minutes: Double, ago: Double) -> Play {
+            Play(id: id, name: name, artist: artist, started: now.addingTimeInterval(-ago * 60),
+                 seconds: minutes * 60)
+        }
+        return [
+            play("a", "D>E>A>T>H>M>E>T>A>L", "Panchiko", minutes: 48, ago: 10),
+            play("b", "Adventure of a Lifetime", "Coldplay", minutes: 18, ago: 60),
+            play("c", "No Pole", "Don Toliver", minutes: 31, ago: 90),
+            play("d", "Everything In Its Right Place (Remastered)", "Radiohead & A Very Long Collaborator Name",
+                 minutes: 37, ago: 120),
+            play("a", "D>E>A>T>H>M>E>T>A>L", "Panchiko", minutes: 0.2, ago: 5),
+        ]
+    }()
 
     /// Nil for an unknown name, on purpose.
     ///
