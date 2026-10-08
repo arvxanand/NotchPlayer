@@ -79,6 +79,13 @@ public final class Picks: ObservableObject {
         save()
     }
 
+    /// Dragged in the menu's list. The notch shows them in this order, so the
+    /// ones played most can go first, ahead of DJ and Liked Songs.
+    public func move(from source: IndexSet, to destination: Int) {
+        all.move(fromOffsets: source, toOffset: destination)
+        save()
+    }
+
     private func save() {
         defaults.set(try? JSONEncoder().encode(all), forKey: Self.key)
     }

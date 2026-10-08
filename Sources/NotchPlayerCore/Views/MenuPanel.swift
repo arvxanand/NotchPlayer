@@ -37,6 +37,7 @@ public struct MenuPanel: View {
     /// goes the moment its − is pressed.
     @State private var picks: [Pick]
     let removePick: (String) -> [Pick]
+    let movePicks: (IndexSet, Int) -> [Pick]
     let version: String
     let quit: () -> Void
     /// Read by `PanelView` too, which redraws the line when it changes.
@@ -65,6 +66,7 @@ public struct MenuPanel: View {
                 checkUpdates: Bool? = nil, toggleUpdates: @escaping () -> Bool = { false },
                 virtualNotch: Bool? = nil, toggleVirtual: @escaping () -> Bool = { false },
                 picks: [Pick] = [], removePick: @escaping (String) -> [Pick] = { _ in [] },
+                movePicks: @escaping (IndexSet, Int) -> [Pick] = { _, _ in [] },
                 version: String = "",
                 quit: @escaping () -> Void,
                 page: Page = .main, animateIn: Bool = true) {
@@ -76,6 +78,7 @@ public struct MenuPanel: View {
         _checkUpdates = State(initialValue: checkUpdates); self.toggleUpdates = toggleUpdates
         _virtualNotch = State(initialValue: virtualNotch); self.toggleVirtual = toggleVirtual
         _picks = State(initialValue: picks); self.removePick = removePick
+        self.movePicks = movePicks
         self.version = version
         _page = State(initialValue: page)
         // An offscreen render never appears, so it would stay invisible.
@@ -220,8 +223,8 @@ public struct MenuPanel: View {
         }
     }
 
-    /// The notch's picks, each with a − to remove it. Adding is in the notch,
-    /// where the + reads the copied link.
+    /// The notch's picks, in the notch's order: drag to reorder, − to remove.
+    /// Adding is in the notch, where the + reads the copied link.
     var playlists: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 0) {
@@ -240,25 +243,35 @@ public struct MenuPanel: View {
                     .foregroundStyle(Palette.secondary)
                     .padding(Self.margin)
             } else {
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        ForEach(picks) { pick in
-                            HStack(spacing: 9) {
-                                Text(pick.name)
-                                    .font(Type.label(11))
-                                    .foregroundStyle(Palette.primary)
-                                    .lineLimit(1).truncationMode(.tail)
-                                Spacer(minLength: 8)
-                                Glyph(symbol: "minus.circle", label: "Remove \(pick.name)") {
-                                    picks = removePick(pick.uri)
-                                }
+                // A `List` for `onMove`: drag a row to reorder, which the
+                // notch then follows. Styled down to the panel's black rows.
+                List {
+                    ForEach(picks) { pick in
+                        HStack(spacing: 9) {
+                            Image(systemName: "line.3.horizontal")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(Palette.secondary)
+                            Text(pick.name)
+                                .font(Type.label(11))
+                                .foregroundStyle(Palette.primary)
+                                .lineLimit(1).truncationMode(.tail)
+                            Spacer(minLength: 8)
+                            Glyph(symbol: "minus.circle", label: "Remove \(pick.name)") {
+                                picks = removePick(pick.uri)
                             }
-                            .padding(.leading, Self.margin).padding(.trailing, 4)
-                            .frame(height: 38)
-                            divider
                         }
+                        .padding(.leading, Self.margin).padding(.trailing, 4)
+                        .frame(height: 38)
+                        .contentShape(Rectangle())
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparatorTint(Palette.hairline)
                     }
+                    .onMove { from, to in picks = movePicks(from, to) }
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .environment(\.defaultMinListRowHeight, 38)
             }
             Spacer(minLength: 0)
         }

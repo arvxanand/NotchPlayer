@@ -7,9 +7,10 @@ import SwiftUI
 /// Same frame and the same empty camera band as `PanelView`, so the shell is
 /// one size on both pages and nothing legible sits behind the housing.
 ///
-/// **One row of four, scrolling down a row at a time.** The covers are the
-/// player's size where the panel is wide enough. A row is about 90pt in a
-/// 148pt page, so the top of the next row shows -- which is what says it scrolls.
+/// **One row of four, scrolling a whole row at a time.** The covers are the
+/// player's size where the panel is wide enough. The window onto them is
+/// exactly one row tall, so nothing shows cut off; the owner chose that over
+/// letting the next row peek out (9 Oct 2026).
 public struct PicksView: View {
     let geometry: NotchGeometry
     let picks: [Pick]
@@ -29,23 +30,34 @@ public struct PicksView: View {
     public var body: some View {
         VStack(spacing: 0) {
             Color.clear.frame(height: geometry.notchExclusionTop)
+            Spacer(minLength: 0)
             ScrollView(.vertical, showsIndicators: false) {
-                LazyVGrid(columns: Array(repeating: GridItem(.fixed(Self.side(geometry)),
-                                                             spacing: Self.gap(geometry)), count: Self.columns),
-                          spacing: Self.rowGap) {
-                    ForEach(picks) { pick in tile(pick) }
-                    plus
+                LazyVStack(spacing: 0) {
+                    ForEach(Self.rows(picks.count + 1), id: \.lowerBound) { row in
+                        HStack(spacing: Self.gap(geometry)) {
+                            ForEach(row, id: \.self) { cell($0) }
+                            Spacer(minLength: 0)
+                        }
+                        .frame(height: Self.rowHeight(geometry))
+                    }
                 }
                 .scrollTargetLayout()
-                .padding(.top, Self.topGap)
             }
-            .scrollTargetBehavior(.viewAligned)
+            // A page is the scroll view's own height, which is one row.
+            .scrollTargetBehavior(.paging)
+            .frame(height: Self.rowHeight(geometry))
             .padding(.horizontal, PanelView.inset)
-            // Stops above the bottom gap, where the page dots are, so the
-            // covers scroll under nothing.
-            .padding(.bottom, PanelView.bottomGap)
+            Spacer(minLength: 0)
         }
+        // Clear of the bottom gap, where the page dots are.
+        .padding(.bottom, PanelView.bottomGap)
         .frame(width: geometry.openWidth, height: geometry.openHeight)
+    }
+
+    /// The picks, then the + last.
+    @ViewBuilder
+    private func cell(_ index: Int) -> some View {
+        if index < picks.count { tile(picks[index]) } else { plus }
     }
 
     private func tile(_ pick: Pick) -> some View {
@@ -85,7 +97,7 @@ public struct PicksView: View {
             .foregroundStyle(colour)
             .lineLimit(1)
             .truncationMode(.tail)
-            .frame(width: Self.side(geometry))
+            .frame(width: Self.side(geometry), height: Self.nameHeight)
     }
 
     private var plus: some View {
@@ -136,11 +148,20 @@ public struct PicksView: View {
 
     // MARK: - Metrics
 
-    public static let columns = 4
-    static let topGap: CGFloat = 10
+    public nonisolated static let columns = 4
     static let nameGap: CGFloat = 4
-    static let rowGap: CGFloat = 12
+    static let nameHeight: CGFloat = 16
     static let minimumGap: CGFloat = 8
+
+    /// A cover and its name.
+    public static func rowHeight(_ geometry: NotchGeometry) -> CGFloat {
+        side(geometry) + nameGap + nameHeight
+    }
+
+    /// `count` cells in rows of four.
+    nonisolated static func rows(_ count: Int) -> [Range<Int>] {
+        stride(from: 0, to: count, by: columns).map { $0..<min($0 + columns, count) }
+    }
 
     /// The player's cover size where four fit, smaller on a narrow notch.
     public static func side(_ geometry: NotchGeometry) -> CGFloat {

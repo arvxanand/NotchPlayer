@@ -438,10 +438,33 @@ private struct Live: View {
                  setRepeat: { service.setRepeat($0) },
                  openLink: { SpotifyLinks.open($0, for: $1) },
                  play: { pick in
-                     players.spotify.send(.play(pick.uri))
+                     Self.playBehind(pick, on: players.spotify)
                      expansion.show(.player)
                  },
                  addPick: { await picks.add(link: NSPasteboard.general.string(forType: .string)) })
+    }
+}
+
+extension Live {
+    /// Plays a pick and hands the front back to whatever had it.
+    ///
+    /// **Spotify's `play track` brings Spotify forward**, a bug of its own
+    /// since 1.2.31 (reported on its forum). Sending the raw event without
+    /// asking to switch apps changes nothing: Spotify activates itself. So
+    /// the app that was in front is reopened once Spotify has taken over.
+    /// Measured 9 Oct 2026, Spotify 1.3.3: switching back at once loses to
+    /// Spotify's own activation, 0.15s later wins; 0.2s for margin. A full
+    /// screen Spotify still shows as a quick slide there and back.
+    static func playBehind(_ pick: Pick, on spotify: PlayerService) {
+        let front = NSWorkspace.shared.frontmostApplication
+        spotify.send(.play(pick.uri))
+        guard let front, front.bundleIdentifier != Source.spotify.bundleID,
+              let url = front.bundleURL else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Source.spotify.bundleID
+            else { return }
+            NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+        }
     }
 }
 

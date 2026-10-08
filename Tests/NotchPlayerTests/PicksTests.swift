@@ -92,6 +92,16 @@ final class PicksTests: XCTestCase {
         XCTAssertEqual(picks.all.last?.symbol, "headphones")
     }
 
+    /// A favourite dragged to the front goes ahead of the built-ins, and stays.
+    @MainActor func testReorderingIsKept() async {
+        let d = defaults()
+        let picks = Picks(defaults: d)
+        _ = await picks.add(link: "spotify:collection:tracks")
+        picks.move(from: IndexSet(integer: 1), to: 0)
+        XCTAssertEqual(picks.all, [.liked, .dj])
+        XCTAssertEqual(Picks(defaults: d).all, [.liked, .dj])
+    }
+
     // MARK: - Playing
 
     func testPlayIsSpotifysPlayTrack() {
@@ -134,15 +144,19 @@ final class PicksPageTests: XCTestCase {
         XCTAssertEqual(PicksView.side(geometries[0]), 72, "the player's size where it fits")
     }
 
-    /// One whole row shows, and some of the next -- the hint that it scrolls.
-    func testOneRowFitsAndTheNextPeeks() {
-        let name: CGFloat = 16
+    /// Exactly one row shows, whole, clear of the camera band and the dots.
+    func testOneRowFitsWhole() {
         for g in geometries {
             let page = g.openHeight - g.notchExclusionTop - PanelView.bottomGap
-            let row = PicksView.side(g) + PicksView.nameGap + name
-            XCTAssertLessThan(PicksView.topGap + row, page)
-            XCTAssertGreaterThan(page - PicksView.topGap - row - PicksView.rowGap, 12)
+            XCTAssertLessThanOrEqual(PicksView.rowHeight(g), page)
         }
+    }
+
+    func testCellsGoInRowsOfFour() {
+        XCTAssertEqual(PicksView.rows(3), [0..<3])
+        XCTAssertEqual(PicksView.rows(4), [0..<4])
+        XCTAssertEqual(PicksView.rows(9), [0..<4, 4..<8, 8..<9])
+        XCTAssertEqual(PicksView.rows(0), [])
     }
 
     func testThePicksButtonIsATargetOfItsOwn() {

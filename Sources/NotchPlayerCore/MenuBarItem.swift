@@ -141,6 +141,10 @@ public final class MenuBarItem: NSObject, NSPopoverDelegate {
                 picks.remove(uri)
                 return picks.all
             },
+            movePicks: { [picks] from, to in
+                picks.move(from: from, to: to)
+                return picks.all
+            },
             version: Updater.current,
             quit: { NSApp.terminate(nil) }))
     }
