@@ -188,6 +188,16 @@ if let i = args.firstIndex(of: "--render") {
 }
 
 /// The transport targets in screen coordinates, for `tools/hit_probe.sh`.
+/// `--playlist <uri>`: what Spotify's own database says about a playlist --
+/// the private-playlist fallback for the picks (`SpotifyCache`).
+if let i = args.firstIndex(of: "--playlist"), i + 1 < args.count {
+    let started = Date()
+    let found = SpotifyCache.playlist(args[i + 1])
+    print(found.map { "name \($0.name)\ncover \($0.cover?.absoluteString ?? "none")" } ?? "not found",
+          String(format: "\n%.0fms", Date().timeIntervalSince(started) * 1000))
+    exit(found == nil ? 1 : 0)
+}
+
 if args.contains("--hit-rects") {
     guard let geometry = MainActor.assumeIsolated({
         AppController.targetScreen.map { NotchGeometry(screen: $0) }

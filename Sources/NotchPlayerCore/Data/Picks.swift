@@ -11,8 +11,8 @@ import Foundation
 public struct Pick: Codable, Equatable, Identifiable, Sendable {
     public let uri: String
     public let name: String
-    /// Nil for the built-ins, which draw an icon, and for a playlist whose
-    /// preview did not answer (private, or offline), which draws the mark.
+    /// Nil for the built-ins, which draw an icon, and for a playlist neither
+    /// the preview nor Spotify's database could describe, which draws a note.
     public let cover: URL?
     public var id: String { uri }
 
@@ -64,8 +64,12 @@ public final class Picks: ObservableObject {
         if let builtIn = Pick.builtIns.first(where: { $0.uri == uri }) {
             pick = builtIn
         } else {
+            // The public preview first; for a private playlist, which it does
+            // not know, Spotify's own database on this Mac.
             let preview = await Self.preview(for: uri)
-            pick = Pick(uri: uri, name: preview?.name ?? Self.fallbackName(uri), cover: preview?.cover)
+            let local = preview == nil ? await Task.detached { SpotifyCache.playlist(uri) }.value : nil
+            pick = Pick(uri: uri, name: preview?.name ?? local?.name ?? Self.fallbackName(uri),
+                        cover: preview?.cover ?? local?.cover)
         }
         // Asked again: two taps can both be waiting on the preview.
         guard !all.contains(where: { $0.uri == uri }) else { return .already }
