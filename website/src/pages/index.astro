@@ -1,0 +1,16 @@
+---
+import Base from '../layouts/Base.astro';
+import { config } from '../config';
+---
+<Base title="NotchPlayer: Spotify and Apple Music in your Mac's notch" description="The song playing, a live waveform and the controls, in the notch of your MacBook.">
+  <main>
+    <section class="beat wrap">
+      <h1>Whatever&rsquo;s playing, <em>right there.</em></h1>
+      <p>NotchPlayer puts Spotify and Apple Music in the notch: the cover, a live waveform, and the controls when you hover.</p>
+      <a class="cta" href={config.dmgUrl}>{config.ctaLabel}</a>
+    </section>
+  </main>
+  <footer class="wrap">
+    <p>NotchPlayer is not affiliated with Spotify AB or Apple.</p>
+  </footer>
+</Base>

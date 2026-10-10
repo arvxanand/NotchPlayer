@@ -1,0 +1,35 @@
+---
+import '@fontsource-variable/newsreader/wght.css';
+import '@fontsource-variable/newsreader/wght-italic.css';
+import '@fontsource-variable/hanken-grotesk';
+import '../styles/global.css';
+import { config } from '../config';
+// The hero headline is the LCP element: fetch its two faces before the CSS asks for them.
+import heroFont from '@fontsource-variable/newsreader/files/newsreader-latin-wght-normal.woff2?url';
+import heroItalic from '@fontsource-variable/newsreader/files/newsreader-latin-wght-italic.woff2?url';
+interface Props { title: string; description: string }
+const { title, description } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#0B0908" />
+    <link rel="icon" href="/icon.png" />
+    <link rel="preload" as="font" type="font/woff2" href={heroFont} crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href={heroItalic} crossorigin />
+    <script is:inline>
+      // Motion is an enhancement: only wide, tall enough, motion-tolerant viewports get the pinned story.
+      if (matchMedia('(min-width: 800px) and (min-height: 700px) and (prefers-reduced-motion: no-preference)').matches) document.documentElement.classList.add('enhanced');
+      // A page script that fails to load (stale deploy, blocked file) must not leave the story hidden: drop to the static stack.
+      addEventListener('error', (e) => { if (e.target instanceof HTMLScriptElement) document.documentElement.classList.remove('enhanced'); }, true);
+    </script>
+  </head>
+  <body data-cta={config.ctaLabel}>
+    <slot />
+    <noscript><p class="wrap">The interactive notch needs JavaScript. The page above still reads without it.</p></noscript>
+  </body>
+</html>

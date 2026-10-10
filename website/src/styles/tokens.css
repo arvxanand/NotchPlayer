@@ -1,0 +1,8 @@
+:root {
+  --bg: #0b0908;
+  --fg: #f3ede4;
+  --dim: rgb(243 237 228 / 0.6);
+  --faint: rgb(243 237 228 / 0.14);
+  --font-display: 'Newsreader Variable', Georgia, serif;
+  --font-text: 'Hanken Grotesk Variable', system-ui, sans-serif;
+}
