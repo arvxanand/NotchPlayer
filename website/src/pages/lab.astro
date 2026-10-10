@@ -1,0 +1,18 @@
+---
+// DEV ONLY: deleted in M5 with src/scripts/lab.ts and src/data/preview-ref.ts.
+import Base from '../layouts/Base.astro';
+---
+<Base title="lab" description="dev only">
+  <main id="lab"></main>
+  <script>import '../scripts/lab';</script>
+</Base>
+<style is:global>
+  #lab { display: grid; gap: 28px; padding: 24px; background: #111; }
+  #lab p { margin: 0 0 6px; max-width: none; color: #999; font: 12px/1.4 ui-monospace, Menlo, monospace; }
+  #lab .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  #lab .cell { position: relative; overflow: hidden; background: #fff; flex: none; }
+  #lab .cell > * { position: absolute; left: 0; top: 0; }
+  #lab .mix > .b { mix-blend-mode: difference; }
+  #lab .layer { width: 100%; height: 100%; background: #fff; }
+  #lab.bare { display: block; padding: 0; background: #fff; }
+</style>
