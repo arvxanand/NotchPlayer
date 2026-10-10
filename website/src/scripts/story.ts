@@ -6,6 +6,7 @@ import { demo, envelope, silent } from '../notch/bands';
 import { tracks } from '../data/tracks';
 import { storyFrame } from './storyboard';
 import { notchFor, STORY_TRACK } from './story-notch';
+import { demoPlays } from '../data/plays';
 
 export function mountStory(root: HTMLElement) {
   gsap.registerPlugin(ScrollTrigger);
@@ -31,6 +32,7 @@ export function mountStory(root: HTMLElement) {
 
   let p = 0;
   let frame = storyFrame(0);
+  const now = Date.now(), plays = demoPlays(now); // once: a new array each frame would rebuild the stats rows
   const apply = () => {
     frame = storyFrame(p);
     const { s0, s1, y0, y1, w } = layout;
@@ -43,7 +45,7 @@ export function mountStory(root: HTMLElement) {
     desk.dataset.mac = frame.pill ? 'pill' : 'notch';
     win.classList.toggle('on', frame.beat > 0);
     captions.forEach((b, i) => b.classList.toggle('on', i + 1 === frame.beat));
-    const { bands: _, ...state } = notchFor(frame, Date.now());
+    const { bands: _, ...state } = notchFor(frame, now, plays);
     notch.set(state);
   };
 
@@ -71,7 +73,13 @@ export function mountStory(root: HTMLElement) {
       if (e.isIntersecting) { last = performance.now(); raf = requestAnimationFrame(tick); }
     });
     io.observe(desk);
-  } catch (e) { st.kill(); notch.destroy(); throw e; } // main.ts falls back to the static stack
+  } catch (e) {
+    // main.ts falls back to the static stack: undo everything apply() wrote first (trap 3).
+    st.kill(); notch.destroy();
+    hero.removeAttribute('style'); canvas.removeAttribute('style'); win.classList.remove('on');
+    captions.forEach((b) => b.classList.remove('on'));
+    throw e;
+  }
   ScrollTrigger.addEventListener('refresh', () => { measure(); p = st.progress; apply(); });
   // Only now, when nothing above can throw: if setup failed, the beats must still be in the static stack (trap 3).
   win.querySelector('.dwin-body')!.append(...captions);

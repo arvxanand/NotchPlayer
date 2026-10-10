@@ -26,10 +26,14 @@ export function mountStage(root: HTMLElement) {
   const all = (ctl: string) => root.querySelectorAll<HTMLElement>(`[data-ctl="${ctl}"]`);
   const label = (ctl: string, text: string) => all(ctl).forEach((b) => { const l = b.querySelector('.lbl')!; if (l.textContent !== text) l.textContent = text; });
   const pressed = (ctl: string, on: boolean) => all(ctl).forEach((b) => b.setAttribute('aria-pressed', String(on)));
+  let synced = '';
   function sync() {
+    // Called on every player frame: only touch the DOM when something it shows changed.
+    const key = `${player.state.playing}${source}${notch.state.mac.hasNotch}`;
+    if (key === synced) return;
+    synced = key;
     label('playpause', player.state.playing ? 'Pause' : 'Play');
-    label('source', source === 'spotify' ? 'Apple Music' : 'Spotify');
-    pressed('source', source === 'music');
+    pressed('source', source === 'music'); // a fixed label ("Apple Music") with a pressed state
     pressed('notch', notch.state.mac.hasNotch);
     pressed('pill', !notch.state.mac.hasNotch);
   }
@@ -38,6 +42,7 @@ export function mountStage(root: HTMLElement) {
   notch.onAction((a) => { tour.cancel(); player.act(a); });
   notch.onSeek((f) => { tour.cancel(); player.seek(f); });
   notch.onChange((_, byUser) => { if (byUser) tour.cancel(); });
+  root.addEventListener('focusin', () => tour.cancel()); // a keyboard visitor inside the panel must not have it closed on them
   root.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-ctl]');
     if (!b || b.closest('.np')) return; // the notch's own buttons are the notch's business (trap 14)

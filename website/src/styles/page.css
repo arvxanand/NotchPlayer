@@ -14,7 +14,7 @@
 .enhanced .stage-pin { display: block; position: sticky; top: 0; height: 100svh; overflow: hidden; }
 .enhanced .desk.shared { display: block; position: absolute; inset: 0; width: auto; aspect-ratio: auto; border-radius: 0; background: transparent; }
 .enhanced .desk.shared .desk-canvas { border-radius: 14px; overflow: hidden; }
-.enhanced .beats { position: absolute; inset: 0 0 auto; pointer-events: none; }
+.enhanced .beats { position: absolute; inset: 0 0 auto; z-index: 1; pointer-events: none; }
 .enhanced .beat.hero { position: absolute; left: 0; right: 0; top: 0; padding: clamp(40px, 8svh, 88px) 0 0; pointer-events: auto; }
 .enhanced .beat .desk { display: none; }
 /* The caption window, in canvas px so its type scales with the desktop. Solid, not glass. */
@@ -33,13 +33,12 @@
 .controls { display: flex; flex-wrap: wrap; gap: 8px; }
 .seg-btn { background: rgb(243 237 228 / 0.08); border: 0; color: var(--fg); font: 600 0.9rem/1 var(--font-text); padding: 0.75rem 1rem; border-radius: 999px; cursor: pointer; }
 .seg-btn[aria-pressed="true"] { background: rgb(243 237 228 / 0.2); }
-.caption { font-size: 0.9rem; max-width: 60ch; }
-@media (min-width: 800px) { .stage .controls { display: none; } }
+.stage-note { font-size: 0.9rem; max-width: 60ch; }
+@media (min-width: 800px) and (pointer: fine) { .stage .controls { display: none; } }
 
 /* ---------- download ---------- */
 .download .wrap { display: grid; gap: 24px; justify-items: start; }
 .dl-get { display: grid; gap: 16px; justify-items: start; }
-.dl-get[hidden], .dl-intel[hidden] { display: none; }
 .dl-intel { color: var(--fg); max-width: 50ch; }
 .brew { font-size: 0.9rem; max-width: none; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 code { font: 0.85rem/1.5 ui-monospace, Menlo, monospace; color: var(--fg); background: rgb(243 237 228 / 0.08); padding: 0.15rem 0.45rem; border-radius: 6px; overflow-wrap: anywhere; }

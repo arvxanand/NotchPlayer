@@ -20,7 +20,7 @@ describe('deskFit', () => {
     expect(f.h).toBeCloseTo(520 * f.s, 6);
   });
   it('matches the CSS aspect-ratio heights so JS never shifts layout', () => {
-    // CSS: full = aspect-ratio 1512/982; strip = aspect-ratio 960/strip capped at strip px.
+    // CSS: full = aspect-ratio 1512/982; strip = aspect-ratio 560/strip capped at strip px.
     expect(deskFit(800, 0).h).toBeCloseTo(800 * SCREEN.h / SCREEN.w, 6);
     expect(deskFit(500, 300).h).toBeCloseTo(Math.min(300, 500 * 300 / STRIP_W), 6);
   });

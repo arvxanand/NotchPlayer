@@ -75,10 +75,10 @@ export function createNotch(host: HTMLElement, opts: { interactive: boolean; sta
       </div>
       <div class="np-panel" id="${id}-panel" role="group" aria-label="Now playing">
         <div class="np-page np-player">
-          <button type="button" class="np-art np-aart" data-act="album" aria-label="Album cover"></button>
+          <span class="np-art np-aart" role="img" aria-label="Album cover"></span>
           <div class="np-text">
-            <div class="np-row"><div class="np-names"><button type="button" class="np-title" data-act="track"></button><button type="button" class="np-artist" data-act="artist"></button></div>
-              <button type="button" class="np-plus" data-act="save" aria-label="Save the song">${ico.plusCircle()}</button></div>
+            <div class="np-row"><div class="np-names"><span class="np-title"></span><span class="np-artist"></span></div>
+              <button type="button" class="np-plus" data-act="save" aria-label="Save the song (in the app, this opens Spotify)">${ico.plusCircle()}</button></div>
             <div class="np-progress" role="slider" aria-label="Playback position" aria-valuemin="0" aria-valuemax="100" tabindex="0"><i class="np-track"></i><i class="np-fill"></i><i class="np-knob"></i></div>
             <div class="np-clock"><span class="np-el"></span><span class="np-rem"></span></div>
           </div>
@@ -95,9 +95,9 @@ export function createNotch(host: HTMLElement, opts: { interactive: boolean; sta
           <div class="np-tabs" role="tablist" aria-label="Range">${RANGES.map((r) => `<button type="button" role="tab" class="np-tab" data-range="${r.id}" id="${id}-r-${r.id}" aria-controls="${id}-sbody">${r.title}</button>`).join('')}</div>
           <div class="np-sbody" id="${id}-sbody" role="tabpanel">
             <div class="np-totals"><span class="np-total"></span><span class="np-listened">listened</span><span class="np-count"></span></div>
-            <div class="np-top"><div class="np-tabs" role="tablist" aria-label="Show"><button type="button" role="tab" class="np-tab" data-songs="0" id="${id}-a">Artists</button><button type="button" role="tab" class="np-tab" data-songs="1" id="${id}-s">Songs</button></div><ol class="np-rows"></ol></div>
+            <div class="np-top"><div class="np-tabs" role="tablist" aria-label="Show"><button type="button" role="tab" class="np-tab" data-songs="0" id="${id}-a" aria-controls="${id}-rows">Artists</button><button type="button" role="tab" class="np-tab" data-songs="1" id="${id}-s" aria-controls="${id}-rows">Songs</button></div><ol class="np-rows" id="${id}-rows"></ol></div>
           </div>
-          <button type="button" class="np-back sr-only" data-page="player">Back to the player</button>
+          <button type="button" class="np-back" data-page="player">Back to the player</button>
         </div>
         <div class="np-dots" aria-hidden="true"><i></i><i></i></div>
       </div>
@@ -190,7 +190,6 @@ export function createNotch(host: HTMLElement, opts: { interactive: boolean; sta
     cover(q('.np-aart'), t, PANEL.art, animate);
     swapText(q('.np-title'), t.title, animate);
     swapText(q('.np-artist'), t.artist, animate);
-    q('.np-aart').setAttribute('aria-label', t.source === 'spotify' ? 'Open the album in Spotify' : 'Album cover');
     q('.np-plus').hidden = !t.saveable;
     // The + takes its glyph plus the gap PanelView keeps clear of its 44pt target.
     q('.np-names').style.width = t.saveable ? px(panelLayout(s.mac).text.w - PANEL.plus - ((HIT - PANEL.plus) / 2 + 4)) : '100%';

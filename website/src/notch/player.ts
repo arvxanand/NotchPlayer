@@ -78,6 +78,7 @@ export interface Player {
 /** Drives the state on requestAnimationFrame and the bars at the app's 30 frames a second. */
 export function createPlayer(tracks: Track[], onChange: (p: Player) => void, init: PlayerState = initial(tracks.length)): Player {
   let s = init, bands = silent(), raf = 0, last = 0, barClock = 0;
+  let settled: PlayerState | null = null;
   const durations = tracks.map((t) => t.duration);
   const emit = () => onChange(player);
   const frame = (now: number) => {
@@ -89,7 +90,8 @@ export function createPlayer(tracks: Track[], onChange: (p: Player) => void, ini
       barClock = 0;
       bands = s.playing ? envelope(bands, demo(s.position, tracks[s.order[s.at]].bpm)) : silent();
     }
-    emit();
+    if (s.playing || settled !== s) emit(); // paused: one last frame so the bars settle, then quiet
+    settled = s.playing ? null : s;
     raf = requestAnimationFrame(frame);
   };
   const player: Player = {

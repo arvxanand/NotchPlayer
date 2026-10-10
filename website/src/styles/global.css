@@ -15,4 +15,6 @@ p { margin: 0; color: var(--dim); max-width: 34ch; }
 :focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
 
 .cta { display: inline-block; font: 600 1rem/1 var(--font-text); color: #000; background: var(--fg); border-radius: 999px; padding: 0.9rem 1.5rem; text-decoration: none; }
+/* `hidden` must win over any display rule (the Intel swap sets it on flex rows). */
+[hidden] { display: none !important; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

@@ -11,7 +11,7 @@ import { config } from '../config';
         <a class="cta cta-get" href={config.dmgUrl}>{config.ctaLabel}</a>
         <button class="cta cta-share" type="button" data-share>Send this page to your Mac</button>
       </div>
-      <p class="meta">Version {config.version}. Needs macOS {config.macosMin} Sequoia or later on an Apple Silicon Mac (M1 or newer).</p>
+      <p class="meta">Version {config.version}. Needs macOS {config.macosMin} Sequoia or later on an Apple Silicon Mac (M1 or newer), with the Spotify desktop app or Music.</p>
       <p class="brew">Or with Homebrew: <code>{config.brewCmd}</code> <button type="button" class="copy" data-copy={config.brewCmd}>Copy</button></p>
     </div>
     <p class="dl-intel" data-arch-intel hidden>This looks like an Intel Mac. NotchPlayer needs Apple Silicon (M1 or newer), so it won&rsquo;t open here.</p>
@@ -37,7 +37,7 @@ import { config } from '../config';
         <ul class="perms">
           <li><b>Automation</b>, so it can read the song and play, pause and skip in Spotify or Music.</li>
           <li><b>System Audio Recording</b>, for the waveform. It hears only your music app, works it out in memory and never saves a sound.<img src="/install/4-audio.png" width="925" height="225" loading="lazy" decoding="async" alt="System Settings, System Audio Recording Only, with NotchPlayer switched on" /></li>
-          <li><b>Accessibility</b>, only if you turn on the + in settings, so it can open Spotify&rsquo;s playlist list for you.</li>
+          <li><b>Accessibility</b>, only if you turn on Save with Spotify&rsquo;s + in settings, so the + can open Spotify&rsquo;s playlist list for you.</li>
         </ul>
       </li>
     </ol>

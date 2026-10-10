@@ -97,6 +97,10 @@
 .np-sbar { grid-column: 2 / 4; display: block; height: 2.5px; border-radius: 1.25px; background: var(--np-accent); width: max(2.5px, calc(var(--share) * 100%)); }
 .np-none { font: 500 12px/22px var(--np-text); color: var(--np-dim); }
 
+/* Keyboard-only way back from the stats page: hidden until focused, then a small pill. */
+.np-back { position: absolute !important; left: 16px; bottom: 6px; opacity: 0; font: 500 11px/1 var(--np-text); color: #fff; background: rgb(255 255 255 / 0.14); padding: 5px 8px !important; border-radius: 999px; }
+.np-back:focus-visible { opacity: 1; }
+
 /* The lab and phone stills draw pictures: nothing animates. */
 .np[data-still] *, .np[data-still] { transition: none !important; animation: none !important; }
 @media (prefers-reduced-motion: reduce) {

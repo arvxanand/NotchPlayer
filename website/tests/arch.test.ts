@@ -4,7 +4,10 @@ import { macArch } from '../src/scripts/arch';
 describe('macArch', () => {
   it('trusts Chrome\'s architecture first', () => {
     expect(macArch('arm', 'Intel Iris')).toBe('arm');
-    expect(macArch('x86', 'Apple M1')).toBe('intel');
+    expect(macArch('x86', 'Intel Iris')).toBe('intel');
+  });
+  it('believes an Apple GPU over an x86 report (Chrome under Rosetta)', () => {
+    expect(macArch('x86', 'ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)')).toBe('arm');
   });
   it('falls back to the GPU name', () => {
     expect(macArch(undefined, 'ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Pro, Unspecified Version)')).toBe('arm');
