@@ -1,0 +1,33 @@
+---
+import Desktop from './Desktop.astro';
+import DockIcon from './DockIcon.astro';
+// The same controls twice: the dock on a desktop, a button row on a phone (the dock is too small to tap).
+// Every label lives in a .lbl span, so a label change never wipes a dock icon (trap 13).
+const controls = [
+  { ctl: 'playpause', label: 'Pause', icon: 'playpause', pressed: undefined },
+  { ctl: 'next', label: 'Next song', icon: 'next', pressed: undefined },
+  { ctl: 'source', label: 'Apple Music', icon: 'source', pressed: 'false' },
+  { ctl: 'stats', label: 'Stats', icon: 'stats', pressed: undefined },
+  { ctl: 'notch', label: 'Notch', icon: 'notch', pressed: 'true' },
+  { ctl: 'pill', label: 'No notch', icon: 'pill', pressed: 'false' },
+] as const;
+const attrs = (c: (typeof controls)[number]) => ({ 'data-ctl': c.ctl, ...(c.pressed ? { 'aria-pressed': c.pressed } : {}) });
+---
+<section class="stage" id="try" aria-labelledby="try-h">
+  <div class="wrap">
+    <h2 id="try-h">Go on, <em>try it.</em></h2>
+    <p>Open the notch, then play with it, or use the controls. No sound, no account.</p>
+    <div class="controls" role="group" aria-label="Demo controls">
+      {controls.map((c) => <button type="button" class="seg-btn" {...attrs(c)}><span class="lbl">{c.label}</span></button>)}
+    </div>
+    <Desktop class="stage-desk" attrs={{ 'data-stage': '' }}>
+      <Fragment slot="dock">
+        {controls.map((c, i) => (<>
+          {(i === 2 || i === 4) && <span class="dock-sep"></span>}
+          <DockIcon label={c.label} icon={c.icon} attrs={attrs(c)} />
+        </>))}
+      </Fragment>
+    </Desktop>
+    <p class="caption">Four real songs, covers from Spotify. The waveform is drawn to the beat, since this page plays no sound.</p>
+  </div>
+</section>

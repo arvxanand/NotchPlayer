@@ -117,7 +117,8 @@ export function createNotch(host: HTMLElement, opts: { interactive: boolean; sta
   }
 
   let s: NotchState = { ...defaultState, ...opts.state };
-  let shown: { mac?: Mac; track?: NotchTrack | null; mode?: string; page?: string; repeatOne?: boolean } = {};
+  // What is on screen already, so a render at 60fps only touches what changed.
+  let shown: { mac?: Mac; track?: NotchTrack | null; repeatOne?: boolean; playing?: boolean; stats?: unknown[] } = {};
   const actions: ((a: Action) => void)[] = [], seeks: ((f: number) => void)[] = [], changes: ((st: NotchState, u: boolean) => void)[] = [];
 
   /** Positions that depend only on which Mac this is. */
@@ -250,9 +251,12 @@ export function createNotch(host: HTMLElement, opts: { interactive: boolean; sta
       q('.np-el').textContent = mmss(s.position);
       q('.np-rem').textContent = remaining(s.position, t.duration);
     }
-    const pp = q('.np-pp');
-    pp.setAttribute('aria-label', s.playing ? 'Pause' : 'Play');
-    pp.querySelector('.np-disc')!.innerHTML = s.playing ? ico.pause() : ico.play();
+    if (shown.playing !== s.playing) {
+      const pp = q('.np-pp');
+      pp.setAttribute('aria-label', s.playing ? 'Pause' : 'Play');
+      pp.querySelector('.np-disc')!.innerHTML = s.playing ? ico.pause() : ico.play();
+      shown.playing = s.playing;
+    }
     q('.np-shuffle').dataset.on = String(s.shuffle);
     q('.np-shuffle').setAttribute('aria-pressed', String(s.shuffle));
     const rep = q('.np-repeat');
@@ -260,7 +264,8 @@ export function createNotch(host: HTMLElement, opts: { interactive: boolean; sta
     rep.setAttribute('aria-pressed', String(s.repeat !== 'off'));
     rep.setAttribute('aria-label', `Repeat ${s.repeat === 'off' ? 'off' : s.repeat === 'all' ? 'all songs' : 'this song'}`);
     if (shown.repeatOne !== (s.repeat === 'one')) { q('.np-rglyph').innerHTML = ico.repeat(s.repeat === 'one'); shown.repeatOne = s.repeat === 'one'; }
-    renderStats();
+    const stats = [s.plays, s.range, s.songs, Math.floor(s.now / 60_000)];
+    if (!shown.stats || stats.some((v, i) => v !== shown.stats![i])) { renderStats(); shown.stats = stats; }
     renderBars();
   }
 
@@ -269,7 +274,7 @@ export function createNotch(host: HTMLElement, opts: { interactive: boolean; sta
     s = { ...s, ...patch };
     render();
     if (byUser) changes.forEach((cb) => cb(s, true));
-    if (byUser && !wasOpen && s.mode === 'panel' && document.activeElement === hit) q<HTMLElement>('.np-player [data-act="playpause"]').focus();
+    if (byUser && !wasOpen && s.mode === 'panel' && document.activeElement === hit) q<HTMLElement>('.np-player [data-act="playpause"]').focus({ preventScroll: true });
   };
 
   // ---- interaction ----
@@ -286,7 +291,7 @@ export function createNotch(host: HTMLElement, opts: { interactive: boolean; sta
       const act = t.closest<HTMLElement>('[data-act]')?.dataset.act as Action | undefined;
       if (act) return actions.forEach((cb) => cb(act));
       const page = t.closest<HTMLElement>('[data-page]')?.dataset.page as NotchState['page'] | undefined;
-      if (page) { set({ page }, true); return q<HTMLElement>(page === 'stats' ? '.np-stats [aria-selected="true"]' : '.np-statsbtn').focus(); }
+      if (page) { set({ page }, true); return q<HTMLElement>(page === 'stats' ? '.np-stats [aria-selected="true"]' : '.np-statsbtn').focus({ preventScroll: true }); }
       const range = t.closest<HTMLElement>('[data-range]')?.dataset.range as Range | undefined;
       if (range) return set({ range }, true);
       const songs = t.closest<HTMLElement>('[data-songs]')?.dataset.songs;
@@ -313,7 +318,7 @@ export function createNotch(host: HTMLElement, opts: { interactive: boolean; sta
     const end = () => { dragging = false; delete el.dataset.drag; };
     on(progress, 'pointerup', end); on(progress, 'pointercancel', end);
     // On document, not the notch: after a mouse click nothing inside may hold focus.
-    on(document, 'keydown', (e: KeyboardEvent) => { if (e.key === 'Escape' && s.mode === 'panel') { set({ mode: 'peek' }, true); hit?.focus(); } });
+    on(document, 'keydown', (e: KeyboardEvent) => { if (e.key === 'Escape' && s.mode === 'panel') { set({ mode: 'peek' }, true); hit?.focus({ preventScroll: true }); } }); // a scroll would slide the notch under a resting mouse and reopen it
     on(document, 'pointerdown', (e: PointerEvent) => { if (s.mode === 'panel' && !el.contains(e.target as Node)) set({ mode: 'peek' }, true); });
   }
 

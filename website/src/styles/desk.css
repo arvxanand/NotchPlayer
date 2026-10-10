@@ -28,3 +28,7 @@
 .dwin-bar { height: 30px; display: flex; gap: 8px; align-items: center; padding: 0 12px; }
 .dwin-bar i { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; } .dwin-bar i + i { background: #febc2e; } .dwin-bar i + i + i { background: #28c840; }
 @media (prefers-reduced-motion: reduce) { .dock-btn .tile { transition: none; } }
+
+/* The stage's desktop: as big as the window allows. .desk.stage-desk beats .desk's width (trap 15). */
+.desk.stage-desk { width: min(100%, calc((100svh - 160px) * 1512 / 982)); margin-inline: auto; }
+@media (max-width: 799px) { .stage-desk .dock { display: none; } }
