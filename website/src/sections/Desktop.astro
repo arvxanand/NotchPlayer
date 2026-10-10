@@ -1,0 +1,27 @@
+---
+// A macOS-style desktop at real point size (desk.ts scales it). No Apple logo, wallpaper or app
+// icons (trap 25): the menu bar starts at the bold app name, the wallpaper and dock are original.
+import { housingPath } from '../notch/desk';
+interface Props { strip?: number; mac?: 'notch' | 'pill'; class?: string; attrs?: Record<string, string> }
+const { strip = 0, mac = 'notch', class: cls = '', attrs = {} } = Astro.props;
+const menus = ['File', 'Edit', 'View', 'Go', 'Window', 'Help'];
+---
+<div class={`desk ${cls}`} data-desk data-mac={mac} data-strip={strip || undefined} style={strip ? `--strip:${strip}` : undefined}>
+  <div class="desk-canvas">
+    <div class="desk-wall" aria-hidden="true"></div>
+    <div class="desk-bar" aria-hidden="true">
+      <div class="desk-menus"><b>Finder</b>{menus.map((m) => <span>{m}</span>)}</div>
+      <div class="desk-status">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 7h10M4 12h16M4 17h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="17" cy="7" r="2.2" fill="currentColor"/><circle cx="14" cy="17" r="2.2" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 28 14" width="26" height="13"><rect x="1" y="1" width="22" height="12" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".55"/><rect x="3" y="3" width="15" height="8" rx="2" fill="currentColor"/><rect x="24.5" y="4.5" width="2" height="5" rx="1" fill="currentColor" opacity=".55"/></svg>
+        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="19.5" r="1.5" fill="currentColor"/></svg>
+        <span data-clock>Sat 10 Oct&nbsp;&nbsp;9:41</span>
+      </div>
+    </div>
+    <div class="desk-housing" aria-hidden="true" style={`clip-path: path('${housingPath()}')`}></div>
+    <div class="desk-notch" {...attrs}></div>
+    <slot />
+    {Astro.slots.has('dock') && <div class="dock"><slot name="dock" /></div>}
+  </div>
+</div>
