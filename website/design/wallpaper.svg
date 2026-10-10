@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1512" height="982" viewBox="0 0 1512 982">
+  <!-- NotchPlayer desktop picture: original, warm liner-notes palette (DESIGN.md), darkest at
+       the top so the notch is the brightest edge. Soft radial fields like low stage light on a
+       record sleeve; a faint grain dithers the gradients so they do not band. -->
+  <defs>
+    <radialGradient id="ember"><stop offset="0" stop-color="#6a3b2a"/><stop offset="0.55" stop-color="#6a3b2a" stop-opacity="0.5"/><stop offset="1" stop-color="#6a3b2a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="plum"><stop offset="0" stop-color="#3a2230"/><stop offset="0.55" stop-color="#3a2230" stop-opacity="0.55"/><stop offset="1" stop-color="#3a2230" stop-opacity="0"/></radialGradient>
+    <radialGradient id="tobacco"><stop offset="0" stop-color="#4b3320"/><stop offset="0.55" stop-color="#4b3320" stop-opacity="0.55"/><stop offset="1" stop-color="#4b3320" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glow"><stop offset="0" stop-color="#a0614a" stop-opacity="0.55"/><stop offset="0.5" stop-color="#a0614a" stop-opacity="0.2"/><stop offset="1" stop-color="#a0614a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="top" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0c0908" stop-opacity="0.97"/>
+      <stop offset="0.18" stop-color="#0c0908" stop-opacity="0.6"/>
+      <stop offset="0.45" stop-color="#0c0908" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0"/></filter>
+  </defs>
+  <rect width="1512" height="982" fill="#1a110e"/>
+  <ellipse cx="1150" cy="780" rx="860" ry="470" fill="url(#ember)"/>
+  <ellipse cx="260" cy="760" rx="720" ry="430" fill="url(#plum)"/>
+  <ellipse cx="640" cy="1010" rx="880" ry="360" fill="url(#tobacco)"/>
+  <ellipse cx="1010" cy="600" rx="460" ry="260" fill="url(#glow)"/>
+  <ellipse cx="380" cy="470" rx="420" ry="230" fill="url(#ember)" opacity="0.45"/>
+  <rect width="1512" height="982" fill="url(#top)"/>
+  <rect width="1512" height="982" filter="url(#grain)" opacity="0.05"/>
+</svg>

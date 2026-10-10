@@ -1,0 +1,111 @@
+/* The HTML notch. Every class is np- prefixed: one global stylesheet (trap 11). Positions are set
+   inline from geometry.ts; this file holds type, colour and motion, all from Views/Typography.swift. */
+.np {
+  --np-text: system-ui, -apple-system, 'Hanken Grotesk Variable', sans-serif;
+  --np-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  --np-dim: rgb(255 255 255 / 0.55);
+  --np-track: rgb(255 255 255 / 0.36);
+  --np-accent: #fff;
+  --np-f: 0;
+  --np-ease: var(--np-spring, ease);
+  --np-dur: var(--np-spring-ms, 380ms);
+  position: relative; color: #fff; font-family: var(--np-text);
+  text-align: left; line-height: normal;
+}
+:where(.np) :where(button) { all: unset; box-sizing: border-box; cursor: pointer; position: relative; display: block; }
+.np button:focus-visible, .np [role="slider"]:focus-visible { outline: 2px solid #fff; outline-offset: 1px; border-radius: 4px; }
+.np[data-mode="off"] { visibility: hidden; }
+
+/* The black body: InverseCornerShape as a clip path, morphing on the app's spring. */
+.np-shell { position: absolute; inset: 0; background: #000; transition: clip-path var(--np-dur) var(--np-ease); }
+.np-peek, .np-panel { position: absolute; }
+.np-peek { transition: opacity 0.1s ease-out; }
+.np-panel { opacity: 0; transition: opacity 0.14s ease-in; }
+.np[data-mode="panel"] .np-peek { opacity: 0; }
+.np[data-mode="panel"] .np-panel { opacity: 1; transition-delay: 0.06s; }
+.np-hit { position: absolute; z-index: 2; }
+.np[data-mode="panel"] .np-hit { pointer-events: none; }
+
+/* ---- peek (PeekView) ---- */
+.np-pmark, .np-art, .np-bars { position: absolute; display: block; }
+.np-art { overflow: hidden; background: var(--np-slot, #000); display: grid; place-items: center; }
+.np-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.np-art img.np-in { animation: np-in 0.35s ease-out both; }
+@keyframes np-in { from { opacity: 0; } }
+.np-ico { display: block; overflow: visible; }
+.np-bars { display: flex; align-items: center; gap: 2px; }
+.np-bars i { width: 2px; height: 2px; border-radius: 1px; background: #fff; flex: none; }
+
+/* ---- player page (PanelView) ---- */
+.np-page { position: absolute; inset: 0; transition: opacity 0.22s ease-out, transform 0.22s ease-out; }
+.np-player { transform: translateX(0); }
+.np-stats { opacity: 0; transform: translateX(14px); padding: 0 16px 10px; }
+.np[data-np-page="stats"] .np-player { opacity: 0; transform: translateX(-14px); }
+.np[data-np-page="stats"] .np-stats { opacity: 1; transform: translateX(0); }
+.np-aart { position: absolute; border-radius: 8px; }
+.np-text { position: absolute; }
+.np-row { display: flex; align-items: flex-start; }
+.np-names { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.np-title, .np-artist { max-width: 100%; display: grid; white-space: nowrap; }
+.np-title span, .np-artist span { grid-area: 1 / 1; overflow: hidden; text-overflow: ellipsis; }
+.np-title { font: 600 17px/21px var(--np-text); color: #fff; }
+.np-artist { font: 500 13px/16px var(--np-text); color: var(--np-dim); }
+.np-rise { animation: np-rise 0.22s ease-out 0.12s both; }
+.np-out { animation: np-out 0.12s ease-in both; }
+@keyframes np-rise { from { opacity: 0; transform: translateY(4px); } }
+@keyframes np-out { to { opacity: 0; transform: translateY(-4px); } }
+.np-plus { margin-left: auto; margin-top: 1.5px; width: 18px; height: 18px; flex: none; }
+.np-plus::after { content: ''; position: absolute; inset: -13px; }
+.np-plus[hidden] { display: none !important; }
+.np-progress { position: absolute; left: 0; right: 0; height: 3px; cursor: pointer; touch-action: none; }
+.np-progress::before { content: ''; position: absolute; left: 0; right: 0; top: -13.5px; bottom: -13.5px; }
+.np-progress i { position: absolute; display: block; }
+.np-track, .np-fill { left: 0; top: 0; height: 3px; border-radius: 1.5px; transition: height 0.12s ease-out, top 0.12s ease-out; }
+.np-track { right: 0; background: var(--np-track); }
+.np-fill { width: calc(var(--np-f) * 100%); background: var(--np-accent); transition: background-color 0.4s ease-out, height 0.12s ease-out, top 0.12s ease-out; }
+.np-knob { width: 7px; height: 7px; border-radius: 50%; top: -2px; left: calc(var(--np-f) * 100% - 3.5px); background: var(--np-accent); transition: background-color 0.4s ease-out; }
+.np[data-drag] .np-track, .np[data-drag] .np-fill { top: -1px; height: 5px; border-radius: 2.5px; }
+.np-clock { position: absolute; left: 0; right: 0; display: flex; justify-content: space-between; font: 500 11px/13px var(--np-mono); font-variant-numeric: tabular-nums; color: var(--np-dim); }
+.np-transport { position: absolute; display: flex; }
+.np-tbtn { width: 44px; height: 44px; display: grid; place-items: center; }
+.np-mode { width: 30px; height: 44px; display: grid; place-items: center; }
+.np-mode[data-on="true"] { color: #1DB954; }
+.np-on { position: absolute; left: 13px; top: 33px; width: 4px; height: 4px; border-radius: 50%; background: #1DB954; opacity: 0; }
+.np-mode[data-on="true"] .np-on { opacity: 1; }
+.np-disc { width: 29px; height: 29px; border-radius: 50%; background: #fff; color: #000; display: grid; place-items: center; }
+.np-disc .np-ico[width="11"] { transform: translateX(1px); }
+.np-statsbtn { position: absolute; display: grid; place-items: center; color: var(--np-dim); }
+.np-dots { position: absolute; left: 0; right: 0; display: flex; justify-content: center; gap: 5px; pointer-events: auto; cursor: pointer; }
+.np-dots i { width: 5px; height: 5px; border-radius: 50%; background: rgb(255 255 255 / 0.275); }
+.np[data-np-page="player"] .np-dots i:first-child, .np[data-np-page="stats"] .np-dots i:last-child { background: #fff; }
+
+/* ---- stats page (StatsView) ---- */
+.np-tabs { display: flex; gap: 2px; }
+.np-tab { height: 24px; padding: 0 8px; display: grid; place-items: center; border-radius: 12px; font: 500 11px/1 var(--np-text); color: var(--np-dim); }
+.np-tab[aria-selected="true"] { font-weight: 600; color: var(--np-accent); background: color-mix(in srgb, var(--np-accent) 18%, transparent); }
+.np-sbody { display: flex; gap: 16px; margin-top: 8px; }
+.np-totals { width: 96px; flex: none; display: flex; flex-direction: column; gap: 2px; }
+.np-total { font: 600 24px/28px var(--np-text); color: var(--np-accent); }
+.np-listened { font: 500 11px/13px var(--np-text); color: var(--np-dim); }
+.np-count { font: 500 12px/14px var(--np-text); color: #fff; margin-top: 10px; } /* 8 in the app; +2 for CSS line boxes (lab) */
+.np-top { flex: 1; min-width: 0; }
+.np-rows { list-style: none; margin: 0; padding: 0; }
+.np-srow { height: 22px; display: grid; grid-template-columns: 16px 1fr auto; grid-template-rows: auto 2.5px; column-gap: 0; row-gap: 2px; align-content: start; }
+.np-rank { font: 500 11px/15px var(--np-mono); color: var(--np-dim); }
+.np-sname { font: 500 12px/15px var(--np-text); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 6px; }
+.np-sval { font: 500 11px/15px var(--np-mono); color: var(--np-dim); }
+.np-sbar { grid-column: 2 / 4; display: block; height: 2.5px; border-radius: 1.25px; background: var(--np-accent); width: max(2.5px, calc(var(--share) * 100%)); }
+.np-none { font: 500 12px/22px var(--np-text); color: var(--np-dim); }
+
+/* Keyboard-only way back from the stats page: hidden until focused, then a small pill. */
+.np-back { position: absolute !important; left: 16px; bottom: 6px; opacity: 0; font: 500 11px/1 var(--np-text); color: #fff; background: rgb(255 255 255 / 0.14); padding: 5px 8px !important; border-radius: 999px; }
+.np-back:focus-visible { opacity: 1; }
+
+/* The lab and phone stills draw pictures: nothing animates. */
+.np[data-still] *, .np[data-still] { transition: none !important; animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .np { --np-ease: ease-in-out; --np-dur: 0.18s; }
+  .np-page { transition-duration: 0.16s; transition-timing-function: ease-in-out; }
+  .np-rise, .np-out { animation-name: np-fade; }
+  @keyframes np-fade { from { opacity: 0; } }
+}

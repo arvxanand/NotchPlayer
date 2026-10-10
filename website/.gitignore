@@ -1,0 +1,5 @@
+design/refs/
+node_modules/
+dist/
+.astro/
+design/directions.html

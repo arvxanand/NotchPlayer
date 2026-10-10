@@ -1,0 +1,5 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "include": ["src", "tests", "tools"],
+  "compilerOptions": { "resolveJsonModule": true, "allowJs": true }
+}

@@ -1,0 +1,19 @@
+---
+// One dock button: an original icon tile and a macOS-style label shown on hover and focus.
+// No Spotify or Apple Music marks out here: those live only inside the notch (DESIGN.md).
+export type Icon = 'playpause' | 'next' | 'source' | 'notch' | 'pill' | 'stats';
+interface Props { label: string; icon: Icon; attrs?: Record<string, string> }
+const { label, icon, attrs = {} } = Astro.props;
+const paths: Record<Icon, string> = {
+  playpause: '<path d="M14 14.5v19l13-9.5z" fill="#fff"/><path d="M31 15v18M37 15v18" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>',
+  next: '<path d="M13 14v20l14-10z" fill="#fff"/><path d="M33 14v20" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/>',
+  source: '<path d="M20 30V15l13-3v15" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><circle cx="17" cy="30.5" r="3.6" fill="#fff"/><circle cx="30" cy="27.5" r="3.6" fill="#fff"/><path d="M12 38h24m-4-3.5 4 3.5-4 3.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity=".7"/>',
+  notch: '<rect x="8" y="14" width="32" height="21" rx="3" fill="none" stroke="#fff" stroke-width="2.2"/><path d="M19 14h10v3a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2z" fill="#fff"/>',
+  pill: '<rect x="8" y="14" width="32" height="21" rx="3" fill="none" stroke="#fff" stroke-width="2.2"/><rect x="18" y="16.5" width="12" height="3.5" rx="1.75" fill="#fff"/>',
+  stats: '<rect x="12" y="25" width="6" height="10" rx="1.5" fill="#fff"/><rect x="21" y="19" width="6" height="16" rx="1.5" fill="#fff"/><rect x="30" y="13" width="6" height="22" rx="1.5" fill="#fff"/>',
+};
+---
+<button type="button" class={`dock-btn i-${icon}`} {...attrs}>
+  <span class="tile" aria-hidden="true"><svg viewBox="0 0 48 48" width="48" height="48" set:html={paths[icon]} /></span>
+  <span class="lbl">{label}</span>
+</button>

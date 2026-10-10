@@ -1,0 +1,62 @@
+/* ---------- static default: every beat is a normal block with its own still notch ---------- */
+.stage-pin { display: contents; }
+.desk.shared { display: none; }
+.beat { display: grid; gap: 22px; justify-items: start; padding: clamp(56px, 10svh, 120px) 0; }
+.beat .desk { justify-self: stretch; margin-top: 8px; max-width: 560px; }
+.beat p { max-width: 40ch; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.cta.cta-share { display: none; border: 0; cursor: pointer; }
+@media (max-width: 799px) and (pointer: coarse) { .cta.cta-get { display: none; } .cta.cta-share { display: inline-block; } }
+.meta { font-size: 0.9rem; color: var(--dim); margin-top: -8px; max-width: none; }
+
+/* ---------- enhanced: one desktop, pinned, grows to fill the window (story.ts) ---------- */
+.enhanced .story { position: relative; height: 560svh; }
+.enhanced .stage-pin { display: block; position: sticky; top: 0; height: 100svh; overflow: hidden; }
+.enhanced .desk.shared { display: block; position: absolute; inset: 0; width: auto; aspect-ratio: auto; border-radius: 0; background: transparent; }
+.enhanced .desk.shared .desk-canvas { border-radius: 14px; overflow: hidden; }
+.enhanced .beats { position: absolute; inset: 0 0 auto; z-index: 1; pointer-events: none; }
+.enhanced .beat.hero { position: absolute; left: 0; right: 0; top: 0; padding: clamp(40px, 8svh, 88px) 0 0; pointer-events: auto; }
+.enhanced .beat .desk { display: none; }
+/* The caption window, in canvas px so its type scales with the desktop. Solid, not glass. */
+.dwin.caption { left: 72px; top: 540px; width: 600px; height: 320px; opacity: 0; transition: opacity 0.35s var(--ease-out); }
+.dwin.caption.on { opacity: 1; }
+.dwin-body { position: relative; height: calc(100% - 30px); }
+.enhanced .dwin.caption .beat { position: absolute; inset: 0; display: block; padding: 28px 36px; opacity: 0; transition: opacity 0.35s var(--ease-out); }
+.enhanced .dwin.caption .beat.on { opacity: 1; }
+.dwin.caption h2 { font-size: 52px; }
+.dwin.caption p { margin-top: 18px; font-size: 21px; max-width: 32ch; }
+@media (prefers-reduced-motion: reduce) { .dwin.caption, .enhanced .dwin.caption .beat { transition: none; } }
+
+/* ---------- try-it stage ---------- */
+.stage, .download, .faq { padding: clamp(56px, 10svh, 120px) 0; }
+.stage .wrap { display: grid; gap: 18px; justify-items: start; width: min(1600px, 100% - 32px); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.seg-btn { background: rgb(243 237 228 / 0.08); border: 0; color: var(--fg); font: 600 0.9rem/1 var(--font-text); padding: 0.75rem 1rem; border-radius: 999px; cursor: pointer; }
+.seg-btn[aria-pressed="true"] { background: rgb(243 237 228 / 0.2); }
+.stage-note { font-size: 0.9rem; max-width: 60ch; }
+@media (min-width: 800px) and (pointer: fine) { .stage .controls { display: none; } }
+
+/* ---------- download ---------- */
+.download .wrap { display: grid; gap: 24px; justify-items: start; }
+.dl-get { display: grid; gap: 16px; justify-items: start; }
+.dl-intel { color: var(--fg); max-width: 50ch; }
+.brew { font-size: 0.9rem; max-width: none; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+code { font: 0.85rem/1.5 ui-monospace, Menlo, monospace; color: var(--fg); background: rgb(243 237 228 / 0.08); padding: 0.15rem 0.45rem; border-radius: 6px; overflow-wrap: anywhere; }
+.copy { background: none; border: 1px solid var(--faint); color: var(--fg); border-radius: 999px; padding: 0.3rem 0.75rem; font: 500 0.8rem/1 var(--font-text); cursor: pointer; }
+.steps { margin: 16px 0 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 48px; max-width: 60ch; }
+.steps > li { counter-increment: step; display: grid; gap: 12px; }
+.steps h3 { margin: 0; font: 400 1.6rem/1.15 var(--font-display); }
+.steps h3::before { content: counter(step) '. '; color: var(--dim); }
+.steps p, .steps li { max-width: 60ch; color: var(--dim); }
+.steps b { color: var(--fg); font-weight: 600; }
+.steps .sub, .perms { margin: 0; padding-left: 1.2rem; display: grid; gap: 20px; }
+.steps img { display: block; margin-top: 12px; max-width: 100%; height: auto; border-radius: 10px; }
+.sub img { max-width: min(100%, 320px); }
+
+/* ---------- FAQ and footer ---------- */
+.faq details { border-top: 1px solid var(--faint); padding: 16px 0; max-width: 44rem; }
+.faq summary { cursor: pointer; font-weight: 600; }
+.faq details p { margin-top: 8px; max-width: 60ch; }
+.foot { padding: 48px 0 72px; border-top: 1px solid var(--faint); }
+.foot p { font-size: 0.85rem; max-width: 60ch; }
+.foot p + p { margin-top: 8px; }

@@ -1,0 +1,18 @@
+---
+import Base from '../layouts/Base.astro';
+import Story from '../sections/Story.astro';
+import Stage from '../sections/Stage.astro';
+import Download from '../sections/Download.astro';
+import Faq from '../sections/Faq.astro';
+import Footer from '../sections/Footer.astro';
+---
+<Base title="NotchPlayer: Spotify and Apple Music in your Mac's notch" description="The song playing, a live waveform and the controls, in the notch of your MacBook.">
+  <main>
+    <Story />
+    <Stage />
+    <Download />
+    <Faq />
+  </main>
+  <Footer />
+  <script>import '../scripts/main';</script>
+</Base>

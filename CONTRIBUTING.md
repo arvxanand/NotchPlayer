@@ -152,5 +152,8 @@ For the maintainer.
    (`Casks/notchplayer.rb`): set `version` to the new version and `sha256` to
    the value in the workflow's job summary. Until then, `brew upgrade` keeps
    installing the old one.
+6. Set `version` in `website/src/config.ts` to the new version. The site's
+   download button always fetches the latest release; this is only the
+   number printed under it.
 
 `tools/make-dmg.sh` makes the same dmg locally, after `./make_app.sh release`.
