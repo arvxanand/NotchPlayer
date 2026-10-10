@@ -7,6 +7,7 @@ const good = {
   css: '.beat{padding:1rem}.enhanced .beat{opacity:0}',
   src: [{ file: 'src/a.ts', text: 'const a = 1;' }],
   dmgUrl: DMG,
+  required: ['Whatever’s playing, right there.', 'Download for Mac', 'not affiliated'],
 };
 const failures = (o: Partial<typeof good>) => check({ ...good, ...o }).fail.join('\n');
 

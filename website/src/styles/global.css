@@ -1,17 +1,20 @@
 @import './tokens.css';
 @import '../notch/notch.css';
+@import './page.css';
+@import './desk.css';
 
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 400 1.0625rem/1.5 var(--font-text); }
-h1 { margin: 0; font: 400 clamp(2.75rem, 7vw, 6rem)/1.02 var(--font-display); letter-spacing: -0.02em; text-wrap: balance; }
-h1 em { font-style: italic; }
+h1, h2 { margin: 0; font-family: var(--font-display); font-weight: 400; line-height: 1.02; letter-spacing: -0.02em; text-wrap: balance; }
+h1 em, h2 em { font-style: italic; }
+h1 { font-size: clamp(2.75rem, 7vw, 6rem); }
+h2 { font-size: clamp(2.1rem, 5vw, 4rem); }
 p { margin: 0; color: var(--dim); max-width: 34ch; }
 .wrap { width: min(1100px, 100% - 32px); margin-inline: auto; }
 :focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
 
-.beat { padding-block: 12svh; }
-.cta { display: inline-block; margin-top: 1.5rem; font: 600 1rem/1 var(--font-text); color: #000; background: var(--fg); border-radius: 999px; padding: 0.9rem 1.5rem; text-decoration: none; }
+.cta { display: inline-block; font: 600 1rem/1 var(--font-text); color: #000; background: var(--fg); border-radius: 999px; padding: 0.9rem 1.5rem; text-decoration: none; }
 footer { padding-block: 4rem; }
 footer p { font-size: 0.875rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

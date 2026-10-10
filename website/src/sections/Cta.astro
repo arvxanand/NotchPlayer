@@ -1,0 +1,8 @@
+---
+import { config } from '../config';
+---
+<div class="cta-row">
+  <a class="cta cta-get" href={config.dmgUrl}>{config.ctaLabel}</a>
+  <button class="cta cta-share" type="button" data-share>Send this page to your Mac</button>
+</div>
+<p class="meta">Free. Needs macOS {config.macosMin} or later on an Apple Silicon Mac.</p>

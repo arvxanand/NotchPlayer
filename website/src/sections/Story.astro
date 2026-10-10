@@ -1,0 +1,42 @@
+---
+import Cta from './Cta.astro';
+import Desktop from './Desktop.astro';
+import DockIcon from './DockIcon.astro';
+import { storyFrame } from '../scripts/storyboard';
+// Each beat's still: the frame it shows, and how much of the desktop's top the strip keeps (canvas px).
+const beats = [
+  { h: 'One glance is enough.', p: 'The cover sits on one side of the camera and the music moves on the other. Nothing to click, nothing in the way.', at: 0.3, strip: 92 },
+  { h: 'Hover, <em>and it opens.</em>', p: 'Skip, scrub, shuffle, repeat. Click the + to save the song to your Spotify library without leaving what you are doing.', at: 0.55, strip: 230 },
+  { h: 'Your week, <em>in minutes.</em>', p: 'One swipe over: how long you listened today, this week, this month, and to whom. Counted on your Mac, never sent anywhere.', at: 0.7, strip: 230 },
+  { h: 'No notch, <em>same idea.</em>', p: 'On a Mac without one, it sits in the menu bar as a small black pill and opens the same way.', at: 0.95, strip: 216 },
+];
+const still = (at: number) => ({ 'data-static-notch': '', 'data-p': String(at) });
+const deco = { tabindex: '-1', 'aria-hidden': 'true' }; // the story's dock is scenery; the stage's dock is the control surface
+---
+<section class="story" aria-label="What NotchPlayer does">
+  <div class="stage-pin">
+    <Desktop class="shared" attrs={{ 'data-story-notch': '', 'aria-hidden': 'true' }}>
+      <div class="dwin caption" data-caption-win><div class="dwin-bar" aria-hidden="true"><i></i><i></i><i></i></div><div class="dwin-body"></div></div>
+      <Fragment slot="dock">
+        <DockIcon label="Play or pause" icon="playpause" attrs={deco} /><DockIcon label="Next song" icon="next" attrs={deco} /><span class="dock-sep"></span>
+        <DockIcon label="Spotify or Apple Music" icon="source" attrs={deco} /><DockIcon label="Stats" icon="stats" attrs={deco} /><span class="dock-sep"></span>
+        <DockIcon label="Notch" icon="notch" attrs={deco} /><DockIcon label="No notch" icon="pill" attrs={deco} />
+      </Fragment>
+    </Desktop>
+    <div class="beats wrap">
+      <article class="beat hero" data-beat="0">
+        <h1>Whatever&rsquo;s playing, <em>right there.</em></h1>
+        <p>NotchPlayer puts Spotify and Apple Music in your MacBook&rsquo;s notch: the cover, a waveform that moves with the song, and the controls when you hover.</p>
+        <Cta />
+        <Desktop strip={92} attrs={still(0.1)} />
+      </article>
+      {beats.map((b, i) => (
+        <article class="beat" data-beat={i + 1}>
+          <h2 set:html={b.h} />
+          <p>{b.p}</p>
+          <Desktop strip={b.strip} mac={storyFrame(b.at).pill ? 'pill' : 'notch'} attrs={still(b.at)} />
+        </article>
+      ))}
+    </div>
+  </div>
+</section>

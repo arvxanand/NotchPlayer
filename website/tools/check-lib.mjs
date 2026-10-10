@@ -1,6 +1,6 @@
 // The post-build copy checks as one pure function, so tests/check-static.test.ts can feed it fixtures.
 // The page must read without JavaScript and obey the copy rules.
-export const REQUIRED_COPY = ['Whatever’s playing, right there.', 'Download for Mac', 'not affiliated'];
+export const REQUIRED_COPY = ['Whatever’s playing, right there.', 'One glance is enough.', 'Hover, and it opens.', 'Your week, in minutes.', 'No notch, same idea.', 'Download for Mac', 'not affiliated'];
 const EM_DASH = /—|&mdash;|&#8212;|&#x2014;|\\u2014/i;
 
 /** @param {{ html: string, css: string, src: { file: string, text: string }[], dmgUrl: string, required?: string[] }} o */
