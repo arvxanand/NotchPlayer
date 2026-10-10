@@ -1,0 +1,46 @@
+---
+import { config } from '../config';
+// The reason this site exists: a direct download that never shows GitHub, and everything a
+// visitor needs to get past macOS's first-open block and grant the permissions.
+---
+<section class="download" id="download" aria-labelledby="dl-h">
+  <div class="wrap">
+    <h2 id="dl-h">Free, <em>and yours in two minutes.</em></h2>
+    <div class="dl-get" data-arch-ok>
+      <div class="cta-row">
+        <a class="cta cta-get" href={config.dmgUrl}>{config.ctaLabel}</a>
+        <button class="cta cta-share" type="button" data-share>Send this page to your Mac</button>
+      </div>
+      <p class="meta">Version {config.version}. Needs macOS {config.macosMin} Sequoia or later on an Apple Silicon Mac (M1 or newer).</p>
+      <p class="brew">Or with Homebrew: <code>{config.brewCmd}</code> <button type="button" class="copy" data-copy={config.brewCmd}>Copy</button></p>
+    </div>
+    <p class="dl-intel" data-arch-intel hidden>This looks like an Intel Mac. NotchPlayer needs Apple Silicon (M1 or newer), so it won&rsquo;t open here.</p>
+
+    <div data-reference><!-- reference text: not counted in the page-copy word limit (check-lib.mjs) -->
+    <ol class="steps">
+      <li>
+        <h3>Drag it into Applications</h3>
+        <p>Open the download and drag NotchPlayer onto the Applications folder beside it.</p>
+        <img src="/install/0-drag.png" width="720" height="210" loading="lazy" decoding="async" alt="The NotchPlayer disk window: NotchPlayer next to an Applications folder" />
+      </li>
+      <li>
+        <h3>Open it once, the long way</h3>
+        <p>NotchPlayer is free and isn&rsquo;t signed by a paid Apple developer account, so macOS stops it the first time. You do this once per download.</p>
+        <ol class="sub">
+          <li>Open NotchPlayer. When macOS says it couldn&rsquo;t verify it, click <b>Done</b>, not Move to Trash.<img src="/install/1-blocked.png" width="518" height="462" loading="lazy" decoding="async" alt="&ldquo;NotchPlayer&rdquo; Not Opened, with Done and Move to Trash" /></li>
+          <li>Open <b>System Settings</b>, then <b>Privacy &amp; Security</b>. Scroll down to Security and click <b>Open Anyway</b>.<img src="/install/2-open-anyway.png" width="960" height="345" loading="lazy" decoding="async" alt="Privacy &amp; Security: NotchPlayer was blocked to protect your Mac, with an Open Anyway button" /></li>
+          <li>Click <b>Open Anyway</b> again and confirm with your password or Touch ID.<img src="/install/3-confirm.png" width="488" height="628" loading="lazy" decoding="async" alt="Open NotchPlayer?, with Move to Trash, Open Anyway and Done" /></li>
+        </ol>
+      </li>
+      <li>
+        <h3>Say yes to what it asks</h3>
+        <ul class="perms">
+          <li><b>Automation</b>, so it can read the song and play, pause and skip in Spotify or Music.</li>
+          <li><b>System Audio Recording</b>, for the waveform. It hears only your music app, works it out in memory and never saves a sound.<img src="/install/4-audio.png" width="925" height="225" loading="lazy" decoding="async" alt="System Settings, System Audio Recording Only, with NotchPlayer switched on" /></li>
+          <li><b>Accessibility</b>, only if you turn on the + in settings, so it can open Spotify&rsquo;s playlist list for you.</li>
+        </ul>
+      </li>
+    </ol>
+    </div>
+  </div>
+</section>

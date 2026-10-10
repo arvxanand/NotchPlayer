@@ -31,6 +31,8 @@ describe('check-static', () => {
   });
   it('rejects banned words', () => expect(failures({ html: good.html + ' seamless' })).toContain('banned word: seamless'));
   it('limits the word count', () => expect(failures({ html: good.html.replace('</main>', 'word '.repeat(401) + '</main>') })).toContain('words'));
+  it('does not count reference text (install steps, FAQ) against the limit', () =>
+    expect(failures({ html: good.html.replace('</main>', `<div class="wrap" data-reference>${'step '.repeat(500)}</div></main>`) })).toBe(''));
   it('never lets base CSS hide a beat', () => {
     expect(failures({ css: '.beat{opacity:0}' })).toContain('hides a beat');
     expect(failures({ css: '.beat{opacity:.5}.enhanced .beat{opacity:0}' })).toBe('');

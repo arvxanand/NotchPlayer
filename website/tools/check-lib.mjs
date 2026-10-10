@@ -20,7 +20,9 @@ export function check({ html, css, src, dmgUrl, required = REQUIRED_COPY }) {
   for (const f of src) if (EM_DASH.test(f.text)) fail.push(`em dash in ${f.file}`);
   for (const w of ['seamless', 'supercharge', 'revolutionize']) if (lower.includes(w)) fail.push(`banned word: ${w}`);
 
-  const main = (html.match(/<main[\s\S]*<\/footer>/i) ?? [html])[0].replace(/<(script|style|svg)[\s\S]*?<\/\1>/gi, '').replace(/<[^>]+>/g, ' ');
+  // Install steps and the FAQ are reference text, marked data-reference (a div with no div inside):
+  // the limit is on the copy that sells, not on instructions.
+  const main = (html.match(/<main[\s\S]*<\/footer>/i) ?? [html])[0].replace(/<div[^>]*data-reference[^>]*>[\s\S]*?<\/div>/gi, '').replace(/<(script|style|svg)[\s\S]*?<\/\1>/gi, '').replace(/<[^>]+>/g, ' ');
   const words = main.split(/\s+/).filter(Boolean).length;
   if (words > 400) fail.push(`page copy is ${words} words (limit 400, target about 350)`);
 

@@ -26,3 +26,38 @@
 .dwin.caption h2 { font-size: 52px; }
 .dwin.caption p { margin-top: 18px; font-size: 21px; max-width: 32ch; }
 @media (prefers-reduced-motion: reduce) { .dwin.caption, .enhanced .dwin.caption .beat { transition: none; } }
+
+/* ---------- try-it stage ---------- */
+.stage, .download, .faq { padding: clamp(56px, 10svh, 120px) 0; }
+.stage .wrap { display: grid; gap: 18px; justify-items: start; width: min(1600px, 100% - 32px); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.seg-btn { background: rgb(243 237 228 / 0.08); border: 0; color: var(--fg); font: 600 0.9rem/1 var(--font-text); padding: 0.75rem 1rem; border-radius: 999px; cursor: pointer; }
+.seg-btn[aria-pressed="true"] { background: rgb(243 237 228 / 0.2); }
+.caption { font-size: 0.9rem; max-width: 60ch; }
+@media (min-width: 800px) { .stage .controls { display: none; } }
+
+/* ---------- download ---------- */
+.download .wrap { display: grid; gap: 24px; justify-items: start; }
+.dl-get { display: grid; gap: 16px; justify-items: start; }
+.dl-get[hidden], .dl-intel[hidden] { display: none; }
+.dl-intel { color: var(--fg); max-width: 50ch; }
+.brew { font-size: 0.9rem; max-width: none; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+code { font: 0.85rem/1.5 ui-monospace, Menlo, monospace; color: var(--fg); background: rgb(243 237 228 / 0.08); padding: 0.15rem 0.45rem; border-radius: 6px; overflow-wrap: anywhere; }
+.copy { background: none; border: 1px solid var(--faint); color: var(--fg); border-radius: 999px; padding: 0.3rem 0.75rem; font: 500 0.8rem/1 var(--font-text); cursor: pointer; }
+.steps { margin: 16px 0 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 48px; max-width: 60ch; }
+.steps > li { counter-increment: step; display: grid; gap: 12px; }
+.steps h3 { margin: 0; font: 400 1.6rem/1.15 var(--font-display); }
+.steps h3::before { content: counter(step) '. '; color: var(--dim); }
+.steps p, .steps li { max-width: 60ch; color: var(--dim); }
+.steps b { color: var(--fg); font-weight: 600; }
+.steps .sub, .perms { margin: 0; padding-left: 1.2rem; display: grid; gap: 20px; }
+.steps img { display: block; margin-top: 12px; max-width: 100%; height: auto; border-radius: 10px; }
+.sub img { max-width: min(100%, 320px); }
+
+/* ---------- FAQ and footer ---------- */
+.faq details { border-top: 1px solid var(--faint); padding: 16px 0; max-width: 44rem; }
+.faq summary { cursor: pointer; font-weight: 600; }
+.faq details p { margin-top: 8px; max-width: 60ch; }
+.foot { padding: 48px 0 72px; border-top: 1px solid var(--faint); }
+.foot p { font-size: 0.85rem; max-width: 60ch; }
+.foot p + p { margin-top: 8px; }

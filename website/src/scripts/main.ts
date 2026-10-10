@@ -3,6 +3,8 @@ import { createNotch } from '../notch/notch';
 import { storyFrame } from './storyboard';
 import { notchFor } from './story-notch';
 import { mountStory } from './story';
+import { mountStage } from './stage';
+import { detectArch } from './arch';
 
 // The menu bar shows the visitor's own date and time, like their Mac would. The HTML keeps 9:41 without JS.
 const clocks = document.querySelectorAll<HTMLElement>('[data-clock]');
@@ -37,6 +39,24 @@ if (!html.classList.contains('enhanced')) {
   inert();
   phone.addEventListener('change', inert);
 }
+
+const stage = document.querySelector<HTMLElement>('.stage');
+if (stage) mountStage(stage);
+
+// An Intel Mac can't run NotchPlayer: say so instead of offering a download that won't open.
+// Only a confident answer hides the button (arch.ts).
+void detectArch().then((arch) => {
+  if (arch !== 'intel') return;
+  document.querySelectorAll<HTMLElement>('[data-arch-ok]').forEach((el) => { el.hidden = true; });
+  document.querySelectorAll<HTMLElement>('[data-arch-intel]').forEach((el) => { el.hidden = false; });
+});
+
+document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((b) => {
+  b.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy!); b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy'; }, 2000); }
+    catch { /* no clipboard: the command is on screen to select */ }
+  });
+});
 
 // Phones cannot install a Mac app: share or copy the link instead.
 document.querySelectorAll<HTMLButtonElement>('[data-share]').forEach((b) => {

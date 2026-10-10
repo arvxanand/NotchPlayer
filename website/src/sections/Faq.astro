@@ -1,0 +1,16 @@
+---
+const qa: [string, string][] = [
+  ['Does it work without a notch?', 'Yes. On an Apple Silicon Mac without one, it draws a small black pill in the middle of the menu bar that opens the same way. It only draws on the built-in screen.'],
+  ['Does it work on an Intel Mac?', 'No. NotchPlayer needs a Mac with Apple Silicon (M1 or newer) and macOS 15 or later.'],
+  ['What does it send, and where?', 'Nothing about you or your music. It has no account, no analytics and no server. It fetches album covers, opens Spotify&rsquo;s public page when you click a title, and once a day checks for a newer version, which you can turn off.'],
+  ['Is it listening to me?', 'No. System Audio Recording is the name macOS gives the permission. NotchPlayer only hears your music app&rsquo;s output, never the microphone, and only while a song plays. You can turn it off in System Settings and the bars switch to a made-up animation.'],
+  ['Open Anyway isn&rsquo;t there. Now what?', 'Open NotchPlayer again and click Done, then look again: the button shows for about an hour after macOS blocks the app. Still nothing? Paste <code>xattr -dr com.apple.quarantine /Applications/NotchPlayer.app</code> into Terminal and press Return, then open it again.'],
+  ['Is it free?', 'Yes, and open source.'],
+];
+---
+<section class="faq" aria-labelledby="faq-h">
+  <div class="wrap" data-reference>
+    <h2 id="faq-h">Questions</h2>
+    {qa.map(([q, a]) => (<details><summary set:html={q} /><p set:html={a} /></details>))}
+  </div>
+</section>
