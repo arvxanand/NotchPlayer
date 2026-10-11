@@ -1,0 +1,39 @@
+---
+// DEV ONLY: the link-preview picture's layout, photographed by tools/make-og.sh into public/og.png.
+// A dynamic route so a production build makes no page: getStaticPaths offers "og" only in dev.
+import Base from '../layouts/Base.astro';
+import Desktop from '../sections/Desktop.astro';
+export function getStaticPaths() { return import.meta.env.DEV ? [{ params: { og: 'og' } }] : []; }
+---
+<Base title="og" description="dev only">
+  <div class="og">
+    <Desktop strip={300} attrs={{ 'data-og-notch': '' }} />
+    <div class="og-words">
+      <h1>Whatever&rsquo;s playing, <em>right there.</em></h1>
+      <p><img src="/icon.png" width="44" height="44" alt="" /> NotchPlayer, for Spotify and Apple Music</p>
+    </div>
+  </div>
+  <script>
+    import { createNotch } from '../notch/notch';
+    import { storyFrame } from '../scripts/storyboard';
+    import { notchFor } from '../scripts/story-notch';
+    import { mountDesk } from '../notch/desk';
+    const el = document.querySelector<HTMLElement>('[data-og-notch]')!;
+    mountDesk(el.closest<HTMLElement>('.desk')!);
+    createNotch(el, { interactive: false, still: true, state: notchFor({ ...storyFrame(0.4), shuffle: true }, Date.now()) });
+  </script>
+</Base>
+<style is:global>
+  /* 1200x630, the size link previews ask for. The notch at 1.6x so it reads in a small card. */
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; background: var(--bg); }
+  .og { position: relative; width: 1200px; height: 630px; }
+  .og .desk { position: absolute; top: 0; left: 0; width: 1200px !important; max-width: none; max-height: none; height: 380px; aspect-ratio: auto; border-radius: 0; }
+  /* The canvas centre (756) on the image centre (600) at 1.6x: 600 - 756 * 1.6. */
+  .og .desk-canvas { transform: translate(-609.6px, 0) scale(1.6) !important; }
+  /* The wallpaper's warm middle behind the notch, instead of its near-black top. */
+  .og .desk-wall { background-size: 1512px 982px; background-position: 0 -420px; }
+  .og-words { position: absolute; left: 0; right: 0; bottom: 56px; text-align: center; }
+  .og-words h1 { font-size: 76px; }
+  .og-words p { margin: 18px auto 0; max-width: none; display: flex; gap: 14px; align-items: center; justify-content: center; font-size: 26px; color: var(--dim); }
+  .og-words img { border-radius: 10px; }
+</style>

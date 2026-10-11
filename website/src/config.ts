@@ -1,6 +1,6 @@
 export const config = {
   name: 'NotchPlayer',
-  domain: '', // set when there is one; empty means "no canonical URL yet"
+  domain: 'https://notchplayer.pages.dev', // the site's address: canonical URL and link-preview image
   ctaLabel: 'Download for Mac',
   version: '0.6', // bump on every release (CONTRIBUTING.md "Releasing a version")
   macosMin: '15',
