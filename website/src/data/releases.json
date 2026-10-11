@@ -1,0 +1,32 @@
+[
+  {
+    "version": "0.6",
+    "date": "2026-10-09",
+    "html": "<ul dir=\"auto\">\n<li><strong>Listening stats:</strong> swipe left on the open notch (or click the chart button at the end of the controls) for time listened, songs played, and your top artists and songs, today, this week, this month or all time. Spotify and Apple Music both count. Kept on your Mac only.</li>\n<li><strong>Stats take the colour of the album cover</strong>, like the progress bar.</li>\n<li><strong>Covers for songs streamed from Apple Music</strong>, which used to show the Music logo instead.</li>\n</ul>\n<p dir=\"auto\">After updating, the notch shows these once the first time you open it.</p>\n<p dir=\"auto\"><strong>Full changelog:</strong> <a class=\"commit-link\" href=\"https://github.com/arvxanand/NotchPlayer/compare/v0.5...v0.6\"><tt>v0.5...v0.6</tt></a></p>"
+  },
+  {
+    "version": "0.5",
+    "date": "2026-10-07",
+    "html": "<ul><li>apple music support</li></ul><p><a href=\"https://github.com/arvxanand/NotchPlayer/compare/v0.4.1...v0.5\">Full changelog on GitHub</a></p>"
+  },
+  {
+    "version": "0.4.1",
+    "date": "2026-10-07",
+    "html": "<ul><li>notch gets out of the way of menus and full screen</li></ul><p><a href=\"https://github.com/arvxanand/NotchPlayer/compare/v0.4...v0.4.1\">Full changelog on GitHub</a></p>"
+  },
+  {
+    "version": "0.4",
+    "date": "2026-10-06",
+    "html": "<ul><li>virtual notch for macs without one</li><li>hit probe stops clicking next</li><li>readme for the virtual notch</li><li>local songs show their own cover</li></ul><p><a href=\"https://github.com/arvxanand/NotchPlayer/compare/v0.3...v0.4\">Full changelog on GitHub</a></p>"
+  },
+  {
+    "version": "0.3",
+    "date": "2026-09-24",
+    "html": "<ul><li>readme fixes after the release</li><li>say when theres no notch</li><li>bug report and idea forms</li><li>+ opens a playlist list instead of liking</li><li>update from the menu bar</li></ul><p><a href=\"https://github.com/arvxanand/NotchPlayer/compare/v0.2...v0.3\">Full changelog on GitHub</a></p>"
+  },
+  {
+    "version": "0.2",
+    "date": "2026-09-24",
+    "html": "<ul><li>rename to Notch Player, GPL-3.0, trim spotify fixture</li><li>readme demos</li><li>download it instead of building it</li></ul><p><a href=\"https://github.com/arvxanand/NotchPlayer/commits/v0.2\">Full changelog on GitHub</a></p>"
+  }
+]

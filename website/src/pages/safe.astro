@@ -1,0 +1,58 @@
+---
+// Reference page: facts from the README's "What Audio Recording actually records" and the app's source.
+// Keep it true to the code; if the app's network requests or permissions change, change this.
+import Base from '../layouts/Base.astro';
+import { config } from '../config';
+---
+<Base title="Is NotchPlayer safe? NotchPlayer" description="What NotchPlayer can see, what it sends, why macOS warns you, and how to check the code yourself." path="/safe">
+  <main class="wrap doc">
+    <header>
+      <a class="home" href="/">NotchPlayer</a>
+      <h1>Is it <em>safe?</em></h1>
+      <p class="lede">It&rsquo;s a small app with no account, no server and no tracking, and the code is public. Here is everything it does, so you can decide.</p>
+    </header>
+
+    <section>
+      <h2>Why does macOS warn me?</h2>
+      <p>NotchPlayer is free and isn&rsquo;t signed by a paid Apple developer account, so Apple hasn&rsquo;t looked at it and macOS says it can&rsquo;t verify it. That is all the warning means. It is not a finding that something is wrong.</p>
+      <p>It is signed with its own certificate, which is how an update can prove it came from the same place as your copy. The <a href="/#download">install steps</a> get you past the warning once.</p>
+    </section>
+
+    <section>
+      <h2>What it can see and do</h2>
+      <ul>
+        <li><b>Automation, for Spotify or Music only.</b> It reads the song that&rsquo;s playing and sends play, pause and skip.</li>
+        <li><b>System Audio Recording, for the waveform.</b> It hears only your music app, never the microphone and never other apps or calls. It listens only while a song plays. The sound passes through about a tenth of a second of memory, becomes 14 bar heights, and is thrown away. No audio is saved or sent.</li>
+        <li><b>Accessibility, optional.</b> Only if you turn on the + button&rsquo;s Save with Spotify setting, so it can open Spotify&rsquo;s playlist list for you.</li>
+      </ul>
+      <p>It doesn&rsquo;t ask macOS for your microphone, camera, contacts or location. Turn any permission off in System Settings, Privacy &amp; Security. The notch keeps working, and the bars switch to a made-up animation.</p>
+    </section>
+
+    <section>
+      <h2>What it sends, and where</h2>
+      <ul>
+        <li>The album cover, from the address Spotify or Apple gives for it.</li>
+        <li>Spotify&rsquo;s public page for a song, only when you click its title or artist.</li>
+        <li>Apple&rsquo;s public iTunes Search, for the cover of an Apple Music song that Music won&rsquo;t share.</li>
+        <li>Once a day, a look at this project&rsquo;s GitHub releases to see if there&rsquo;s a newer version. It sends nothing about you or your music. <b>Check for updates</b> behind the gear turns it off.</li>
+      </ul>
+      <p>That is the whole list. Your listening stats are counted and kept on your Mac.</p>
+    </section>
+
+    <section>
+      <h2>How updates are checked</h2>
+      <p>A new version is downloaded from GitHub and installed only if it is signed with the same certificate as the copy you&rsquo;re running and says it is the version it should be. If either check fails, nothing is installed and the click opens the release page instead.</p>
+    </section>
+
+    <section>
+      <h2>Check it yourself</h2>
+      <ul>
+        <li>The code is public under the GPL-3.0 license, at <a href={config.repoUrl}>GitHub</a>.</li>
+        <li>The code that listens is one short file, <a href={`${config.repoUrl}/blob/main/Sources/NotchPlayerCore/Data/AudioTap.swift`}>AudioTap.swift</a>.</li>
+        <li>You can build it from source instead of downloading it. <a href={`${config.repoUrl}/blob/main/CONTRIBUTING.md`}>The steps</a> are in the project.</li>
+        <li>To remove it, quit it from the menu bar item and drag NotchPlayer from Applications to the Trash.</li>
+      </ul>
+      <p>Something here doesn&rsquo;t match what you see? <a href={`${config.repoUrl}/issues/new/choose`}>Tell us on GitHub</a>.</p>
+    </section>
+  </main>
+</Base>

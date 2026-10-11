@@ -1,0 +1,24 @@
+---
+// Release notes, from src/data/releases.json (`npm run releases` rewrites it after a release).
+import Base from '../layouts/Base.astro';
+import releases from '../data/releases.json';
+import { config } from '../config';
+const day = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+---
+<Base title="What's new: NotchPlayer" description="Every NotchPlayer release, newest first." path="/new">
+  <main class="wrap doc">
+    <header>
+      <a class="home" href="/">NotchPlayer</a>
+      <h1>What&rsquo;s <em>new.</em></h1>
+      <p class="lede">Every release, newest first. The app tells you about an update from its menu bar item.</p>
+    </header>
+    {releases.map((r) => (
+      <article class="rel" id={`v${r.version}`}>
+        <h2>{r.version}</h2>
+        <time datetime={r.date}>{day(r.date)}</time>
+        <div set:html={r.html} />
+      </article>
+    ))}
+    <p><a href={`${config.repoUrl}/releases`}>All releases on GitHub</a></p>
+  </main>
+</Base>

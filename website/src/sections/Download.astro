@@ -1,6 +1,6 @@
 ---
 import { config } from '../config';
-// The reason this site exists: a direct download that never shows GitHub, and everything a
+// The reason this site exists: a direct download that skips GitHub's release page, and everything a
 // visitor needs to get past macOS's first-open block and grant the permissions.
 ---
 <section class="download" id="download" aria-labelledby="dl-h">
@@ -10,8 +10,9 @@ import { config } from '../config';
       <div class="cta-row">
         <a class="cta cta-get" href={config.dmgUrl}>{config.ctaLabel}</a>
         <button class="cta cta-share" type="button" data-share>Send this page to your Mac</button>
+        <a class="cta cta-ghost" href={config.repoUrl}>Star on GitHub</a>
       </div>
-      <p class="meta">Version {config.version}. Needs macOS {config.macosMin} Sequoia or later on an Apple Silicon Mac (M1 or newer), with the Spotify desktop app or Music.</p>
+      <p class="meta">Version {config.version}. Needs macOS {config.macosMin} or later on an Apple Silicon Mac (M1 or newer), with the Spotify app or Music.</p>
       <p class="brew">Or with Homebrew: <code>{config.brewCmd}</code> <button type="button" class="copy" data-copy={config.brewCmd}>Copy</button></p>
     </div>
     <p class="dl-intel" data-arch-intel hidden>This looks like an Intel Mac. NotchPlayer needs Apple Silicon (M1 or newer), so it won&rsquo;t open here.</p>
