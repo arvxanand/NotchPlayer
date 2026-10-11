@@ -3,6 +3,13 @@ import { config } from '../config';
 ---
 <footer class="foot">
   <div class="wrap">
+    <div data-reference><!-- links, not copy that sells: not counted in the word limit (check-lib.mjs) -->
+    <nav aria-label="More">
+      <a href={config.repoUrl}>GitHub</a>
+      <a href="/safe">Is it safe?</a>
+      <a href="/new">What&rsquo;s new</a>
+    </nav>
+    </div>
     <p>&copy; {new Date().getFullYear()} {config.name}</p>
     <p>{config.name} is not affiliated with Spotify AB or Apple. Spotify and Apple Music are trademarks of their owners. Song titles and album covers belong to their artists and labels and are shown only to demonstrate the app.</p>
   </div>
