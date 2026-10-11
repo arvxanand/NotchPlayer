@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { check } from '../tools/check-lib.mjs';
 
 const DMG = 'https://github.com/arvxanand/NotchPlayer/releases/latest/download/NotchPlayer.dmg';
+const REPO = 'https://github.com/arvxanand/NotchPlayer';
 const good = {
-  html: `<script>addEventListener('error',(e)=>{e.target instanceof HTMLScriptElement})</script><main><h1>Whatever&rsquo;s playing, <em>right there.</em></h1><a href="${DMG}">Download for Mac</a></main><footer>not affiliated with Spotify AB or Apple</footer>`,
+  html: `<script>addEventListener('error',(e)=>{e.target instanceof HTMLScriptElement})</script><main><h1>Whatever&rsquo;s playing, <em>right there.</em></h1><a href="${DMG}">Download for Mac</a></main><footer><a href="${REPO}">GitHub</a> not affiliated with Spotify AB or Apple</footer>`,
   css: '.beat{padding:1rem}.enhanced .beat{opacity:0}',
   src: [{ file: 'src/a.ts', text: 'const a = 1;' }],
   dmgUrl: DMG,
+  repoUrl: REPO,
   required: ['Whatever’s playing, right there.', 'Download for Mac', 'not affiliated'],
 };
 const failures = (o: Partial<typeof good>) => check({ ...good, ...o }).fail.join('\n');
@@ -19,8 +21,8 @@ describe('check-static', () => {
     expect(failures({ html: good.html.replace('Download for Mac', 'x') })).toContain('missing copy: Download for Mac');
   });
   it('requires the script-failure fallback', () => expect(failures({ html: good.html.replace('HTMLScriptElement', '') })).toContain('fallback'));
-  it('allows only the direct DMG github link', () => {
-    expect(failures({ html: good.html + '<a href="https://github.com/arvxanand/NotchPlayer">repo</a>' })).toContain('GitHub');
+  it('links the direct DMG and the GitHub repo', () => {
+    expect(failures({ html: good.html.split(`href="${REPO}"`).join('href="/x"') })).toContain('GitHub repo');
     expect(failures({ html: good.html.split(DMG).join('/x') })).toContain('direct DMG');
   });
   it('rejects em dashes in html, &mdash; and JS sources', () => {

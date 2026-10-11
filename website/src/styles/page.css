@@ -60,3 +60,24 @@ code { font: 0.85rem/1.5 ui-monospace, Menlo, monospace; color: var(--fg); backg
 .foot { padding: 48px 0 72px; border-top: 1px solid var(--faint); }
 .foot p { font-size: 0.85rem; max-width: 60ch; }
 .foot p + p { margin-top: 8px; }
+
+/* ---------- GitHub button, footer links, and the reading pages (/safe, /new) ---------- */
+.cta.cta-ghost { color: var(--fg); background: none; box-shadow: inset 0 0 0 1px rgb(243 237 228 / 0.4); }
+.foot nav { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-bottom: 20px; }
+.foot nav a, .doc a { color: var(--fg); text-underline-offset: 3px; }
+.doc { padding: clamp(40px, 8svh, 96px) 0 clamp(56px, 10svh, 120px); display: grid; gap: 56px; justify-items: start; }
+.doc > header { display: grid; gap: 20px; justify-items: start; }
+.doc .home { font-weight: 600; }
+.doc section { display: grid; gap: 14px; max-width: 60ch; }
+.doc h2 { font-size: clamp(1.7rem, 3.4vw, 2.4rem); }
+.doc p, .doc li { max-width: 60ch; }
+.doc ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 12px; color: var(--dim); }
+.doc b { color: var(--fg); font-weight: 600; }
+.doc .lede { font-size: 1.25rem; color: var(--fg); max-width: 40ch; }
+.rel { border-top: 1px solid var(--faint); padding-top: 24px; display: grid; gap: 12px; max-width: 60ch; width: 100%; }
+.rel h2 { font-size: clamp(1.7rem, 3.4vw, 2.4rem); }
+.rel time { font-size: 0.9rem; color: var(--dim); }
+.rel :is(p, li) { color: var(--dim); }
+.rel ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 8px; }
+.rel a { color: var(--fg); text-underline-offset: 3px; }
+.rel tt { font: 0.85rem/1.5 ui-monospace, Menlo, monospace; }

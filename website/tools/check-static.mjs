@@ -14,7 +14,8 @@ const css = inline + (existsSync(cssDir) ? readdirSync(cssDir).filter((f) => f.e
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
 const src = walk(join(root, 'src')).filter((f) => /\.(ts|astro|css|json)$/.test(f)).map((f) => ({ file: relative(root, f), text: readFileSync(f, 'utf8') }));
 const dmgUrl = readFileSync(join(root, 'src/config.ts'), 'utf8').match(/dmgUrl:\s*'([^']+)'/)?.[1] ?? '';
+const repoUrl = readFileSync(join(root, 'src/config.ts'), 'utf8').match(/repoUrl:\s*'([^']+)'/)?.[1] ?? '';
 
-const { fail, words } = check({ html, css, src, dmgUrl });
+const { fail, words } = check({ html, css, src, dmgUrl, repoUrl });
 console.log(`check-static: ${words} words`);
 if (fail.length) { console.error(fail.join('\n')); process.exit(1); }
