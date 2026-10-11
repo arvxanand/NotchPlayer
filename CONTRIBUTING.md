@@ -154,6 +154,8 @@ For the maintainer.
    installing the old one.
 6. Set `version` in `website/src/config.ts` to the new version. The site's
    download button always fetches the latest release; this is only the
-   number printed under it.
+   number printed under it. Then, with the release published, run
+   `npm run releases` in `website/` and commit `src/data/releases.json`: that
+   is the site's What's new page.
 
 `tools/make-dmg.sh` makes the same dmg locally, after `./make_app.sh release`.

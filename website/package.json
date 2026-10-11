@@ -8,7 +8,8 @@
     "preview": "astro preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "data": "node tools/resolve-covers.mjs"
+    "data": "node tools/resolve-covers.mjs",
+    "releases": "node tools/fetch-releases.mjs"
   },
   "dependencies": {
     "@fontsource-variable/hanken-grotesk": "^5.2.0",
