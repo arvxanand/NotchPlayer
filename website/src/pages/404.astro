@@ -1,0 +1,14 @@
+---
+// Cloudflare Pages serves dist/404.html, with a 404 status, for any address that isn't a page.
+import Base from '../layouts/Base.astro';
+---
+<Base title="Not found: NotchPlayer" description="This page doesn't exist.">
+  <main class="wrap lost">
+    <h1>Nothing playing <em>here.</em></h1>
+    <p>This page doesn&rsquo;t exist. The notch is on the home page.</p>
+    <a class="cta" href="/">Back to NotchPlayer</a>
+  </main>
+</Base>
+<style>
+  .lost { min-height: 100svh; display: grid; align-content: center; justify-items: start; gap: 24px; }
+</style>
