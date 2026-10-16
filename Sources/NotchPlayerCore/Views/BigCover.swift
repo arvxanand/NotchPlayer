@@ -1,4 +1,5 @@
 import AppKit
+import CoreImage
 import SwiftUI
 
 /// The playing song's cover filling the screen, tilting in 3D, for fun --
@@ -17,6 +18,24 @@ public enum BigCover {
         let t = time / Motion.slow
         let px = Double(max(-1, min(1, pointer.x))), py = Double(max(-1, min(1, pointer.y)))
         return (sin(t * 0.9) * 7 - py * 12, cos(t * 0.7) * 9 + px * 14)
+    }
+
+    /// The colour glow behind the cover: the small cover blurred and made a
+    /// little more vivid, **once per cover**. Stretched over the screen and
+    /// only turned after that -- a full-screen `.blur()` redrawn every frame
+    /// would keep the GPU busy for a toy.
+    static func glow(_ image: NSImage) -> NSImage? {
+        guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        let input = CIImage(cgImage: cg)
+        let output = input.clampedToExtent()
+            .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 12])
+            // A little darker: a pale cover would otherwise wash the whole
+            // screen out and lose the white title under it.
+            .applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 1.4,
+                                                            kCIInputBrightnessKey: -0.12])
+            .cropped(to: input.extent)
+        guard let blurred = CIContext().createCGImage(output, from: input.extent) else { return nil }
+        return NSImage(cgImage: blurred, size: image.size)
     }
 
     /// Where the pointer is on `screen`, as `tilt` wants it.
@@ -93,12 +112,17 @@ struct BigCoverView: View {
     @ObservedObject private var memory = ArtMemory.shared
     @State private var big: NSImage?
     @State private var bigFor: URL?
+    @State private var glow: NSImage?
+    @State private var glowFor: URL?
 
     var body: some View {
         let track = players.current.now.track
         let url = track?.artworkURL
+        let glowing = glowFor == url && glow != nil
         ZStack {
-            Color.black.opacity(0.55)
+            if let glow, glowing { swirl(glow).id(url).transition(.opacity) }
+            // A little lighter over the glow, so its colour comes through.
+            Color.black.opacity(glowing ? 0.45 : 0.55)
             VStack(spacing: 18) {
                 tilting(cover(url, source: track?.source ?? .spotify))
                 if let track {
@@ -116,11 +140,43 @@ struct BigCoverView: View {
         .onTapGesture(perform: close)
         .animation(.easeInOut(duration: 0.35 * Motion.slow), value: url)
         .task(id: url) {
-            // The small cover shows at once; the sharp one replaces it.
-            guard let url, let bytes = await ArtworkCache.shared.data(for: url, original: true),
+            guard let url else { return }
+            // The glow from the small cover, usually already loaded for the
+            // notch; the sharp cover then replaces the small one.
+            if let small = memory.image(for: url) { setGlow(BigCover.glow(small), for: url) }
+            guard let bytes = await ArtworkCache.shared.data(for: url, original: true),
                   let image = NSImage(data: bytes) else { return }
             big = image; bigFor = url
+            if glowFor != url { setGlow(BigCover.glow(image), for: url) }
         }
+    }
+
+    private func setGlow(_ image: NSImage?, for url: URL) {
+        guard let image else { return }
+        glow = image; glowFor = url
+    }
+
+    /// Two stretched copies of the glow turning opposite ways, so its colours
+    /// drift through each other. Still with Reduce motion.
+    private func swirl(_ image: NSImage) -> some View {
+        let size = max(screen.width, screen.height) * 1.6
+        return TimelineView(.animation) { context in
+            let t = Motion.reduced ? 0 : context.date.timeIntervalSinceReferenceDate / Motion.slow
+            ZStack {
+                Image(nsImage: image).resizable().interpolation(.high)
+                    .frame(width: size, height: size)
+                    .rotationEffect(.degrees((t * 8).truncatingRemainder(dividingBy: 360)))
+                Image(nsImage: image).resizable().interpolation(.high)
+                    .frame(width: size, height: size)
+                    .scaleEffect(1.3)
+                    .rotationEffect(.degrees((-t * 5).truncatingRemainder(dividingBy: 360)))
+                    .opacity(0.5)
+            }
+            .opacity(0.85)
+        }
+        .frame(width: screen.width, height: screen.height)
+        .clipped()
+        .allowsHitTesting(false)
     }
 
     private var side: CGFloat { min(screen.height * 0.6, 640) }

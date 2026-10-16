@@ -42,4 +42,14 @@ final class BigCoverTests: XCTestCase {
         XCTAssertEqual(ArtworkCache.wanted(url, original: false).lastPathComponent,
                        "ab67616d00001e02e045aa197ada995407bf92fc")
     }
+
+    /// Blurred once per cover, at the cover's own size; nothing for an
+    /// image with no pixels.
+    func testTheGlowIsTheCoverBlurredAtItsOwnSize() {
+        let solid = NSImage(size: NSSize(width: 144, height: 144), flipped: false) { rect in
+            NSColor.systemOrange.setFill(); rect.fill(); return true
+        }
+        XCTAssertEqual(BigCover.glow(solid)?.size, NSSize(width: 144, height: 144))
+        XCTAssertNil(BigCover.glow(NSImage()))
+    }
 }
