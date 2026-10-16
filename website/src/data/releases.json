@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.7",
+    "date": "2026-10-16",
+    "html": "<ul dir=\"auto\">\n<li><strong>Up next:</strong> swipe left past your stats to see the next ten songs, with their covers and artists. Scroll down for more. Shuffle is included, and it works with Spotify full screen.</li>\n<li>It only shows the queue: add or remove songs in Spotify itself. A song you add appears when the next song starts, because that's when Spotify saves its queue.</li>\n<li>Spotify only for now; the page hides while Apple Music plays.</li>\n</ul>\n<p dir=\"auto\">After updating, the notch shows these once the first time you open it.</p>\n<p dir=\"auto\"><strong>Full changelog:</strong> <a class=\"commit-link\" href=\"https://github.com/arvxanand/NotchPlayer/compare/v0.6...v0.7\"><tt>v0.6...v0.7</tt></a></p>"
+  },
+  {
     "version": "0.6",
     "date": "2026-10-09",
     "html": "<ul dir=\"auto\">\n<li><strong>Listening stats:</strong> swipe left on the open notch (or click the chart button at the end of the controls) for time listened, songs played, and your top artists and songs, today, this week, this month or all time. Spotify and Apple Music both count. Kept on your Mac only.</li>\n<li><strong>Stats take the colour of the album cover</strong>, like the progress bar.</li>\n<li><strong>Covers for songs streamed from Apple Music</strong>, which used to show the Music logo instead.</li>\n</ul>\n<p dir=\"auto\">After updating, the notch shows these once the first time you open it.</p>\n<p dir=\"auto\"><strong>Full changelog:</strong> <a class=\"commit-link\" href=\"https://github.com/arvxanand/NotchPlayer/compare/v0.5...v0.6\"><tt>v0.5...v0.6</tt></a></p>"
