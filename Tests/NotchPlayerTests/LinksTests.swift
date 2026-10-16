@@ -30,6 +30,24 @@ final class LinksTests: XCTestCase {
         XCTAssertEqual(SpotifyLinks.Page.parse(html).album, URL(string: "spotify:album:XYZ9"))
     }
 
+    /// The queue page's rows: the name, every artist, and the cover, with the
+    /// page's escapes undone.
+    func testThePageNamesTheSongItsArtistsAndCover() {
+        let page = SpotifyLinks.Page.parse(syntheticPage)
+        XCTAssertEqual(page.title, "T>E>S>T>T>R>A>C>K")
+        XCTAssertEqual(page.byline, "Example Artist")
+        let html = """
+        <meta property="og:title" content="LET&#x27;S GO"/>
+        <meta property="og:description" content="Jaden Bojsen, Sami Brielle · LET&#x27;S GO · Song · 2024"/>
+        <meta property="og:image" content="https://i.scdn.co/image/ab67"/>
+        """
+        let parsed = SpotifyLinks.Page.parse(html)
+        XCTAssertEqual(parsed.title, "LET'S GO")
+        XCTAssertEqual(parsed.byline, "Jaden Bojsen, Sami Brielle")
+        XCTAssertEqual(parsed.cover, URL(string: "https://i.scdn.co/image/ab67"))
+        XCTAssertEqual(SpotifyLinks.Page.unescape("Tom &amp; Jerry &quot;&lt;3&quot;"), #"Tom & Jerry "<3""#)
+    }
+
     /// A page that changed shape must fall back to search, not open nonsense.
     func testAPageWithoutTheTagsGivesNothing() {
         XCTAssertEqual(SpotifyLinks.Page.parse("<html><head><title>x</title></head></html>"),

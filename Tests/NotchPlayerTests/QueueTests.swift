@@ -110,14 +110,4 @@ final class QueueTests: XCTestCase {
         try Data(file(playing: 5)).write(to: account.appendingPathComponent("context_player_state_restore"))
         XCTAssertEqual(SpotifyQueue.read(home: home.path)?.upcoming, [id(6)])
     }
-
-    func testThePreviewGivesTheNameAndCover() {
-        let body = Data(#"{"title":"Make Believe","thumbnail_url":"https://image-cdn-ak.spotifycdn.com/image/ab67"}"#.utf8)
-        XCTAssertEqual(SpotifyPreview.parse(body),
-                       SpotifyPreview.Song(name: "Make Believe",
-                                           cover: URL(string: "https://image-cdn-ak.spotifycdn.com/image/ab67")))
-        XCTAssertNil(SpotifyPreview.parse(Data(#"{"title":""}"#.utf8)))
-        XCTAssertNotNil(SpotifyPreview.url(for: "7IoTUnyyvbMEY2UuE2Tmsx"))
-        XCTAssertNil(SpotifyPreview.url(for: "7IoTUnyy/../x&y=zzzzzzz"), "only an id goes in the link")
-    }
 }

@@ -121,14 +121,16 @@ public enum PreviewData {
               bands: nil, caption: "the stats page before anything has been counted",
               plays: []),
         State(name: "queue", now: .track(track(), state: .playing, position: 23.69),
-              bands: nil, caption: "the queue page: five covers, a name too long, one song Spotify didn't describe",
+              bands: nil, caption: "the queue page: the next song large, rows under it, a name too long, one still loading",
               queue: .songs([
-                  SpotifyPreview.Song(name: "D>E>A>T>H>M>E>T>A>L", cover: cover),
-                  SpotifyPreview.Song(name: "A song whose name runs much too long", cover: URL(string:
+                  QueueView.Song(name: "D>E>A>T>H>M>E>T>A>L", artist: "Panchiko", cover: cover),
+                  QueueView.Song(name: "A song whose name runs much too long for its row",
+                                 artist: "Somebody, Somebody Else", cover: URL(string:
                       "https://image-cdn-ak.spotifycdn.com/image/ab67616d00001e022c5b24ecfa39523a75c993c4")),
                   nil,
-                  SpotifyPreview.Song(name: "Laika", cover: cover),
-                  SpotifyPreview.Song(name: "Kicking Up Dust", cover: nil),
+                  QueueView.Song(name: "Laika", artist: "Panchiko", cover: cover),
+                  QueueView.Song(name: "Kicking Up Dust", artist: "Panchiko", cover: nil),
+                  QueueView.Song(name: "Portraits", artist: "Panchiko", cover: cover),
               ])),
         State(name: "queue-empty", now: .track(track(), state: .playing, position: 23.69),
               bands: nil, caption: "the queue page at the end of a playlist", queue: .songs([])),

@@ -1,21 +1,33 @@
 import SwiftUI
 
-/// The open panel's third page, Spotify only: the next songs, as covers.
+/// The open panel's third page, Spotify only: the next ten songs, the first
+/// one large, the rest in a list that scrolls.
 ///
 /// Look, don't touch. Anything that tells Spotify to play a particular song
 /// brings it forward (TRAPS #75), so tapping does nothing; queueing and
 /// removing stay in Spotify.
 ///
 /// Same frame and camera band as `StatsView`. The order comes from Spotify's
-/// restore file (`SpotifyQueue`), names and covers from its public preview
-/// (`SpotifyPreview`), both asked only while this page shows.
+/// restore file (`SpotifyQueue`), names and covers from each song's public
+/// page (`SpotifyLinks.page`), both asked only while this page shows. A
+/// sideways swipe still flips pages; only an up-and-down scroll moves the list.
 public struct QueueView: View {
+    public struct Song: Equatable, Sendable {
+        public let name: String
+        public let artist: String
+        public let cover: URL?
+
+        public init(name: String, artist: String, cover: URL?) {
+            self.name = name; self.artist = artist; self.cover = cover
+        }
+    }
+
     public enum Content: Equatable, Sendable {
         case loading
         /// The file is missing or not what it was (TRAPS #78).
         case unreadable
-        /// Nil where Spotify's preview did not answer.
-        case songs([SpotifyPreview.Song?])
+        /// Nil while a song's page is on its way, or if it never answers.
+        case songs([Song?])
     }
 
     let geometry: NotchGeometry
@@ -25,26 +37,27 @@ public struct QueueView: View {
     let fixed: Content?
 
     @State private var content = Content.loading
+    @ObservedObject private var memory = ArtMemory.shared
+    @AppStorage(Accent.enabledKey) private var coverAccent = true
 
     public init(geometry: NotchGeometry, track: Track, showing: Bool, fixed: Content? = nil) {
         self.geometry = geometry; self.track = track; self.showing = showing; self.fixed = fixed
     }
 
+    /// The playing cover's colour, as on the stats page.
+    private var accent: Color {
+        memory.accent(for: coverAccent ? track.artworkURL : nil).map { Color(red: $0.r, green: $0.g, blue: $0.b) }
+            ?? Palette.primary
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Color.clear.frame(height: geometry.notchExclusionTop)
-            Text("Up next")
-                .font(Type.label(11, weight: .semibold))
-                .foregroundStyle(Palette.secondary)
-                .frame(height: StatsView.tabHeight)
-                .padding(.top, StatsView.topGap)
-            row(fixed ?? content)
-                .padding(.top, StatsView.rowGap)
-            Spacer(minLength: 0)
+            list(fixed ?? content)
         }
         .padding(.horizontal, PanelView.inset)
         .padding(.bottom, PanelView.bottomGap)
-        .frame(width: geometry.openWidth, height: geometry.openHeight)
+        .frame(width: geometry.openWidth, height: geometry.openHeight, alignment: .top)
         .task(id: fixed == nil && showing ? track.id : nil) {
             guard fixed == nil, showing else { return }
             await load()
@@ -52,29 +65,65 @@ public struct QueueView: View {
     }
 
     @ViewBuilder
-    private func row(_ content: Content) -> some View {
+    private func list(_ content: Content) -> some View {
         switch content {
         case .loading:
-            Color.clear.frame(height: side + Self.nameGap + Self.nameHeight)
+            header
         case .unreadable:
+            header
             note("Can't read Spotify's queue right now.")
         case .songs(let songs) where songs.isEmpty:
+            header
             note("Nothing after this song")
         case .songs(let songs):
-            HStack(alignment: .top, spacing: Self.gap) {
-                ForEach(Array(songs.enumerated()), id: \.offset) { _, song in
-                    VStack(alignment: .leading, spacing: Self.nameGap) {
-                        ArtworkView(url: song?.cover, side: side, corner: Self.corner)
-                        Text(song?.name ?? " ")
-                            .font(Type.label(11))
-                            .foregroundStyle(Palette.primary)
-                            .lineLimit(1).truncationMode(.tail)
-                            .frame(width: side, height: Self.nameHeight, alignment: .leading)
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    header
+                    ForEach(Array(songs.enumerated()), id: \.offset) { index, song in
+                        row(song, first: index == 0)
                     }
-                    .accessibilityElement(children: .combine)
                 }
+                .padding(.bottom, Self.endGap)
             }
         }
+    }
+
+    private var header: some View {
+        Text("Up next")
+            .font(Type.label(11, weight: .semibold))
+            .foregroundStyle(Palette.secondary)
+            .frame(height: Self.headerHeight)
+            .padding(.top, StatsView.topGap)
+    }
+
+    private func row(_ song: Song?, first: Bool) -> some View {
+        HStack(spacing: first ? 10 : 8) {
+            let side = first ? Self.firstCover : Self.cover, corner: CGFloat = first ? 6 : 4
+            if let song {
+                ArtworkView(url: song.cover, side: side, corner: corner)
+            } else {
+                // On its way: a quiet slot, not the Spotify mark, which reads
+                // as a song with no cover.
+                RoundedRectangle(cornerRadius: corner).fill(Palette.wash).frame(width: side, height: side)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                if first {
+                    Text("Next")
+                        .font(Type.label(11, weight: .semibold))
+                        .foregroundStyle(accent)
+                }
+                Text(song?.name ?? " ")
+                    .font(Type.label(first ? 13 : 12, weight: first ? .semibold : .medium))
+                    .foregroundStyle(Palette.primary)
+                Text(song?.artist ?? " ")
+                    .font(Type.label(11))
+                    .foregroundStyle(Palette.secondary)
+            }
+            .lineLimit(1).truncationMode(.tail)
+            Spacer(minLength: 0)
+        }
+        .frame(height: first ? Self.firstHeight : Self.rowHeight)
+        .accessibilityElement(children: .combine)
     }
 
     private func note(_ text: String) -> some View {
@@ -86,7 +135,9 @@ public struct QueueView: View {
 
     /// Spotify rewrites the file as the song changes, so a read right then
     /// can still be the one before: the song now playing listed as next.
-    /// One more read a second later settles it.
+    /// One more read a second later settles it. The pages are asked all at
+    /// once (each is ~300KB and about a second), and each row fills in as
+    /// its answer comes.
     private func load() async {
         let playing = track.id.split(separator: ":").last.map(String.init)
         var state = SpotifyQueue.read()
@@ -96,25 +147,31 @@ public struct QueueView: View {
             state = SpotifyQueue.read()
         }
         guard let state else { content = .unreadable; return }
-        var songs: [SpotifyPreview.Song?] = []
-        for id in state.next(Self.count) {
-            songs.append(await SpotifyPreview.song(id))
-            guard !Task.isCancelled else { return }
-        }
+        let ids = state.next(Self.count)
+        var songs = [Song?](repeating: nil, count: ids.count)
         content = .songs(songs)
+        await withTaskGroup(of: (Int, Song?).self) { group in
+            for (index, id) in ids.enumerated() {
+                group.addTask {
+                    let page = await SpotifyLinks.page("spotify:track:\(id)")
+                    return (index, page?.title.map { Song(name: $0, artist: page?.byline ?? "", cover: page?.cover) })
+                }
+            }
+            for await (index, song) in group where !Task.isCancelled {
+                songs[index] = song
+                content = .songs(songs)
+            }
+        }
     }
 
     // MARK: - Metrics
 
-    static let count = 5
-    static let gap: CGFloat = 10
-    static let corner: CGFloat = 6
-    static let nameGap: CGFloat = 4
-    static let nameHeight: CGFloat = 14
-
-    /// Five covers across the panel, no bigger than the player's.
-    private var side: CGFloat {
-        let across = (geometry.openWidth - 2 * PanelView.inset - CGFloat(Self.count - 1) * Self.gap) / CGFloat(Self.count)
-        return min(across.rounded(.down), PanelView.artSide)
-    }
+    static let count = 10
+    static let headerHeight: CGFloat = 18
+    static let firstCover: CGFloat = 40
+    static let firstHeight: CGFloat = 50
+    static let cover: CGFloat = 24
+    static let rowHeight: CGFloat = 32
+    /// Room under the last row, so it scrolls clear of the page dots.
+    static let endGap: CGFloat = 8
 }
