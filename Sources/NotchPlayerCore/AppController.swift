@@ -217,7 +217,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
                 RootView(geometry: geometry, now: .stopped, probe: true)
             }
         } else {
-            expansion.lastPage = { [players] in players.current.source == .spotify ? .queue : .stats }
+            expansion.source = { [players] in players.current.source }
             panel = NotchPanel(screen: screen) { [players, expansion, listening, tap] in
                 Live(geometry: geometry, players: players, expansion: expansion, listening: listening)
                     .environment(\.liveBands, tap)

@@ -141,26 +141,28 @@ final class ListeningTests: XCTestCase {
 
     func testOnlyASidewaysTrackpadSwipeFlipsThePage() {
         func swipe(_ dx: CGFloat, _ dy: CGFloat, precise: Bool = true) -> Expansion.Page? {
-            Expansion.swipe(from: .player, last: .queue, dx: dx, dy: dy, precise: precise)
+            Expansion.swipe(from: .player, in: Expansion.pages(for: .spotify), dx: dx, dy: dy, precise: precise)
         }
-        XCTAssertEqual(swipe(-60, 5), .stats)
+        XCTAssertEqual(swipe(-60, 5), .queue)
         XCTAssertNil(swipe(-60, 40), "mostly scrolling")
         XCTAssertNil(swipe(-30, 0), "too short")
         XCTAssertNil(swipe(-200, 0, precise: false), "a mouse wheel")
     }
 
-    /// One page per swipe, and never past either end; with Music playing the
-    /// stats are the end.
+    /// One page per swipe, the queue before the stats, never past either
+    /// end; with Music playing there is no queue to step through.
     func testASwipeStepsOnePageAndStopsAtTheEnds() {
-        func swipe(from page: Expansion.Page, _ dx: CGFloat, last: Expansion.Page = .queue) -> Expansion.Page? {
-            Expansion.swipe(from: page, last: last, dx: dx, dy: 0, precise: true)
+        func swipe(from page: Expansion.Page, _ dx: CGFloat, _ source: Source = .spotify) -> Expansion.Page? {
+            Expansion.swipe(from: page, in: Expansion.pages(for: source), dx: dx, dy: 0, precise: true)
         }
-        XCTAssertEqual(swipe(from: .stats, -60), .queue)
-        XCTAssertEqual(swipe(from: .queue, 60), .stats)
-        XCTAssertEqual(swipe(from: .stats, 60), .player)
+        XCTAssertEqual(swipe(from: .player, -60), .queue)
+        XCTAssertEqual(swipe(from: .queue, -60), .stats)
+        XCTAssertEqual(swipe(from: .stats, 60), .queue)
+        XCTAssertEqual(swipe(from: .queue, 60), .player)
         XCTAssertNil(swipe(from: .player, 60), "nothing left of the player")
-        XCTAssertNil(swipe(from: .queue, -60), "nothing right of the queue")
-        XCTAssertNil(swipe(from: .stats, -60, last: .stats), "no queue with Music")
+        XCTAssertNil(swipe(from: .stats, -60), "nothing right of the stats")
+        XCTAssertEqual(swipe(from: .player, -60, .appleMusic), .stats, "no queue with Music")
+        XCTAssertEqual(swipe(from: .queue, -60, .appleMusic), .stats, "a queue left behind counts as the player")
     }
 
     @MainActor func testAClosedPanelHasNoPageToShow() {
