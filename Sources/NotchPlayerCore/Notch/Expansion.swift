@@ -23,10 +23,14 @@ public final class Expansion: ObservableObject {
     /// already observes this object.
     @Published public var whatsNew: WhatsNew.Note?
 
-    /// Which page the open panel shows. Every open starts on the player, so
-    /// leaving the stats is just moving away.
-    public enum Page: Sendable { case player, stats }
+    /// Which page the open panel shows, left to right. Every open starts on
+    /// the player, so leaving the others is just moving away.
+    public enum Page: Int, Sendable { case player, stats, queue }
     @Published public private(set) var page = Page.player
+
+    /// The rightmost page there is right now: the queue is Spotify's alone
+    /// (`SpotifyQueue`), so with Music playing it is the stats.
+    public var lastPage: () -> Page = { .queue }
 
     private var scrollMonitor: Any?
     private var swipeSum = CGSize.zero
@@ -184,7 +188,11 @@ public final class Expansion: ObservableObject {
         case .ended, .cancelled:
             // The way the fingers moved, whichever way scrolling is set.
             let fingers = event.isDirectionInvertedFromDevice ? swipeSum.width : -swipeSum.width
-            if let page = Self.swipe(dx: fingers, dy: swipeSum.height,
+            let last = lastPage()
+            // A queue page left behind by a switch to Music shows as the stats.
+            let from = page.rawValue > last.rawValue ? last : page
+            if let page = Self.swipe(from: from, last: last,
+                                     dx: fingers, dy: swipeSum.height,
                                      precise: event.hasPreciseScrollingDeltas) {
                 show(page)
             }
@@ -194,11 +202,13 @@ public final class Expansion: ObservableObject {
         }
     }
 
-    /// Fingers moving left bring in the page on the right, the stats; moving
-    /// right go back. Mostly sideways and at least 40pt, so a scroll that is
-    /// mostly up and down never flips the page.
-    nonisolated static func swipe(dx: CGFloat, dy: CGFloat, precise: Bool) -> Page? {
+    /// Fingers moving left bring in the page on the right; moving right go
+    /// back one. Mostly sideways and at least 40pt, so a scroll that is mostly
+    /// up and down never flips the page. Nil past either end.
+    nonisolated static func swipe(from page: Page, last: Page, dx: CGFloat, dy: CGFloat,
+                                  precise: Bool) -> Page? {
         guard precise, abs(dx) >= 40, abs(dx) > 2 * abs(dy) else { return nil }
-        return dx < 0 ? .stats : .player
+        let next = Page(rawValue: page.rawValue + (dx < 0 ? 1 : -1))
+        return next.flatMap { $0.rawValue <= last.rawValue ? $0 : nil }
     }
 }

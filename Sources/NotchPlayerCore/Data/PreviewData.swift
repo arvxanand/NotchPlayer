@@ -21,7 +21,10 @@ public enum PreviewData {
         /// Set, the open panel shows the stats page counting these.
         public var plays: [Play]? = nil
 
-        public var page: Expansion.Page { plays == nil ? .player : .stats }
+        /// Set, the open panel shows the queue page with this.
+        public var queue: QueueView.Content? = nil
+
+        public var page: Expansion.Page { queue != nil ? .queue : plays == nil ? .player : .stats }
         /// Set, the open panel shows this note instead.
         public var whatsNew: WhatsNew.Note? = nil
 
@@ -117,6 +120,23 @@ public enum PreviewData {
         State(name: "stats-empty", now: .track(track(), state: .playing, position: 23.69),
               bands: nil, caption: "the stats page before anything has been counted",
               plays: []),
+        State(name: "queue", now: .track(track(), state: .playing, position: 23.69),
+              bands: nil, caption: "the queue page: the next song large, rows under it, a name too long, one still loading",
+              queue: .songs([
+                  QueueView.Song(name: "D>E>A>T>H>M>E>T>A>L", artist: "Panchiko", cover: cover),
+                  QueueView.Song(name: "A song whose name runs much too long for its row",
+                                 artist: "Somebody, Somebody Else", cover: URL(string:
+                      "https://image-cdn-ak.spotifycdn.com/image/ab67616d00001e022c5b24ecfa39523a75c993c4")),
+                  nil,
+                  QueueView.Song(name: "Laika", artist: "Panchiko", cover: cover),
+                  QueueView.Song(name: "Kicking Up Dust", artist: "Panchiko", cover: nil),
+                  QueueView.Song(name: "Portraits", artist: "Panchiko", cover: cover),
+              ])),
+        State(name: "queue-empty", now: .track(track(), state: .playing, position: 23.69),
+              bands: nil, caption: "the queue page at the end of a playlist", queue: .songs([])),
+        State(name: "queue-unreadable", now: .track(track(), state: .playing, position: 23.69),
+              bands: nil, caption: "the queue page when Spotify's file has changed shape (TRAPS #78)",
+              queue: .unreadable),
         State(name: "whatsnew", now: .track(track(), state: .playing, position: 23.69),
               bands: nil, caption: "after an update: the newest version's note, once",
               whatsNew: WhatsNew.Note(version: "0.6", lines: WhatsNew.notes["0.6"] ?? [])),

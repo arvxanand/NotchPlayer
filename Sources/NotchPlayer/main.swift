@@ -241,6 +241,15 @@ if args.contains("--local-cover") {
     RunLoop.main.run()
 }
 
+/// What the queue page would show, as song ids, from Spotify's restore file.
+if args.contains("--queue") {
+    guard let state = SpotifyQueue.read() else { print("queue: can't read Spotify's file"); exit(1) }
+    print("context \(state.context ?? "none")")
+    print("queued \(state.queued.joined(separator: " "))")
+    print("next \(state.next(5).joined(separator: " "))")
+    exit(0)
+}
+
 if args.contains("--audit") {
     print(AuditReport.json())
     exit(0)

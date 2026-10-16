@@ -33,15 +33,19 @@ public enum SpotifyLinks {
         print("link: \(target)")
         if target == .save { return SpotifyPlus.save(track) }
         let fallback = search(fallbackTerm(target, track))
-        guard let page = pageURL(for: track.id) else { return openOr(nil, fallback) }
         if let cached = found[track.id] {
             return openOr(cached.link(target, track: track.id), fallback)
         }
-        Task {
-            let result = await fetch(page)
-            if let result { found[track.id] = result }
-            openOr(result?.link(target, track: track.id), fallback)
-        }
+        Task { openOr(await page(track.id)?.link(target, track: track.id), fallback) }
+    }
+
+    /// The public page for `spotify:track:…`, read once per session. Also the
+    /// queue page's names and covers (`QueueView`), asked only while it shows.
+    public static func page(_ id: String) async -> Page? {
+        if let cached = found[id] { return cached }
+        guard let url = pageURL(for: id), let page = await fetch(url) else { return nil }
+        found[id] = page
+        return page
     }
 
     nonisolated static func fallbackTerm(_ target: LinkTarget, _ track: Track) -> String {
@@ -67,7 +71,7 @@ public enum SpotifyLinks {
               (response as? HTTPURLResponse)?.statusCode == 200,
               let html = String(data: data, encoding: .utf8) else { return nil }
         let page = Page.parse(html)
-        return page.album == nil && page.artist == nil ? nil : page
+        return page.album == nil && page.artist == nil && page.title == nil ? nil : page
     }
 
     // MARK: - Pure, so a test can call them
@@ -95,6 +99,16 @@ public enum SpotifyLinks {
         public let album: URL?
         /// The first `music:musician`, which is the primary artist.
         public let artist: URL?
+        /// The song's name, every artist's name ("Flo Rida, Sia"), and its
+        /// cover, from the `og:` tags.
+        public var title: String? = nil
+        public var byline: String? = nil
+        public var cover: URL? = nil
+
+        public init(album: URL?, artist: URL?, title: String? = nil, byline: String? = nil, cover: URL? = nil) {
+            self.album = album; self.artist = artist
+            self.title = title; self.byline = byline; self.cover = cover
+        }
 
         public func link(_ target: LinkTarget, track id: String) -> URL? {
             switch target {
@@ -106,17 +120,35 @@ public enum SpotifyLinks {
 
         /// Reads `<meta name="music:album" content="https://open.spotify.com/album/X">`
         /// and the first `music:musician`, and turns each into a `spotify:` URI
-        /// so it opens in the app rather than the browser.
+        /// so it opens in the app rather than the browser. `og:description` is
+        /// "Artists · Title · Song · Year"; the byline is its first part.
         public nonisolated static func parse(_ html: String) -> Page {
+            var page = Page(album: nil, artist: nil)
             var album: URL?, artist: URL?
             for tag in html.matches(of: #/<meta\s[^>]*>/#) {
                 let text = String(tag.output)
                 guard let name = attribute("name", in: text) ?? attribute("property", in: text),
                       let content = attribute("content", in: text) else { continue }
-                if name == "music:album", album == nil { album = uri(content, kind: "album") }
-                if name == "music:musician", artist == nil { artist = uri(content, kind: "artist") }
+                switch name {
+                case "music:album" where album == nil: album = uri(content, kind: "album")
+                case "music:musician" where artist == nil: artist = uri(content, kind: "artist")
+                case "og:title": page.title = unescape(content)
+                case "og:description":
+                    page.byline = content.components(separatedBy: " · ").first.map(unescape)
+                case "og:image": page.cover = URL(string: content)
+                default: break
+                }
             }
-            return Page(album: album, artist: artist)
+            return Page(album: album, artist: artist, title: page.title, byline: page.byline, cover: page.cover)
+        }
+
+        /// The page's HTML escapes: `&amp;`, `&gt;`, `&#x27;`, `&#39;`.
+        nonisolated static func unescape(_ text: String) -> String {
+            var out = text
+            for (code, character) in [("&lt;", "<"), ("&gt;", ">"), ("&quot;", "\""), ("&#x27;", "'"), ("&#39;", "'")] {
+                out = out.replacingOccurrences(of: code, with: character)
+            }
+            return out.replacingOccurrences(of: "&amp;", with: "&")
         }
 
         private nonisolated static func attribute(_ key: String, in tag: String) -> String? {

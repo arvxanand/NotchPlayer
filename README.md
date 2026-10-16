@@ -308,6 +308,13 @@ only while NotchPlayer is running. It's kept in one file on your Mac
 (`~/Library/Application Support/NotchPlayer/listening.json`) and never sent
 anywhere; delete that file to start over.
 
+**What's up next (Spotify).** Swipe left once more, past the stats, to see the
+next ten songs with their artists, shuffle included; scroll down for more than
+the first few. It only shows them: queue or remove songs in
+Spotify itself. A song you add appears when the next song starts, because
+that's when Spotify saves its queue. The names and covers come from Spotify's
+public song pages, looked up only while this page is open.
+
 **Songs you added to Spotify from your own Mac** (Spotify's local files)
 show the cover saved inside the song file, like Spotify does. NotchPlayer
 finds the file through Spotify's own list and only reads the picture, on
