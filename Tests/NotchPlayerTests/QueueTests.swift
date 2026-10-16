@@ -32,11 +32,17 @@ final class QueueTests: XCTestCase {
 
     /// Rows 1...6 of a playlist, played in `order`, with row `playing` on now
     /// and `queued` songs added by hand.
-    private func file(queued: [UInt8] = [], order: [UInt8] = [1, 2, 3, 4, 5, 6], playing: UInt8 = 1) -> [UInt8] {
+    /// Nil `playing` is a queued song on, when Spotify saves no row but its
+    /// `place` in the order, already on the next one; 0 is left out, as
+    /// protobuf does.
+    private func file(queued: [UInt8] = [], order: [UInt8] = [1, 2, 3, 4, 5, 6], playing: UInt8? = 1,
+                      place: Int = 0) -> [UInt8] {
         let rows = (1...6).map { n in field(4, field(1, []) + field(2, "row\(n)") + field(3, song(n))) }
-        let context = field(2, field(1, field(2, "row\(playing)") + field(3, song(playing))))
+        let row = playing.map { field(2, field(1, field(2, "row\($0)") + field(3, song($0)))) } ?? []
+        let context = row
             + field(6, field(1, field(1, "spotify:playlist:abc") + field(5, rows.flatMap { $0 }))
-                       + field(2, field(3, order.flatMap { field(2, field(2, "row\($0)")) })))
+                       + field(2, field(3, order.flatMap { field(2, field(2, "row\($0)")) }))
+                       + (place == 0 ? [] : varint(5 << 3) + varint(place)))
         let queue = queued.enumerated().flatMap { index, n in
             field(1, field(1, []) + field(2, "q\(index)") + field(3, song(100 + n)))
         }
@@ -69,6 +75,14 @@ final class QueueTests: XCTestCase {
         XCTAssertEqual(SpotifyQueue.parse(file(playing: 6))?.upcoming, [], "end of the playlist")
         XCTAssertEqual(SpotifyQueue.parse(file(order: [1, 2], playing: 6))?.upcoming, [],
                        "playing a row the order doesn't have: nothing guessed")
+    }
+
+    /// While a queued song plays there is no playing row; Spotify's place
+    /// then already points at the next one (checked 15 Oct 2026).
+    func testWithAQueuedSongOnThePlaceSaysWhatsNext() {
+        let state = SpotifyQueue.parse(file(queued: [7], order: [4, 2, 6, 1, 5, 3], playing: nil, place: 3))
+        XCTAssertEqual(state?.next(5), [id(107), id(1), id(5), id(3)])
+        XCTAssertEqual(SpotifyQueue.parse(file(playing: nil))?.upcoming.first, id(1), "no place saved: the start")
     }
 
     func testAnythingElseIsUnreadable() {

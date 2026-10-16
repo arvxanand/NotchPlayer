@@ -10,9 +10,10 @@ import Foundation
 ///
 /// - `PlayQueueNode`: field 1, the songs queued by hand, next first; field 2,
 ///   the queued song playing now.
-/// - `ContextNode`: field 2.1, the row playing now (2 a row id, 3 the song);
-///   field 6.1.1 the playlist or album; 6.1.5.4 its rows; 6.2.3.2 the order
-///   they play in, by row id -- shuffled when shuffle is on.
+/// - `ContextNode`: field 2.1, the row playing now (2 a row id, 3 the song),
+///   absent while a queued song plays; field 6.1.1 the playlist or album;
+///   6.1.5.4 its rows; 6.2.3.2 the order they play in, by row id -- shuffled
+///   when shuffle is on; 6.5 the place in that order.
 ///
 /// **Rewritten when the song changes or shuffle flips, not when a song is
 /// queued**, so a song queued mid-song shows up when the next one starts.
@@ -79,10 +80,13 @@ public enum SpotifyQueue {
         let order = Proto.path([6, 2, 3, 2], in: context)
             .compactMap { Proto.field(2, in: $0).map { String(decoding: $0, as: UTF8.self) } }
         let playing = Proto.path([2, 1, 2], in: context).first.map { String(decoding: $0, as: UTF8.self) }
-        // Not found (a queued song playing before the context began): nothing
-        // known after it, rather than a guess.
-        let upcoming = playing.flatMap { order.firstIndex(of: $0) }
-            .map { order[($0 + 1)...].compactMap { songs[$0] } } ?? []
+        // Where the order goes on from: after the playing row, or -- while a
+        // queued song plays and no row is -- the place Spotify keeps (6.5),
+        // which then already points at the next row. Zero is left out of a
+        // protobuf, so a missing place is the first row.
+        let from = playing.map { order.firstIndex(of: $0).map { $0 + 1 } }
+            ?? Proto.path([6], in: context).first.map { Int(Proto.varint(5, in: $0) ?? 0) }
+        let upcoming = from.map { order.dropFirst($0).compactMap { songs[$0] } } ?? []
         let uri = Proto.path([6, 1, 1], in: context).first.map { String(decoding: $0, as: UTF8.self) }
         return State(queued: queued, upcoming: upcoming, context: uri)
     }
@@ -145,6 +149,26 @@ public enum SpotifyQueue {
                 }
             }
             return found
+        }
+
+        /// A number field's first value.
+        static func varint(_ number: UInt64, in bytes: ArraySlice<UInt8>) -> UInt64? {
+            var i = bytes.startIndex
+            while i < bytes.endIndex {
+                guard let tag = Varint.read(bytes, &i) else { return nil }
+                switch tag & 7 {
+                case 0:
+                    guard let value = Varint.read(bytes, &i) else { return nil }
+                    if tag >> 3 == number { return value }
+                case 1: i += 8
+                case 5: i += 4
+                case 2:
+                    guard let length = Varint.read(bytes, &i), length <= UInt64(bytes.endIndex - i) else { return nil }
+                    i += Int(length)
+                default: return nil
+                }
+            }
+            return nil
         }
 
         /// Every value at the end of a path of fields, each level repeated.
