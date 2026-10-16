@@ -18,6 +18,11 @@ public enum WhatsNew {
 
     /// Short enough for one line each in the panel (`WhatsNewTests`).
     static let notes: [String: [String]] = [
+        "0.8": [
+            "Click the cover for a big, moving album cover",
+            "Up next now comes before your stats",
+            "Local files show in Up next too",
+        ],
         "0.7": [
             "Up next: swipe left past your stats",
             "The next ten songs, shuffle included",

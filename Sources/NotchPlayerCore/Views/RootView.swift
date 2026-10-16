@@ -23,6 +23,9 @@ public struct RootView: View {
     let setRepeat: (Modes.Repeat) -> Void
     /// The title, the artist or the cover was clicked. A no-op in previews.
     let openLink: (LinkTarget, Track) -> Void
+    /// Clicking the cover fills the screen with it (`BigCover`). Nil: it
+    /// opens the album, as before.
+    let showCover: ((Track) -> Void)?
     /// The closed peek steps aside: the menu bar is gone (full screen, #17),
     /// or the pointer is resting on a wing to reach a menu under it (#16).
     /// Opening still works -- the hover spot is where it always was -- and the
@@ -51,7 +54,8 @@ public struct RootView: View {
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
                 send: @escaping (Command) -> Void = { _ in },
                 setRepeat: @escaping (Modes.Repeat) -> Void = { _ in },
-                openLink: @escaping (LinkTarget, Track) -> Void = { _, _ in }) {
+                openLink: @escaping (LinkTarget, Track) -> Void = { _, _ in },
+                showCover: ((Track) -> Void)? = nil) {
         self.geometry = geometry
         self.now = now
         self.permission = permission
@@ -66,6 +70,7 @@ public struct RootView: View {
         self.send = send
         self.setRepeat = setRepeat
         self.openLink = openLink
+        self.showCover = showCover
         self.page = page; self.plays = plays; self.queue = queue; self.showPage = showPage
         self.whatsNew = whatsNew; self.dismissWhatsNew = dismissWhatsNew
     }
@@ -165,7 +170,8 @@ public struct RootView: View {
                                    playing: playing, controllable: controllable, modes: modes,
                                    onScrubbing: onScrubbing, send: send, setRepeat: setRepeat,
                                    openLink: { openLink($0, track) },
-                                   showStats: showPage.map { show in { show(.stats) } }),
+                                   showStats: showPage.map { show in { show(.stats) } },
+                                   showCover: showCover.map { show in { show(track) } }),
                          at(.player), at(current))
                 if pages.contains(.queue) {
                     pageView(QueueView(geometry: geometry, track: track, showing: current == .queue,

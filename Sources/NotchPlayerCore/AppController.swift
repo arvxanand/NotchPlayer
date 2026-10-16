@@ -7,6 +7,8 @@ import SwiftUI
 @MainActor
 public final class AppController: NSObject, NSApplicationDelegate {
     private var panel: NotchPanel?
+    /// The cover filling the screen, while it shows (`BigCover`).
+    private var cover: CoverWindow?
     private let preview: PreviewData.State?
     private let previewExpanded: Bool
     private let probe: Bool
@@ -103,6 +105,11 @@ public final class AppController: NSObject, NSApplicationDelegate {
 
         build()
         if preview == nil, !probe { players.start() }
+        // `--big-cover`: open it a moment after launch, once the cover has
+        // been read, so it can be captured without a click.
+        if preview == nil, CommandLine.arguments.contains("--big-cover") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.showCover() }
+        }
         // Live runs only: a capture's fixed states are not listening.
         if preview == nil, !probe, !captureServer { listening.follow(players) }
         // Live runs only. A capture or a preview is driven by a script and
@@ -174,6 +181,26 @@ public final class AppController: NSObject, NSApplicationDelegate {
         tap.stop()
         panel?.orderOut(nil)
         panel = nil
+        cover?.dismiss()
+    }
+
+    /// Fills the screen with the playing cover; the notch folds away under it.
+    func showCover() {
+        guard cover == nil, let screen = Self.targetScreen else { return }
+        expansion.close()
+        let frame = screen.frame
+        // Weak: the window holds the view, which holds this closure. A strong
+        // reference here kept every closed cover alive.
+        weak var held: CoverWindow?
+        let window = CoverWindow(screen: screen) { [players] in
+            BigCoverBackdrop(players: players, screen: frame, close: { held?.dismiss() })
+        } stage: { [players] in
+            BigCoverStage(players: players, screen: frame)
+        }
+        held = window
+        window.onDismiss = { [weak self] in self?.cover = nil }
+        cover = window
+        window.present()
     }
 
     private func build() {
@@ -219,7 +246,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
         } else {
             expansion.source = { [players] in players.current.source }
             panel = NotchPanel(screen: screen) { [players, expansion, listening, tap] in
-                Live(geometry: geometry, players: players, expansion: expansion, listening: listening)
+                Live(geometry: geometry, players: players, expansion: expansion, listening: listening,
+                     showCover: { [weak self] _ in self?.showCover() })
                     .environment(\.liveBands, tap)
             }
         }
@@ -427,6 +455,7 @@ private struct Live: View {
     @ObservedObject var players: Players
     @ObservedObject var expansion: Expansion
     @ObservedObject var listening: Listening
+    let showCover: (Track) -> Void
 
     var body: some View {
         let service = players.current
@@ -441,7 +470,8 @@ private struct Live: View {
                  onScrubbing: { expansion.hold($0) },
                  send: { service.send($0) },
                  setRepeat: { service.setRepeat($0) },
-                 openLink: { SpotifyLinks.open($0, for: $1) })
+                 openLink: { SpotifyLinks.open($0, for: $1) },
+                 showCover: showCover)
     }
 }
 

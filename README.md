@@ -296,8 +296,11 @@ yourself (in Finder, **Go → Go to Folder…** and paste each path):
 ## Using it
 
 Point at the notch to open the panel; move the pointer away and it closes.
-Click the title, artist or cover to open that thing in Spotify. The title
-opens the album with the song highlighted, without restarting it.
+Click the title or artist to open that thing in Spotify. The title opens the
+album with the song highlighted, without restarting it.
+
+**Click the cover** for fun: it fills the screen, drifting and tilting toward
+your pointer over a dimmed desktop. Click anywhere or press Esc to close it.
 
 **Your listening stats.** Swipe two fingers left on the open notch (twice
 with Spotify, where what's up next comes first), or click the chart button at

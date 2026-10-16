@@ -95,7 +95,7 @@ public final class NotchPanel: NSPanel {
 /// pointer simply slid over it.
 ///
 /// matchnotch needed the same subclass for its popover, for the same reason.
-private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     /// `NSHostingView` declares this initialiser as required, and a subclass

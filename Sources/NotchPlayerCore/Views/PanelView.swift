@@ -31,6 +31,9 @@ public struct PanelView: View {
     let openLink: (LinkTarget) -> Void
     /// Opens the stats page. Nil draws no button (previews of the player alone).
     let showStats: (() -> Void)?
+    /// Shows the cover filling the screen (`BigCover`). Nil: the cover opens
+    /// the album, as the title does.
+    let showCover: (() -> Void)?
 
     @State private var scrub: Double?
     /// Watched for the cover's colour, which arrives with the cover.
@@ -43,11 +46,11 @@ public struct PanelView: View {
                 send: @escaping (Command) -> Void = { _ in },
                 setRepeat: @escaping (Modes.Repeat) -> Void = { _ in },
                 openLink: @escaping (LinkTarget) -> Void = { _ in },
-                showStats: (() -> Void)? = nil) {
+                showStats: (() -> Void)? = nil, showCover: (() -> Void)? = nil) {
         self.geometry = geometry; self.track = track; self.progress = progress
         self.playing = playing; self.controllable = controllable; self.modes = modes
         self.onScrubbing = onScrubbing; self.send = send; self.setRepeat = setRepeat
-        self.openLink = openLink; self.showStats = showStats
+        self.openLink = openLink; self.showStats = showStats; self.showCover = showCover
     }
 
     public var body: some View {
@@ -61,12 +64,13 @@ public struct PanelView: View {
                 // which is the one click this never-key panel is guaranteed to
                 // get (`docs/TRAPS.md` #37). No hover underline, because
                 // `.onHover` never fires here (#40).
-                Button { openLink(.album) } label: {
+                Button { showCover.map { $0() } ?? openLink(.album) } label: {
                     ArtworkView(url: track.artworkURL, side: Self.artSide, corner: Self.artCorner,
                                 source: track.source)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(track.source == .spotify ? "Open the album in Spotify" : "Album cover")
+                .accessibilityLabel(showCover != nil ? "Show the cover big"
+                                    : track.source == .spotify ? "Open the album in Spotify" : "Album cover")
                 details
             }
             .padding(.horizontal, Self.inset)

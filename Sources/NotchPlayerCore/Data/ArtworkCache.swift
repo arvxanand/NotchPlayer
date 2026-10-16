@@ -51,11 +51,15 @@ public actor ArtworkCache {
 
     /// Raw bytes rather than an `NSImage`: `NSImage` is not `Sendable`, so the
     /// caller builds the image on its own side of the actor boundary.
-    public func data(for url: URL?) async -> Data? {
+    ///
+    /// `original` is for the big cover (`BigCover`): Spotify's 640px file
+    /// rather than the 300px one, and not kept in `memory`, which never
+    /// empties -- the big one is asked for once, on a click.
+    public func data(for url: URL?, original: Bool = false) async -> Data? {
         guard let url else { return nil }
-        let wanted = Self.fetchURL(for: url)
+        let wanted = Self.wanted(url, original: original)
         let key = wanted.absoluteString
-        if let hit = memory[key] { return hit }
+        if !original, let hit = memory[key] { return hit }
         // Already on disk, so not copied to the disk cache: Music's cover
         // (`coverFile`, an image) or a local song's own embedded one (`LocalCover`).
         if wanted.isFileURL {
@@ -63,13 +67,13 @@ public actor ArtworkCache {
             if wanted.pathExtension == "img" { bytes = try? Data(contentsOf: wanted) }
             else { bytes = await LocalCover.artwork(in: wanted) }
             guard let bytes, NSImage(data: bytes) != nil else { return nil }
-            memory[key] = bytes
+            if !original { memory[key] = bytes }
             return bytes
         }
 
         let file = directory.appendingPathComponent(Self.filename(for: wanted))
         if let cached = try? Data(contentsOf: file), NSImage(data: cached) != nil {
-            memory[key] = cached
+            if !original { memory[key] = cached }
             return cached
         }
         guard let (bytes, response) = try? await URLSession.shared.data(from: wanted),
@@ -83,8 +87,13 @@ public actor ArtworkCache {
               NSImage(data: bytes) != nil
         else { return nil }
         try? bytes.write(to: file)
-        memory[key] = bytes
+        if !original { memory[key] = bytes }
         return bytes
+    }
+
+    /// What is actually fetched: the 300px swap, or the URL as given.
+    nonisolated static func wanted(_ url: URL, original: Bool) -> URL {
+        original ? url : fetchURL(for: url)
     }
 
     /// Flat filename keyed on the whole URL, so two albums cannot collide.

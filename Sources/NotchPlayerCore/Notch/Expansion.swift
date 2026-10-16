@@ -170,6 +170,10 @@ public final class Expansion: ObservableObject {
         setInteractive?(false)
     }
 
+    /// Fold the panel away now, as if the pointer had left: the big cover
+    /// opening over it.
+    public func close() { collapse() }
+
     public func dismissWhatsNew() {
         guard let note = whatsNew else { return }
         whatsNew = nil
