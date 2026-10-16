@@ -140,11 +140,27 @@ final class ListeningTests: XCTestCase {
     }
 
     func testOnlyASidewaysTrackpadSwipeFlipsThePage() {
-        XCTAssertEqual(Expansion.swipe(dx: -60, dy: 5, precise: true), .stats)
-        XCTAssertEqual(Expansion.swipe(dx: 60, dy: -5, precise: true), .player)
-        XCTAssertNil(Expansion.swipe(dx: -60, dy: 40, precise: true), "mostly scrolling")
-        XCTAssertNil(Expansion.swipe(dx: -30, dy: 0, precise: true), "too short")
-        XCTAssertNil(Expansion.swipe(dx: -200, dy: 0, precise: false), "a mouse wheel")
+        func swipe(_ dx: CGFloat, _ dy: CGFloat, precise: Bool = true) -> Expansion.Page? {
+            Expansion.swipe(from: .player, last: .queue, dx: dx, dy: dy, precise: precise)
+        }
+        XCTAssertEqual(swipe(-60, 5), .stats)
+        XCTAssertNil(swipe(-60, 40), "mostly scrolling")
+        XCTAssertNil(swipe(-30, 0), "too short")
+        XCTAssertNil(swipe(-200, 0, precise: false), "a mouse wheel")
+    }
+
+    /// One page per swipe, and never past either end; with Music playing the
+    /// stats are the end.
+    func testASwipeStepsOnePageAndStopsAtTheEnds() {
+        func swipe(from page: Expansion.Page, _ dx: CGFloat, last: Expansion.Page = .queue) -> Expansion.Page? {
+            Expansion.swipe(from: page, last: last, dx: dx, dy: 0, precise: true)
+        }
+        XCTAssertEqual(swipe(from: .stats, -60), .queue)
+        XCTAssertEqual(swipe(from: .queue, 60), .stats)
+        XCTAssertEqual(swipe(from: .stats, 60), .player)
+        XCTAssertNil(swipe(from: .player, 60), "nothing left of the player")
+        XCTAssertNil(swipe(from: .queue, -60), "nothing right of the queue")
+        XCTAssertNil(swipe(from: .stats, -60, last: .stats), "no queue with Music")
     }
 
     @MainActor func testAClosedPanelHasNoPageToShow() {

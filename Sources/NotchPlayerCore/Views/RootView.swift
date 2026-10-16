@@ -33,6 +33,8 @@ public struct RootView: View {
     /// Which page the open panel shows, and what the stats page counts.
     let page: Expansion.Page
     let plays: [Play]
+    /// Previews only: the queue page shows this instead of reading Spotify's file.
+    let queue: QueueView.Content?
     /// Nil draws the player alone: no stats button, no dots.
     let showPage: ((Expansion.Page) -> Void)?
     /// Set, the open panel shows what's new instead, until dismissed.
@@ -43,7 +45,7 @@ public struct RootView: View {
                 expanded: Bool = false,
                 progress: Interpolator? = nil, modes: Modes? = nil, holdBands: [Float]? = nil,
                 probe: Bool = false, concealed: Bool = false, source: Source = .spotify,
-                page: Expansion.Page = .player, plays: [Play] = [],
+                page: Expansion.Page = .player, plays: [Play] = [], queue: QueueView.Content? = nil,
                 showPage: ((Expansion.Page) -> Void)? = nil,
                 whatsNew: WhatsNew.Note? = nil, dismissWhatsNew: @escaping () -> Void = {},
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
@@ -64,7 +66,7 @@ public struct RootView: View {
         self.send = send
         self.setRepeat = setRepeat
         self.openLink = openLink
-        self.page = page; self.plays = plays; self.showPage = showPage
+        self.page = page; self.plays = plays; self.queue = queue; self.showPage = showPage
         self.whatsNew = whatsNew; self.dismissWhatsNew = dismissWhatsNew
     }
 
@@ -149,21 +151,29 @@ public struct RootView: View {
         case .track(_, _, _) where whatsNew != nil:
             WhatsNewView(geometry: geometry, note: whatsNew!, dismiss: dismissWhatsNew)
         case .track(let track, let playing, let controllable):
-            let stats = page == .stats && showPage != nil
+            let pages: [Expansion.Page] = showPage == nil ? [.player]
+                : track.source == .spotify ? [.player, .stats, .queue] : [.player, .stats]
+            // A queue page left behind by a switch to Music shows as the stats.
+            let current = pages.contains(page) ? page : pages.last ?? .player
             ZStack(alignment: .top) {
                 pageView(PanelView(geometry: geometry, track: track, progress: progress,
                                    playing: playing, controllable: controllable, modes: modes,
                                    onScrubbing: onScrubbing, send: send, setRepeat: setRepeat,
                                    openLink: { openLink($0, track) },
                                    showStats: showPage.map { show in { show(.stats) } }),
-                         on: !stats, travel: -Self.travel)
-                if showPage != nil {
+                         .player, current)
+                if pages.contains(.stats) {
                     pageView(StatsView(geometry: geometry, plays: plays, artwork: track.artworkURL),
-                             on: stats, travel: Self.travel)
-                    dots(stats)
+                             .stats, current)
                 }
+                if pages.contains(.queue) {
+                    pageView(QueueView(geometry: geometry, track: track, showing: current == .queue,
+                                       fixed: queue),
+                             .queue, current)
+                }
+                if pages.count > 1 { dots(pages.count, current.rawValue) }
             }
-            .animation(Self.pageMotion, value: stats)
+            .animation(Self.pageMotion, value: current)
         case .permissionNeeded:
             PermissionPanel(geometry: geometry, source: source)
         case .nothing:
@@ -179,22 +189,23 @@ extension RootView {
     static var pageMotion: Animation { MenuPanel.pageMotion }
     static let travel: CGFloat = 14
 
-    /// Faded, nudged, and inert when it is not the page showing, so the
-    /// invisible one cannot swallow the visible one's clicks.
-    func pageView(_ content: some View, on: Bool, travel: CGFloat) -> some View {
-        content
+    /// Faded, nudged toward its side, and inert when it is not the page
+    /// showing, so an invisible one cannot swallow the visible one's clicks.
+    func pageView(_ content: some View, _ which: Expansion.Page, _ current: Expansion.Page) -> some View {
+        let on = which == current
+        return content
             .opacity(on ? 1 : 0)
-            .offset(x: on ? 0 : travel)
+            .offset(x: CGFloat(which.rawValue - current.rawValue) * Self.travel)
             .allowsHitTesting(on)
             .accessibilityHidden(!on)
     }
 
     /// Which page this is, in the bottom gap under the transport.
-    func dots(_ onStats: Bool) -> some View {
+    func dots(_ count: Int, _ current: Int) -> some View {
         HStack(spacing: 5) {
-            ForEach([false, true], id: \.self) { second in
+            ForEach(0..<count, id: \.self) { index in
                 Circle()
-                    .fill(second == onStats ? Palette.primary : Palette.secondary.opacity(0.5))
+                    .fill(index == current ? Palette.primary : Palette.secondary.opacity(0.5))
                     .frame(width: 5, height: 5)
             }
         }

@@ -21,7 +21,10 @@ public enum PreviewData {
         /// Set, the open panel shows the stats page counting these.
         public var plays: [Play]? = nil
 
-        public var page: Expansion.Page { plays == nil ? .player : .stats }
+        /// Set, the open panel shows the queue page with this.
+        public var queue: QueueView.Content? = nil
+
+        public var page: Expansion.Page { queue != nil ? .queue : plays == nil ? .player : .stats }
         /// Set, the open panel shows this note instead.
         public var whatsNew: WhatsNew.Note? = nil
 
@@ -117,6 +120,21 @@ public enum PreviewData {
         State(name: "stats-empty", now: .track(track(), state: .playing, position: 23.69),
               bands: nil, caption: "the stats page before anything has been counted",
               plays: []),
+        State(name: "queue", now: .track(track(), state: .playing, position: 23.69),
+              bands: nil, caption: "the queue page: five covers, a name too long, one song Spotify didn't describe",
+              queue: .songs([
+                  SpotifyPreview.Song(name: "D>E>A>T>H>M>E>T>A>L", cover: cover),
+                  SpotifyPreview.Song(name: "A song whose name runs much too long", cover: URL(string:
+                      "https://image-cdn-ak.spotifycdn.com/image/ab67616d00001e022c5b24ecfa39523a75c993c4")),
+                  nil,
+                  SpotifyPreview.Song(name: "Laika", cover: cover),
+                  SpotifyPreview.Song(name: "Kicking Up Dust", cover: nil),
+              ])),
+        State(name: "queue-empty", now: .track(track(), state: .playing, position: 23.69),
+              bands: nil, caption: "the queue page at the end of a playlist", queue: .songs([])),
+        State(name: "queue-unreadable", now: .track(track(), state: .playing, position: 23.69),
+              bands: nil, caption: "the queue page when Spotify's file has changed shape (TRAPS #78)",
+              queue: .unreadable),
         State(name: "whatsnew", now: .track(track(), state: .playing, position: 23.69),
               bands: nil, caption: "after an update: the newest version's note, once",
               whatsNew: WhatsNew.Note(version: "0.6", lines: WhatsNew.notes["0.6"] ?? [])),

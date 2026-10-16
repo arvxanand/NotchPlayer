@@ -208,7 +208,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
                              permission: preview.permission, expanded: open,
                              progress: preview.progress, holdBands: preview.bands,
                              probe: probing,
-                             page: preview.page, plays: preview.plays ?? [],
+                             page: preview.page, plays: preview.plays ?? [], queue: preview.queue,
                              showPage: { _ in }, whatsNew: preview.whatsNew)
                 }
             }
@@ -217,6 +217,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
                 RootView(geometry: geometry, now: .stopped, probe: true)
             }
         } else {
+            expansion.lastPage = { [players] in players.current.source == .spotify ? .queue : .stats }
             panel = NotchPanel(screen: screen) { [players, expansion, listening, tap] in
                 Live(geometry: geometry, players: players, expansion: expansion, listening: listening)
                     .environment(\.liveBands, tap)
