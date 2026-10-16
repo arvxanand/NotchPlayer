@@ -38,6 +38,33 @@ public enum BigCover {
         return NSImage(cgImage: blurred, size: image.size)
     }
 
+    /// The record's turn, in degrees, from a start that is re-based whenever
+    /// play or pause flips, so the angle never jumps. Its speed eases toward
+    /// 33⅓ rpm (200°/s) while playing, in about 0.6s, and toward a stop while
+    /// paused, in about a second: `v(t) = target + (v₀ - target)·e^(-kt)`.
+    struct Spin: Equatable {
+        static let rpm33: Double = 200
+        var angle0: Double = 0, time0: Double = 0, velocity0: Double = 0, playing = false
+
+        private var target: Double { playing ? Self.rpm33 : 0 }
+        private var k: Double { playing ? 5 : 3 }
+
+        func angle(at time: Double) -> Double {
+            let dt = max(0, time - time0)
+            return angle0 + target * dt + (velocity0 - target) * (1 - exp(-k * dt)) / k
+        }
+
+        func velocity(at time: Double) -> Double {
+            target + (velocity0 - target) * exp(-k * max(0, time - time0))
+        }
+
+        mutating func set(playing: Bool, at time: Double) {
+            guard playing != self.playing else { return }
+            self = Spin(angle0: angle(at: time).truncatingRemainder(dividingBy: 360),
+                        time0: time, velocity0: velocity(at: time), playing: playing)
+        }
+    }
+
     /// Where the pointer is on `screen`, as `tilt` wants it.
     static func pointer(_ location: CGPoint, on screen: CGRect) -> CGPoint {
         CGPoint(x: (location.x - screen.midX) / (screen.width / 2),
@@ -114,6 +141,9 @@ struct BigCoverView: View {
     @State private var bigFor: URL?
     @State private var glow: NSImage?
     @State private var glowFor: URL?
+    @State private var spin = BigCover.Spin()
+    /// The record slides out from behind the cover just after opening.
+    @State private var out = Motion.reduced
 
     var body: some View {
         let track = players.current.now.track
@@ -124,7 +154,7 @@ struct BigCoverView: View {
             // A little lighter over the glow, so its colour comes through.
             Color.black.opacity(glowing ? 0.45 : 0.55)
             VStack(spacing: 18) {
-                tilting(cover(url, source: track?.source ?? .spotify))
+                stage(url, source: track?.source ?? .spotify)
                 if let track {
                     VStack(spacing: 3) {
                         Text(track.name).font(Type.label(15, weight: .semibold)).foregroundStyle(Palette.primary)
@@ -139,6 +169,14 @@ struct BigCoverView: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: close)
         .animation(.easeInOut(duration: 0.35 * Motion.slow), value: url)
+        .onAppear {
+            spin.set(playing: playing, at: Date.timeIntervalSinceReferenceDate)
+            guard !out else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35 * Motion.slow) {
+                withAnimation(Motion.spring) { out = true }
+            }
+        }
+        .onChange(of: playing) { _, now in spin.set(playing: now, at: Date.timeIntervalSinceReferenceDate) }
         .task(id: url) {
             guard let url else { return }
             // The glow from the small cover, usually already loaded for the
@@ -181,11 +219,20 @@ struct BigCoverView: View {
 
     private var side: CGFloat { min(screen.height * 0.6, 640) }
 
+    private var playing: Bool {
+        if case .track(_, .playing, _) = players.current.now { return true }
+        return false
+    }
+
+    /// The sharp cover once it is here, the small one until then.
+    private func image(_ url: URL?) -> NSImage? {
+        (bigFor == url ? big : nil) ?? memory.image(for: url)
+    }
+
     private func cover(_ url: URL?, source: Source) -> some View {
-        let image = bigFor == url ? big : nil
-        return ZStack {
+        ZStack {
             Palette.wash
-            if let image = image ?? memory.image(for: url) {
+            if let image = image(url) {
                 Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fill)
             } else {
                 SourceMark(source).frame(width: side * 0.4, height: side * 0.4)
@@ -197,25 +244,84 @@ struct BigCoverView: View {
         .transition(.opacity)
     }
 
-    /// Redrawn every frame: the time and the pointer, read directly, since
-    /// hover events are unreliable in this app's windows (TRAPS #40).
-    private func tilting(_ content: some View) -> some View {
-        TimelineView(.animation) { context in
-            let angle = BigCover.tilt(time: context.date.timeIntervalSinceReferenceDate,
-                                      pointer: BigCover.pointer(NSEvent.mouseLocation, on: screen),
+    /// The cover and the record behind it, tilting together. Redrawn every
+    /// frame: the time and the pointer are read directly, since hover events
+    /// are unreliable in this app's windows (TRAPS #40). The pair shifts left
+    /// as the record slides out, so the two stay centred.
+    private func stage(_ url: URL?, source: Source) -> some View {
+        let slide = out ? side * 0.45 : 0
+        return TimelineView(.animation) { context in
+            let now = context.date.timeIntervalSinceReferenceDate
+            let angle = BigCover.tilt(time: now, pointer: BigCover.pointer(NSEvent.mouseLocation, on: screen),
                                       reduced: Motion.reduced)
             let shine = min(0.2, (abs(angle.x) + abs(angle.y)) / 60)
-            content
-                .overlay {
-                    LinearGradient(colors: [.white.opacity(shine), .white.opacity(0)],
-                                   startPoint: UnitPoint(x: 0.5 - angle.y / 30, y: 0.5 + angle.x / 30 - 0.5),
-                                   endPoint: .center)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .allowsHitTesting(false)
-                }
-                .shadow(color: .black.opacity(0.45), radius: 30, y: 24)
-                .rotation3DEffect(.degrees(angle.x), axis: (1, 0, 0), perspective: 0.5)
-                .rotation3DEffect(.degrees(angle.y), axis: (0, 1, 0), perspective: 0.5)
+            ZStack {
+                Vinyl(diameter: side * 0.94, label: image(url),
+                      turn: Motion.reduced ? 0 : spin.angle(at: now))
+                    .offset(x: slide)
+                cover(url, source: source)
+                    .overlay {
+                        LinearGradient(colors: [.white.opacity(shine), .white.opacity(0)],
+                                       startPoint: UnitPoint(x: 0.5 - angle.y / 30, y: 0.5 + angle.x / 30 - 0.5),
+                                       endPoint: .center)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .allowsHitTesting(false)
+                    }
+            }
+            .offset(x: -slide / 2)
+            .shadow(color: .black.opacity(0.45), radius: 30, y: 24)
+            .rotation3DEffect(.degrees(angle.x), axis: (1, 0, 0), perspective: 0.5)
+            .rotation3DEffect(.degrees(angle.y), axis: (0, 1, 0), perspective: 0.5)
+        }
+    }
+}
+
+/// A black record with the cover as its label. Only the record turns; the
+/// light on it stays where it is, as it does on a real one.
+struct Vinyl: View {
+    let diameter: CGFloat
+    let label: NSImage?
+    /// Degrees.
+    let turn: Double
+
+    var body: some View {
+        ZStack {
+            Circle().fill(Color(white: 0.04))
+            Grooves().drawingGroup()
+            Group {
+                if let label { Image(nsImage: label).resizable().interpolation(.high).scaledToFill() }
+                else { Color(white: 0.2) }
+            }
+            .frame(width: diameter * 0.36, height: diameter * 0.36)
+            .clipShape(Circle())
+            Circle().fill(Color(white: 0.7)).frame(width: diameter * 0.025, height: diameter * 0.025)
+        }
+        .frame(width: diameter, height: diameter)
+        .rotationEffect(.degrees(turn))
+        .overlay {
+            AngularGradient(colors: [.white.opacity(0), .white.opacity(0.12), .white.opacity(0),
+                                     .white.opacity(0.07), .white.opacity(0)],
+                            center: .center)
+                .clipShape(Circle())
+                .allowsHitTesting(false)
+        }
+    }
+}
+
+/// The grooves: rings in two near-blacks. No inputs, so SwiftUI draws them
+/// once and only the turn changes per frame.
+private struct Grooves: View {
+    var body: some View {
+        Canvas { context, size in
+            let centre = CGPoint(x: size.width / 2, y: size.height / 2)
+            let outer = min(size.width, size.height) / 2 * 0.97
+            var radius = outer * 0.4, odd = false
+            while radius < outer {
+                let ring = Path(ellipseIn: CGRect(x: centre.x - radius, y: centre.y - radius,
+                                                  width: radius * 2, height: radius * 2))
+                context.stroke(ring, with: .color(Color(white: odd ? 0.09 : 0.06)), lineWidth: 1)
+                radius += 2; odd.toggle()
+            }
         }
     }
 }

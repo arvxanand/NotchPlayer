@@ -52,4 +52,27 @@ final class BigCoverTests: XCTestCase {
         XCTAssertEqual(BigCover.glow(solid)?.size, NSSize(width: 144, height: 144))
         XCTAssertNil(BigCover.glow(NSImage()))
     }
+
+    // MARK: - The record
+
+    /// Pausing or playing never makes the record jump.
+    func testTheRecordNeverJumpsWhenPlayFlips() {
+        var spin = BigCover.Spin()
+        spin.set(playing: true, at: 0)
+        for t in [0.2, 1.7, 4.0] {
+            let before = spin.angle(at: t)
+            spin.set(playing: !spin.playing, at: t)
+            XCTAssertEqual(spin.angle(at: t), before.truncatingRemainder(dividingBy: 360), accuracy: 0.01)
+        }
+    }
+
+    /// Playing, it settles at 33⅓ rpm; paused, it comes to rest.
+    func testItSpinsAtThirtyThreeAndAThirdAndStopsWhenPaused() {
+        var spin = BigCover.Spin()
+        spin.set(playing: true, at: 0)
+        XCTAssertEqual(spin.angle(at: 3) - spin.angle(at: 2), 200, accuracy: 1)
+        spin.set(playing: false, at: 3)
+        XCTAssertLessThan(abs(spin.angle(at: 7) - spin.angle(at: 6)), 0.1)
+        XCTAssertGreaterThan(spin.angle(at: 6), spin.angle(at: 3), "it coasts before it stops")
+    }
 }
