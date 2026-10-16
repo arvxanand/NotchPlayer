@@ -66,9 +66,15 @@ public final class AudioTap {
     /// wrong, and a tap rebuilt every three seconds forever is a background
     /// app thrashing system audio objects.
     public nonisolated static let rebuildLimit = 3
-    /// The bars are redrawn at 30Hz. 60 would double the wakeups of a process
+    /// The bars are redrawn at 20Hz. 60 would triple the wakeups of a process
     /// that runs all day to add motion nobody can see in a 22pt bar.
-    public nonisolated static let frameRate: Double = 30
+    ///
+    /// **20, not 30: every frame costs the window server, whatever is in it.**
+    /// Measured 16 Oct 2026 on an M4 Air with music playing: the peek at 30Hz
+    /// added ~5 points of WindowServer CPU, and neither a cheaper frame (no
+    /// clip mask, an opaque backing) nor skipping sub-pixel frames moved it.
+    /// Only fewer frames do. `Bands.attack`/`decay` rescale with this.
+    public nonisolated static let frameRate: Double = 20
 
     private var chain: Chain?
     private var ring: AudioRing?

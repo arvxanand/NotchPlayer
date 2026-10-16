@@ -133,6 +133,18 @@ final class BandsTests: XCTestCase {
                              "attack must outrun decay or transients are lost")
     }
 
+    /// The bars were tuned by eye at 30 frames a second. At any other rate a
+    /// tenth of a second of frames must land where three frames did then.
+    func testTheEnvelopeMovesAtTheSameSpeedPerSecondAtAnyFrameRate() {
+        var up: [Float] = [0], down: [Float] = [1]
+        for _ in 0..<Int(AudioTap.frameRate / 10) {
+            up = Bands.envelope(up, toward: [1])
+            down = Bands.envelope(down, toward: [0])
+        }
+        XCTAssertEqual(up[0], 1 - pow(0.5, 3), accuracy: 0.001)
+        XCTAssertEqual(down[0], pow(0.88, 3), accuracy: 0.001)
+    }
+
     func testTheEnvelopeConvergesAndNeverLeavesRange() {
         var values = Bands.silent
         for _ in 0..<200 { values = Bands.envelope(values, toward: [Float](repeating: 1, count: Bands.count)) }
