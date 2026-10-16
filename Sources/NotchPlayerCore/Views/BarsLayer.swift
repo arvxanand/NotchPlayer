@@ -47,9 +47,11 @@ final class BarsView: NSView {
     private let barHeight: ClosedRange<CGFloat>
     private var bars: [CALayer] = []
     private var timer: Timer?
-    /// The last values drawn, so an unchanged frame costs nothing. A paused
-    /// stream settles to a flat row and then stops touching the layers.
-    private var shown: [Float] = []
+    /// The last heights drawn, in whole pixels, so a frame no eye could tell
+    /// apart costs nothing. The envelope's decay takes some twenty seconds of
+    /// float steps to reach exactly zero, and comparing raw values kept every
+    /// one of them a commit for the window server to composite.
+    private var shown: [Int] = []
 
     init(source: @escaping () -> [Float]?, barHeight: ClosedRange<CGFloat>) {
         self.source = source
@@ -63,11 +65,11 @@ final class BarsView: NSView {
             let bar = CALayer()
             bar.backgroundColor = colour
             bar.cornerRadius = WaveformView.barWidth / 2
-            bar.frame = rect(for: index, value: 0)
+            bar.frame = rect(for: index, height: height(for: 0))
             layer?.addSublayer(bar)
             bars.append(bar)
         }
-        shown = [Float](repeating: -1, count: Bands.count)   // force a first draw
+        shown = [Int](repeating: -1, count: Bands.count)   // force a first draw
         start()
     }
 
@@ -94,8 +96,10 @@ final class BarsView: NSView {
     @MainActor
     private func draw() {
         let values = source() ?? Bands.synthetic(at: Date().timeIntervalSinceReferenceDate)
-        guard values.count == bars.count, values != shown else { return }
-        shown = values
+        let scale = window?.backingScaleFactor ?? 2
+        let pixels = values.map { Int((height(for: $0) * scale).rounded()) }
+        guard values.count == bars.count, pixels != shown else { return }
+        shown = pixels
         // **Implicit animation off.** Core Animation animates a layer's frame
         // over 0.25s by default, so thirty frames a second would each start a
         // quarter-second animation and the bars would lag the music by about
@@ -103,20 +107,22 @@ final class BarsView: NSView {
         // here is `Bands.envelope`, in the numbers, where it can be tested.
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        for (index, value) in values.enumerated() {
-            bars[index].frame = rect(for: index, value: value)
+        for (index, pixel) in pixels.enumerated() {
+            bars[index].frame = rect(for: index, height: CGFloat(pixel) / scale)
         }
         CATransaction.commit()
     }
 
     /// AppKit's origin is bottom-left and the bars grow about their centre, so
     /// each one is placed rather than anchored.
-    private func rect(for index: Int, value: Float) -> CGRect {
-        let clamped = CGFloat(max(0, min(1, value)))
-        let height = barHeight.lowerBound
-            + clamped * (barHeight.upperBound - barHeight.lowerBound)
+    private func rect(for index: Int, height: CGFloat) -> CGRect {
         let x = CGFloat(index) * (WaveformView.barWidth + WaveformView.gap)
         return CGRect(x: x, y: (barHeight.upperBound - height) / 2,
                       width: WaveformView.barWidth, height: height)
+    }
+
+    private func height(for value: Float) -> CGFloat {
+        let clamped = CGFloat(max(0, min(1, value)))
+        return barHeight.lowerBound + clamped * (barHeight.upperBound - barHeight.lowerBound)
     }
 }

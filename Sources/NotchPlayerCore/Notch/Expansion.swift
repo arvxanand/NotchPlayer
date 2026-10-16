@@ -23,14 +23,19 @@ public final class Expansion: ObservableObject {
     /// already observes this object.
     @Published public var whatsNew: WhatsNew.Note?
 
-    /// Which page the open panel shows, left to right. Every open starts on
-    /// the player, so leaving the others is just moving away.
-    public enum Page: Int, Sendable { case player, stats, queue }
+    /// Which page the open panel shows. Every open starts on the player, so
+    /// leaving the others is just moving away.
+    public enum Page: Sendable { case player, queue, stats }
     @Published public private(set) var page = Page.player
 
-    /// The rightmost page there is right now: the queue is Spotify's alone
-    /// (`SpotifyQueue`), so with Music playing it is the stats.
-    public var lastPage: () -> Page = { .queue }
+    /// The pages, left to right: what's next first, then the stats. The queue
+    /// is Spotify's alone (`SpotifyQueue`), so Music has two.
+    public nonisolated static func pages(for source: Source) -> [Page] {
+        source == .spotify ? [.player, .queue, .stats] : [.player, .stats]
+    }
+
+    /// Whose pages a swipe steps through: the player playing right now.
+    public var source: () -> Source = { .spotify }
 
     private var scrollMonitor: Any?
     private var swipeSum = CGSize.zero
@@ -188,10 +193,7 @@ public final class Expansion: ObservableObject {
         case .ended, .cancelled:
             // The way the fingers moved, whichever way scrolling is set.
             let fingers = event.isDirectionInvertedFromDevice ? swipeSum.width : -swipeSum.width
-            let last = lastPage()
-            // A queue page left behind by a switch to Music shows as the stats.
-            let from = page.rawValue > last.rawValue ? last : page
-            if let page = Self.swipe(from: from, last: last,
+            if let page = Self.swipe(from: page, in: Self.pages(for: source()),
                                      dx: fingers, dy: swipeSum.height,
                                      precise: event.hasPreciseScrollingDeltas) {
                 show(page)
@@ -204,11 +206,12 @@ public final class Expansion: ObservableObject {
 
     /// Fingers moving left bring in the page on the right; moving right go
     /// back one. Mostly sideways and at least 40pt, so a scroll that is mostly
-    /// up and down never flips the page. Nil past either end.
-    nonisolated static func swipe(from page: Page, last: Page, dx: CGFloat, dy: CGFloat,
+    /// up and down never flips the page. Nil past either end. A page the list
+    /// no longer has (the queue, after a switch to Music) counts as the player.
+    nonisolated static func swipe(from page: Page, in pages: [Page], dx: CGFloat, dy: CGFloat,
                                   precise: Bool) -> Page? {
         guard precise, abs(dx) >= 40, abs(dx) > 2 * abs(dy) else { return nil }
-        let next = Page(rawValue: page.rawValue + (dx < 0 ? 1 : -1))
-        return next.flatMap { $0.rawValue <= last.rawValue ? $0 : nil }
+        let next = (pages.firstIndex(of: page) ?? 0) + (dx < 0 ? 1 : -1)
+        return pages.indices.contains(next) ? pages[next] : nil
     }
 }

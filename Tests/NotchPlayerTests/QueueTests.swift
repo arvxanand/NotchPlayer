@@ -25,6 +25,7 @@ final class QueueTests: XCTestCase {
     /// A 16-byte id whose base62 is easy to predict: `n` in the last byte.
     private func song(_ n: UInt8) -> [UInt8] { Array(repeating: 0, count: 15) + [n] }
     private func id(_ n: UInt8) -> String { SpotifyQueue.base62(song(n)[...])! }
+    private func localURI(_ n: UInt8) -> String { "spotify:local:Some+Artist::Song+%E2%80%99\(n)%3A+Live:197" }
 
     private func node(_ name: String, _ state: [UInt8]) -> [UInt8] {
         field(1, field(1, "spotify.player.proto." + name) + field(2, state))
@@ -36,15 +37,19 @@ final class QueueTests: XCTestCase {
     /// `place` in the order, already on the next one; 0 is left out, as
     /// protobuf does.
     private func file(queued: [UInt8] = [], order: [UInt8] = [1, 2, 3, 4, 5, 6], playing: UInt8? = 1,
-                      place: Int = 0) -> [UInt8] {
-        let rows = (1...6).map { n in field(4, field(1, []) + field(2, "row\(n)") + field(3, song(n))) }
+                      place: Int = 0, local: Set<UInt8> = []) -> [UInt8] {
+        // A local file leaves the id empty and carries its URI in field 1.
+        func entry(_ n: UInt8) -> [UInt8] {
+            local.contains(n) ? field(1, localURI(n)) + field(3, []) : field(1, []) + field(3, song(n))
+        }
+        let rows = (1...6).map { n in field(4, entry(n) + field(2, "row\(n)")) }
         let row = playing.map { field(2, field(1, field(2, "row\($0)") + field(3, song($0)))) } ?? []
         let context = row
             + field(6, field(1, field(1, "spotify:playlist:abc") + field(5, rows.flatMap { $0 }))
                        + field(2, field(3, order.flatMap { field(2, field(2, "row\($0)")) }))
                        + (place == 0 ? [] : varint(5 << 3) + varint(place)))
         let queue = queued.enumerated().flatMap { index, n in
-            field(1, field(1, []) + field(2, "q\(index)") + field(3, song(100 + n)))
+            field(1, entry(100 + n) + field(2, "q\(index)"))
         }
         // The nested autoplay context has no rows; it must not be taken.
         let nodes = node("ContextNode", field(2, [])) + node("ContextNode", context) + node("PlayQueueNode", queue)
@@ -53,6 +58,19 @@ final class QueueTests: XCTestCase {
     }
 
     // MARK: - The tests
+
+    func testALocalFileIsKeptInItsPlaceByItsURI() {
+        let state = SpotifyQueue.parse(file(queued: [7], local: [3, 107]))
+        XCTAssertEqual(state?.queued, [localURI(107)])
+        XCTAssertEqual(state?.upcoming, [id(2), localURI(3), id(4), id(5), id(6)])
+    }
+
+    func testALocalFileIsNamedFromItsURI() throws {
+        let song = try XCTUnwrap(QueueView.local(localURI(3)))
+        XCTAssertEqual(song.name, "Song \u{2019}3: Live")
+        XCTAssertEqual(song.artist, "Some Artist")
+        XCTAssertNil(QueueView.local("spotify:track:abc"))
+    }
 
     func testTheSongsComeAfterThePlayingRowInPlayOrder() {
         let state = SpotifyQueue.parse(file(order: [4, 2, 6, 1, 5, 3], playing: 6))

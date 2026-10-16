@@ -133,7 +133,12 @@ public struct RootView: View {
     private var peek: some View {
         switch presentation {
         case .track(let track, let playing, _):
-            PeekView(geometry: geometry, track: track, playing: playing, holdBands: holdBands)
+            // **Settled while hidden.** Under the open panel or concealed the
+            // peek is at opacity 0, but live bars would still commit thirty
+            // frames a second for the window server to composite. Flat bars
+            // are drawn once; the live ones come back as the peek fades in.
+            PeekView(geometry: geometry, track: track,
+                     playing: playing && !open && !concealed, holdBands: holdBands)
         case .permissionNeeded:
             // The mark alone, in the slot the cover would take, with no bars
             // -- nothing is known about playback, and a row of dots would
@@ -151,27 +156,27 @@ public struct RootView: View {
         case .track(_, _, _) where whatsNew != nil:
             WhatsNewView(geometry: geometry, note: whatsNew!, dismiss: dismissWhatsNew)
         case .track(let track, let playing, let controllable):
-            let pages: [Expansion.Page] = showPage == nil ? [.player]
-                : track.source == .spotify ? [.player, .stats, .queue] : [.player, .stats]
-            // A queue page left behind by a switch to Music shows as the stats.
-            let current = pages.contains(page) ? page : pages.last ?? .player
+            let pages = showPage == nil ? [.player] : Expansion.pages(for: track.source)
+            // A queue page left behind by a switch to Music shows the player.
+            let current = pages.contains(page) ? page : .player
+            let at = { (which: Expansion.Page) in pages.firstIndex(of: which) ?? 0 }
             ZStack(alignment: .top) {
                 pageView(PanelView(geometry: geometry, track: track, progress: progress,
                                    playing: playing, controllable: controllable, modes: modes,
                                    onScrubbing: onScrubbing, send: send, setRepeat: setRepeat,
                                    openLink: { openLink($0, track) },
                                    showStats: showPage.map { show in { show(.stats) } }),
-                         .player, current)
-                if pages.contains(.stats) {
-                    pageView(StatsView(geometry: geometry, plays: plays, artwork: track.artworkURL),
-                             .stats, current)
-                }
+                         at(.player), at(current))
                 if pages.contains(.queue) {
                     pageView(QueueView(geometry: geometry, track: track, showing: current == .queue,
                                        fixed: queue),
-                             .queue, current)
+                             at(.queue), at(current))
                 }
-                if pages.count > 1 { dots(pages.count, current.rawValue) }
+                if pages.contains(.stats) {
+                    pageView(StatsView(geometry: geometry, plays: plays, artwork: track.artworkURL),
+                             at(.stats), at(current))
+                }
+                if pages.count > 1 { dots(pages.count, at(current)) }
             }
             .animation(Self.pageMotion, value: current)
         case .permissionNeeded:
@@ -191,11 +196,11 @@ extension RootView {
 
     /// Faded, nudged toward its side, and inert when it is not the page
     /// showing, so an invisible one cannot swallow the visible one's clicks.
-    func pageView(_ content: some View, _ which: Expansion.Page, _ current: Expansion.Page) -> some View {
+    func pageView(_ content: some View, _ which: Int, _ current: Int) -> some View {
         let on = which == current
         return content
             .opacity(on ? 1 : 0)
-            .offset(x: CGFloat(which.rawValue - current.rawValue) * Self.travel)
+            .offset(x: CGFloat(which - current) * Self.travel)
             .allowsHitTesting(on)
             .accessibilityHidden(!on)
     }

@@ -139,7 +139,7 @@ public struct QueueView: View {
     /// once (each is ~300KB and about a second), and each row fills in as
     /// its answer comes.
     private func load() async {
-        let playing = track.id.split(separator: ":").last.map(String.init)
+        let playing = LocalCover.isLocal(track.id) ? track.id : track.id.split(separator: ":").last.map(String.init)
         var state = SpotifyQueue.read()
         if let first = state?.next(1).first, first == playing {
             try? await Task.sleep(for: .seconds(1))
@@ -153,6 +153,7 @@ public struct QueueView: View {
         await withTaskGroup(of: (Int, Song?).self) { group in
             for (index, id) in ids.enumerated() {
                 group.addTask {
+                    if LocalCover.isLocal(id) { return (index, Self.local(id)) }
                     let page = await SpotifyLinks.page("spotify:track:\(id)")
                     return (index, page?.title.map { Song(name: $0, artist: page?.byline ?? "", cover: page?.cover) })
                 }
@@ -162,6 +163,21 @@ public struct QueueView: View {
                 content = .songs(songs)
             }
         }
+    }
+
+    /// A local file has no public page; its URI is the page.
+    /// `spotify:local:artist:album:title:seconds`, `+` for a space, the rest
+    /// percent-encoded -- so a `:` in a name arrives as `%3A` and the split
+    /// is safe. The cover is the file's own, as for the playing song.
+    nonisolated static func local(_ uri: String) -> Song? {
+        guard LocalCover.isLocal(uri) else { return nil }
+        let parts = uri.split(separator: ":", omittingEmptySubsequences: false).map {
+            $0.replacingOccurrences(of: "+", with: " ").removingPercentEncoding ?? String($0)
+        }
+        guard parts.count == 6 else { return nil }
+        let track = Track(id: uri, name: parts[4], artist: parts[2], album: parts[3],
+                          duration: Double(parts[5]) ?? 0, hasArtwork: false)
+        return Song(name: track.name, artist: track.artist, cover: LocalCover.file(for: track))
     }
 
     // MARK: - Metrics

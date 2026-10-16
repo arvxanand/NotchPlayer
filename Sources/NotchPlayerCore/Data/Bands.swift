@@ -14,6 +14,19 @@ public enum Bands {
 
     public static let silent = [Float](repeating: 0, count: count)
 
+    /// How far a bar moves toward a louder or quieter target in one frame.
+    ///
+    /// **Tuned by eye at 30 frames a second (0.5 and 0.12), and rescaled from
+    /// that** so a bar rises and falls at the same speed per *second* at
+    /// whatever rate `AudioTap.frameRate` draws. Halving the frame count
+    /// without this would have halved the speed of the bars too.
+    public static let attack = perFrame(tunedAt30: 0.5)
+    public static let decay = perFrame(tunedAt30: 0.12)
+
+    static func perFrame(tunedAt30 rate: Float) -> Float {
+        1 - pow(1 - rate, Float(30 / AudioTap.frameRate))
+    }
+
     /// Attack/decay smoothing, per band.
     ///
     /// Raw magnitudes read as noise: they jump a full band height between
@@ -22,7 +35,7 @@ public enum Bands {
     /// needle. Unused until the tap arrives in the milestone that needs it,
     /// and written now because it is the half that can be tested.
     public static func envelope(_ previous: [Float], toward target: [Float],
-                                attack: Float = 0.5, decay: Float = 0.12) -> [Float] {
+                                attack: Float = attack, decay: Float = decay) -> [Float] {
         guard previous.count == target.count else { return target }
         return zip(previous, target).map { was, now in
             let rate = now > was ? attack : decay
