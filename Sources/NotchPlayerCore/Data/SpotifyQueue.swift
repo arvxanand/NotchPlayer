@@ -21,7 +21,8 @@ import Foundation
 /// the queue rather than showing the wrong songs.
 public enum SpotifyQueue {
     public struct State: Equatable, Sendable {
-        /// Song ids, base62, in the order they play.
+        /// Song ids, base62, in the order they play. A local file has no id
+        /// and is its whole `spotify:local:…` URI instead (`isLocal`).
         public var queued: [String]
         public var upcoming: [String]
         /// `spotify:playlist:…`, `spotify:album:…`; nil when none was saved.
@@ -69,11 +70,11 @@ public enum SpotifyQueue {
               let context = state("ContextNode").first(where: { !Proto.path([6, 1, 5, 4], in: $0).isEmpty })
         else { return nil }
 
-        let queued = Proto.fields(1, in: queue).compactMap { Proto.field(3, in: $0).flatMap(base62) }
+        let queued = Proto.fields(1, in: queue).compactMap(song)
 
         var songs: [String: String] = [:]
         for row in Proto.path([6, 1, 5, 4], in: context) {
-            if let id = Proto.field(2, in: row), let song = Proto.field(3, in: row).flatMap(base62) {
+            if let id = Proto.field(2, in: row), let song = song(in: row) {
                 songs[String(decoding: id, as: UTF8.self)] = song
             }
         }
@@ -89,6 +90,16 @@ public enum SpotifyQueue {
         let upcoming = from.map { order.dropFirst($0).compactMap { songs[$0] } } ?? []
         let uri = Proto.path([6, 1, 1], in: context).first.map { String(decoding: $0, as: UTF8.self) }
         return State(queued: queued, upcoming: upcoming, context: uri)
+    }
+
+    /// A row's or queued entry's song: its id (3), or -- for a local file,
+    /// which has none and leaves 3 empty -- its URI (1). Measured on the
+    /// owner's file, 16 Oct 2026; before this a local song was dropped and
+    /// the page skipped straight past it.
+    static func song(in entry: ArraySlice<UInt8>) -> String? {
+        if let id = Proto.field(3, in: entry).flatMap(base62) { return id }
+        return Proto.field(1, in: entry).map { String(decoding: $0, as: UTF8.self) }
+            .flatMap { LocalCover.isLocal($0) ? $0 : nil }
     }
 
     /// A 16-byte song id as the 22 characters a `spotify:track:` URI uses.
