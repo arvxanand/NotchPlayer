@@ -66,11 +66,11 @@ final class BigCoverTests: XCTestCase {
         }
     }
 
-    /// Playing, it settles at 33⅓ rpm; paused, it comes to rest.
-    func testItSpinsAtThirtyThreeAndAThirdAndStopsWhenPaused() {
+    /// Playing, it settles at its speed; paused, it comes to rest.
+    func testItSettlesAtItsSpeedAndStopsWhenPaused() {
         var spin = BigCover.Spin()
         spin.set(playing: true, at: 0)
-        XCTAssertEqual(spin.angle(at: 3) - spin.angle(at: 2), 200, accuracy: 1)
+        XCTAssertEqual(spin.angle(at: 3) - spin.angle(at: 2), BigCover.Spin.speed, accuracy: 1)
         spin.set(playing: false, at: 3)
         XCTAssertLessThan(abs(spin.angle(at: 7) - spin.angle(at: 6)), 0.1)
         XCTAssertGreaterThan(spin.angle(at: 6), spin.angle(at: 3), "it coasts before it stops")

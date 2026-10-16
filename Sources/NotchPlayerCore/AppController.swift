@@ -189,13 +189,18 @@ public final class AppController: NSObject, NSApplicationDelegate {
         guard cover == nil, let screen = Self.targetScreen else { return }
         expansion.close()
         let frame = screen.frame
-        var window: CoverWindow?
-        window = CoverWindow(screen: screen) { [players] in
-            BigCoverView(players: players, screen: frame, close: { window?.dismiss() })
+        // Weak: the window holds the view, which holds this closure. A strong
+        // reference here kept every closed cover alive.
+        weak var held: CoverWindow?
+        let window = CoverWindow(screen: screen) { [players] in
+            BigCoverBackdrop(players: players, screen: frame, close: { held?.dismiss() })
+        } stage: { [players] in
+            BigCoverStage(players: players, screen: frame)
         }
-        window?.onDismiss = { [weak self] in self?.cover = nil }
+        held = window
+        window.onDismiss = { [weak self] in self?.cover = nil }
         cover = window
-        window?.present()
+        window.present()
     }
 
     private func build() {

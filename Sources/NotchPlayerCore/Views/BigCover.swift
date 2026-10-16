@@ -17,7 +17,7 @@ public enum BigCover {
         guard !reduced else { return (0, 0) }
         let t = time / Motion.slow
         let px = Double(max(-1, min(1, pointer.x))), py = Double(max(-1, min(1, pointer.y)))
-        return (sin(t * 0.9) * 7 - py * 12, cos(t * 0.7) * 9 + px * 14)
+        return (sin(t * 0.45) * 7 - py * 12, cos(t * 0.35) * 9 + px * 14)
     }
 
     /// The colour glow behind the cover: the small cover blurred and made a
@@ -40,13 +40,14 @@ public enum BigCover {
 
     /// The record's turn, in degrees, from a start that is re-based whenever
     /// play or pause flips, so the angle never jumps. Its speed eases toward
-    /// 33⅓ rpm (200°/s) while playing, in about 0.6s, and toward a stop while
-    /// paused, in about a second: `v(t) = target + (v₀ - target)·e^(-kt)`.
+    /// `speed` while playing, in about 0.6s, and toward a stop while paused,
+    /// in about a second: `v(t) = target + (v₀ - target)·e^(-kt)`.
     struct Spin: Equatable {
-        static let rpm33: Double = 200
+        /// Half a real record's 33⅓ rpm: the owner found that too busy.
+        static let speed: Double = 100
         var angle0: Double = 0, time0: Double = 0, velocity0: Double = 0, playing = false
 
-        private var target: Double { playing ? Self.rpm33 : 0 }
+        private var target: Double { playing ? Self.speed : 0 }
         private var k: Double { playing ? 5 : 3 }
 
         func angle(at time: Double) -> Double {
@@ -65,6 +66,23 @@ public enum BigCover {
         }
     }
 
+    /// **30 redraws a second for the cover, not the screen's 120.** It moves
+    /// slowly, so 30 looks the same and costs a quarter of the work.
+    static let schedule = AnimationTimelineSchedule(minimumInterval: 1.0 / 30)
+    /// The glow turns 3° a second and is blurred, so 10 steps a second are
+    /// invisible -- and it is the one layer the size of the screen.
+    static let glowSchedule = AnimationTimelineSchedule(minimumInterval: 1.0 / 10)
+
+    /// The cover's side on `screen`.
+    static func side(on screen: CGRect) -> CGFloat { min(screen.height * 0.6, 640) }
+
+    /// The small window the moving part lives in: the cover, the record slid
+    /// out beside it, the title, and room for the tilt.
+    static func stageSize(on screen: CGRect) -> CGSize {
+        let side = side(on: screen)
+        return CGSize(width: min(screen.width, side * 1.9), height: min(screen.height, side * 1.5))
+    }
+
     /// Where the pointer is on `screen`, as `tilt` wants it.
     static func pointer(_ location: CGPoint, on screen: CGRect) -> CGPoint {
         CGPoint(x: (location.x - screen.midX) / (screen.width / 2),
@@ -72,29 +90,52 @@ public enum BigCover {
     }
 }
 
-/// A borderless window over the whole screen, above the notch panel.
+/// The big cover's two windows.
 ///
-/// Becomes key, unlike the notch, so Esc reaches it; a non-activating panel
-/// can, without bringing this app forward. Losing key (another app clicked)
-/// closes it too.
+/// **Two, because one screen-sized window that moves is costly.** Anything
+/// that changes in a window has the window server repaint that window, and a
+/// single full-screen one made every frame of the turning cover a full-screen
+/// repaint (measured: ~13% more window-server CPU, against ~4% for the same
+/// window standing still). So the full-screen backdrop -- the glow and the dim,
+/// which barely change -- is this window, and the cover, the record and the
+/// title live in a small child window over the middle, the only one redrawn
+/// every frame.
+///
+/// The backdrop becomes key, unlike the notch, so Esc reaches it; a
+/// non-activating panel can, without bringing this app forward. A click on it,
+/// Esc, or another app taking the keyboard closes both. The stage takes no
+/// clicks, so a click on the cover lands on the backdrop and closes it too.
 final class CoverWindow: NSPanel {
     var onDismiss: (() -> Void)?
+    private let stage: NSPanel
 
-    init<Content: View>(screen: NSScreen, @ViewBuilder content: () -> Content) {
+    init<Backdrop: View, Stage: View>(screen: NSScreen, @ViewBuilder backdrop: () -> Backdrop,
+                                      @ViewBuilder stage content: () -> Stage) {
+        let size = BigCover.stageSize(on: screen.frame)
+        let stageFrame = CGRect(x: screen.frame.midX - size.width / 2, y: screen.frame.midY - size.height / 2,
+                                width: size.width, height: size.height)
+        stage = NSPanel(contentRect: stageFrame, styleMask: [.borderless, .nonactivatingPanel],
+                        backing: .buffered, defer: false)
         super.init(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered, defer: false)
-        isOpaque = false
-        backgroundColor = .clear
-        hasShadow = false
-        isMovable = false
-        hidesOnDeactivate = false
         // One above the notch panel's, so the notch sits under the dimming.
-        level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.statusWindow)) + 2)
-        collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
-        let host = FirstMouseHostingView(rootView: content())
+        let level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.statusWindow)) + 2)
+        for window in [self, stage] {
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            window.hasShadow = false
+            window.isMovable = false
+            window.hidesOnDeactivate = false
+            window.level = level
+            window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+        }
+        stage.ignoresMouseEvents = true
+        let host = FirstMouseHostingView(rootView: backdrop())
         host.autoresizingMask = [.width, .height]
         contentView = host
+        stage.contentView = NSHostingView(rootView: content())
         setFrame(screen.frame, display: false)
+        stage.setFrame(stageFrame, display: false)
     }
 
     override var canBecomeKey: Bool { true }
@@ -102,20 +143,31 @@ final class CoverWindow: NSPanel {
 
     func present() {
         alphaValue = 0
+        stage.alphaValue = 0
         orderFrontRegardless()
+        addChildWindow(stage, ordered: .above)
         makeKey()
-        NSAnimationContext.runAnimationGroup { $0.duration = 0.2 * Motion.slow; animator().alphaValue = 1 }
+        fade(to: 1)
     }
 
     func dismiss() {
         guard let onDismiss else { return }
         self.onDismiss = nil
-        NSAnimationContext.runAnimationGroup({ $0.duration = 0.2 * Motion.slow; animator().alphaValue = 0 },
-                                             completionHandler: { [self] in
-            // Held until the fade ends: the owner drops it straight away.
-            MainActor.assumeIsolated { orderOut(nil) }
-        })
+        // Held until the fade ends: the owner drops it straight away.
+        fade(to: 0) { [self] in
+            removeChildWindow(stage)
+            stage.orderOut(nil)
+            orderOut(nil)
+        }
         onDismiss()
+    }
+
+    private func fade(to alpha: CGFloat, then done: (@MainActor () -> Void)? = nil) {
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.2 * Motion.slow
+            animator().alphaValue = alpha
+            stage.animator().alphaValue = alpha
+        }, completionHandler: { MainActor.assumeIsolated { done?() } })
     }
 
     override func cancelOperation(_ sender: Any?) { dismiss() }
@@ -130,17 +182,64 @@ final class CoverWindow: NSPanel {
     }
 }
 
-/// What the window draws: the dim, the cover, the song under it.
-struct BigCoverView: View {
+/// The full-screen layer: the glow and the dim. Takes the closing click.
+struct BigCoverBackdrop: View {
     @ObservedObject var players: Players
     let screen: CGRect
     let close: () -> Void
 
     @ObservedObject private var memory = ArtMemory.shared
-    @State private var big: NSImage?
-    @State private var bigFor: URL?
     @State private var glow: NSImage?
     @State private var glowFor: URL?
+
+    var body: some View {
+        let url = players.current.now.track?.artworkURL
+        let glowing = glowFor == url && glow != nil
+        ZStack {
+            if let glow, glowing { swirl(glow).id(url).transition(.opacity) }
+            // A little lighter over the glow, so its colour comes through.
+            Color.black.opacity(glowing ? 0.45 : 0.55)
+        }
+        .ignoresSafeArea()
+        .contentShape(Rectangle())
+        .onTapGesture(perform: close)
+        .animation(.easeInOut(duration: 0.35 * Motion.slow), value: url)
+        // The small cover, usually already loaded for the notch: blurred once
+        // when it is here, whichever comes first.
+        .onChange(of: memory.image(for: url) != nil, initial: true) { _, loaded in
+            guard loaded, let url, glowFor != url, let small = memory.image(for: url),
+                  let image = BigCover.glow(small) else { return }
+            glow = image; glowFor = url
+        }
+        .onAppear { url.map(memory.load) }
+    }
+
+    /// The glow stretched over the screen, turning slowly. One layer: a
+    /// second, counter-turning copy doubled the full-screen fill for little.
+    /// Still with Reduce motion.
+    private func swirl(_ image: NSImage) -> some View {
+        let size = max(screen.width, screen.height) * 1.6
+        return TimelineView(BigCover.glowSchedule) { context in
+            let t = Motion.reduced ? 0 : context.date.timeIntervalSinceReferenceDate / Motion.slow
+            Image(nsImage: image).resizable().interpolation(.medium)
+                .frame(width: size, height: size)
+                .rotationEffect(.degrees((t * 3).truncatingRemainder(dividingBy: 360)))
+                .opacity(0.85)
+        }
+        .frame(width: screen.width, height: screen.height)
+        .clipped()
+        .allowsHitTesting(false)
+    }
+}
+
+/// The small, moving layer: the cover, the record, the song under them.
+struct BigCoverStage: View {
+    @ObservedObject var players: Players
+    let screen: CGRect
+
+    @ObservedObject private var memory = ArtMemory.shared
+    @State private var big: NSImage?
+    @State private var bigFor: URL?
     @State private var spin = BigCover.Spin()
     /// The record slides out from behind the cover just after opening.
     @State private var out = Motion.reduced
@@ -148,26 +247,18 @@ struct BigCoverView: View {
     var body: some View {
         let track = players.current.now.track
         let url = track?.artworkURL
-        let glowing = glowFor == url && glow != nil
-        ZStack {
-            if let glow, glowing { swirl(glow).id(url).transition(.opacity) }
-            // A little lighter over the glow, so its colour comes through.
-            Color.black.opacity(glowing ? 0.45 : 0.55)
-            VStack(spacing: 18) {
-                stage(url, source: track?.source ?? .spotify)
-                if let track {
-                    VStack(spacing: 3) {
-                        Text(track.name).font(Type.label(15, weight: .semibold)).foregroundStyle(Palette.primary)
-                        Text(track.artist).font(Type.label(13)).foregroundStyle(Palette.secondary)
-                    }
-                    .lineLimit(1)
-                    .frame(maxWidth: side)
+        VStack(spacing: 18) {
+            stage(url, source: track?.source ?? .spotify)
+            if let track {
+                VStack(spacing: 3) {
+                    Text(track.name).font(Type.label(15, weight: .semibold)).foregroundStyle(Palette.primary)
+                    Text(track.artist).font(Type.label(13)).foregroundStyle(Palette.secondary)
                 }
+                .lineLimit(1)
+                .frame(maxWidth: side)
             }
         }
-        .ignoresSafeArea()
-        .contentShape(Rectangle())
-        .onTapGesture(perform: close)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.easeInOut(duration: 0.35 * Motion.slow), value: url)
         .onAppear {
             spin.set(playing: playing, at: Date.timeIntervalSinceReferenceDate)
@@ -178,46 +269,14 @@ struct BigCoverView: View {
         }
         .onChange(of: playing) { _, now in spin.set(playing: now, at: Date.timeIntervalSinceReferenceDate) }
         .task(id: url) {
-            guard let url else { return }
-            // The glow from the small cover, usually already loaded for the
-            // notch; the sharp cover then replaces the small one.
-            if let small = memory.image(for: url) { setGlow(BigCover.glow(small), for: url) }
-            guard let bytes = await ArtworkCache.shared.data(for: url, original: true),
+            // The small cover shows at once; the sharp one replaces it.
+            guard let url, let bytes = await ArtworkCache.shared.data(for: url, original: true),
                   let image = NSImage(data: bytes) else { return }
             big = image; bigFor = url
-            if glowFor != url { setGlow(BigCover.glow(image), for: url) }
         }
     }
 
-    private func setGlow(_ image: NSImage?, for url: URL) {
-        guard let image else { return }
-        glow = image; glowFor = url
-    }
-
-    /// Two stretched copies of the glow turning opposite ways, so its colours
-    /// drift through each other. Still with Reduce motion.
-    private func swirl(_ image: NSImage) -> some View {
-        let size = max(screen.width, screen.height) * 1.6
-        return TimelineView(.animation) { context in
-            let t = Motion.reduced ? 0 : context.date.timeIntervalSinceReferenceDate / Motion.slow
-            ZStack {
-                Image(nsImage: image).resizable().interpolation(.high)
-                    .frame(width: size, height: size)
-                    .rotationEffect(.degrees((t * 8).truncatingRemainder(dividingBy: 360)))
-                Image(nsImage: image).resizable().interpolation(.high)
-                    .frame(width: size, height: size)
-                    .scaleEffect(1.3)
-                    .rotationEffect(.degrees((-t * 5).truncatingRemainder(dividingBy: 360)))
-                    .opacity(0.5)
-            }
-            .opacity(0.85)
-        }
-        .frame(width: screen.width, height: screen.height)
-        .clipped()
-        .allowsHitTesting(false)
-    }
-
-    private var side: CGFloat { min(screen.height * 0.6, 640) }
+    private var side: CGFloat { BigCover.side(on: screen) }
 
     private var playing: Bool {
         if case .track(_, .playing, _) = players.current.now { return true }
@@ -250,7 +309,7 @@ struct BigCoverView: View {
     /// as the record slides out, so the two stay centred.
     private func stage(_ url: URL?, source: Source) -> some View {
         let slide = out ? side * 0.45 : 0
-        return TimelineView(.animation) { context in
+        return TimelineView(BigCover.schedule) { context in
             let now = context.date.timeIntervalSinceReferenceDate
             let angle = BigCover.tilt(time: now, pointer: BigCover.pointer(NSEvent.mouseLocation, on: screen),
                                       reduced: Motion.reduced)
@@ -269,7 +328,6 @@ struct BigCoverView: View {
                     }
             }
             .offset(x: -slide / 2)
-            .shadow(color: .black.opacity(0.45), radius: 30, y: 24)
             .rotation3DEffect(.degrees(angle.x), axis: (1, 0, 0), perspective: 0.5)
             .rotation3DEffect(.degrees(angle.y), axis: (0, 1, 0), perspective: 0.5)
         }
