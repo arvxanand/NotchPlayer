@@ -133,7 +133,12 @@ public struct RootView: View {
     private var peek: some View {
         switch presentation {
         case .track(let track, let playing, _):
-            PeekView(geometry: geometry, track: track, playing: playing, holdBands: holdBands)
+            // **Settled while hidden.** Under the open panel or concealed the
+            // peek is at opacity 0, but live bars would still commit thirty
+            // frames a second for the window server to composite. Flat bars
+            // are drawn once; the live ones come back as the peek fades in.
+            PeekView(geometry: geometry, track: track,
+                     playing: playing && !open && !concealed, holdBands: holdBands)
         case .permissionNeeded:
             // The mark alone, in the slot the cover would take, with no bars
             // -- nothing is known about playback, and a row of dots would
