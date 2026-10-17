@@ -72,6 +72,15 @@ final class QueueTests: XCTestCase {
 
     // MARK: - The tests
 
+    /// A file saved before the song changed lists the song now playing first;
+    /// the page shows it moved on by one rather than waiting with nothing.
+    func testAStaleFileIsShownMovedOnByOne() {
+        let ids = (0..<12).map { "s\($0)" }
+        let state = SpotifyQueue.State(queued: [], upcoming: ids, context: nil)
+        XCTAssertEqual(QueueView.upNext(state, playing: "s0"), Array(ids[1...10]))
+        XCTAssertEqual(QueueView.upNext(state, playing: "elsewhere"), Array(ids[0..<10]))
+    }
+
     func testAutoplayComesAfterTheContextRunsOut() {
         let state = SpotifyQueue.parse(file(order: [1, 2], playing: 2, autoplay: "spotify:station:track:x"))
         XCTAssertEqual(state?.upcoming, [id(51), id(52), id(53)], "one song from search: all that's next is autoplay")

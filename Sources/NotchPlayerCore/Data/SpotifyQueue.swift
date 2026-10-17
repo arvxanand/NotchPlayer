@@ -41,12 +41,20 @@ public enum SpotifyQueue {
     /// The newest restore file under any account; nil if there is none or it
     /// does not read.
     public static func read(home: String = NSHomeDirectory()) -> State? {
+        newest(home: home).flatMap { try? Data(contentsOf: $0) }.flatMap { parse([UInt8]($0)) }
+    }
+
+    /// When Spotify last saved the file, to tell a fresh save from a stale one.
+    public static func saved(home: String = NSHomeDirectory()) -> Date? {
+        newest(home: home).map(modified)
+    }
+
+    private static func newest(home: String) -> URL? {
         let users = URL(fileURLWithPath: home)
             .appendingPathComponent("Library/Application Support/Spotify/PersistentCache/Users")
         let files = ((try? FileManager.default.contentsOfDirectory(at: users, includingPropertiesForKeys: nil)) ?? [])
             .map { $0.appendingPathComponent("context_player_state_restore") }
-        let newest = files.max { modified($0) < modified($1) }
-        return newest.flatMap { try? Data(contentsOf: $0) }.flatMap { parse([UInt8]($0)) }
+        return files.max { modified($0) < modified($1) }
     }
 
     private static func modified(_ url: URL) -> Date {

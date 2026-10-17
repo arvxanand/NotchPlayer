@@ -133,27 +133,36 @@ public struct QueueView: View {
             .frame(height: StatsView.lineHeight)
     }
 
-    /// Spotify rewrites the file as the song changes, so a read right then
-    /// can still be the one before: the song now playing listed as next.
-    /// One more read a second later settles it. The pages are asked all at
-    /// once (each is ~300KB and about a second), and each row fills in as
-    /// its answer comes.
+    /// **Shown at once, then corrected.** Spotify rewrites the file a moment
+    /// after the song changes, so a read right then is the list before: the
+    /// song now playing first. That list minus it is almost always the right
+    /// answer, so it goes up straight away and the file is watched until
+    /// Spotify saves (up to `staleWait`) -- not a fixed second's wait with an
+    /// empty page. Songs already looked up this session, and local files,
+    /// show without waiting; only new ones ask their page (~300KB and about
+    /// a second each, all at once), still only while this page shows.
     private func load() async {
         let playing = LocalCover.isLocal(track.id) ? track.id : track.id.split(separator: ":").last.map(String.init)
-        var state = SpotifyQueue.read()
-        if let first = state?.next(1).first, first == playing {
-            try? await Task.sleep(for: .seconds(1))
-            guard !Task.isCancelled else { return }
-            state = SpotifyQueue.read()
-        }
-        guard let state else { content = .unreadable; return }
-        let ids = state.next(Self.count)
-        var songs = [Song?](repeating: nil, count: ids.count)
+        let saved = SpotifyQueue.saved()
+        guard let state = SpotifyQueue.read() else { content = .unreadable; return }
+        var ids = Self.upNext(state, playing: playing)
+        var songs = ids.map(Self.known)
         content = .songs(songs)
+        if state.next(1).first == playing {
+            let deadline = Date().addingTimeInterval(Self.staleWait)
+            while SpotifyQueue.saved() == saved, Date() < deadline {
+                try? await Task.sleep(for: .milliseconds(250))
+                guard !Task.isCancelled else { return }
+            }
+            if let fresh = SpotifyQueue.read() {
+                ids = Self.upNext(fresh, playing: playing)
+                songs = ids.map(Self.known)
+                content = .songs(songs)
+            }
+        }
         await withTaskGroup(of: (Int, Song?).self) { group in
-            for (index, id) in ids.enumerated() {
+            for (index, id) in ids.enumerated() where songs[index] == nil {
                 group.addTask {
-                    if LocalCover.isLocal(id) { return (index, Self.local(id)) }
                     let page = await SpotifyLinks.page("spotify:track:\(id)")
                     return (index, page?.title.map { Song(name: $0, artist: page?.byline ?? "", cover: page?.cover) })
                 }
@@ -162,6 +171,20 @@ public struct QueueView: View {
                 songs[index] = song
                 content = .songs(songs)
             }
+        }
+    }
+
+    /// The next songs, without the one playing if a stale file still lists it.
+    nonisolated static func upNext(_ state: SpotifyQueue.State, playing: String?) -> [String] {
+        let all = state.next(count + 1)
+        return Array((all.first == playing ? all.dropFirst() : all[...]).prefix(count))
+    }
+
+    /// A song that needs no lookup: a local file, or a page fetched before.
+    private static func known(_ id: String) -> Song? {
+        if LocalCover.isLocal(id) { return local(id) }
+        return SpotifyLinks.cachedPage("spotify:track:\(id)").flatMap { page in
+            page.title.map { Song(name: $0, artist: page.byline ?? "", cover: page.cover) }
         }
     }
 
@@ -182,7 +205,10 @@ public struct QueueView: View {
 
     // MARK: - Metrics
 
-    static let count = 10
+    nonisolated static let count = 10
+    /// How long to wait for Spotify to save after a song change. Its saves
+    /// come within a second or two; past this the moved-on list stands.
+    static let staleWait: TimeInterval = 5
     static let headerHeight: CGFloat = 18
     static let firstCover: CGFloat = 40
     static let firstHeight: CGFloat = 50
