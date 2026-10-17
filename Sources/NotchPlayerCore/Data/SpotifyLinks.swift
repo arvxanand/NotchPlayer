@@ -41,6 +41,9 @@ public enum SpotifyLinks {
 
     /// The public page for `spotify:track:…`, read once per session. Also the
     /// queue page's names and covers (`QueueView`), asked only while it shows.
+    /// A page already fetched this session, without asking for it.
+    public static func cachedPage(_ id: String) -> Page? { found[id] }
+
     public static func page(_ id: String) async -> Page? {
         if let cached = found[id] { return cached }
         guard let url = pageURL(for: id), let page = await fetch(url) else { return nil }

@@ -37,7 +37,7 @@ final class QueueTests: XCTestCase {
     /// `place` in the order, already on the next one; 0 is left out, as
     /// protobuf does.
     private func file(queued: [UInt8] = [], order: [UInt8] = [1, 2, 3, 4, 5, 6], playing: UInt8? = 1,
-                      place: Int = 0, local: Set<UInt8> = []) -> [UInt8] {
+                      place: Int = 0, local: Set<UInt8> = [], autoplay: String? = nil) -> [UInt8] {
         // A local file leaves the id empty and carries its URI in field 1.
         func entry(_ n: UInt8) -> [UInt8] {
             local.contains(n) ? field(1, localURI(n)) + field(3, []) : field(1, []) + field(3, song(n))
@@ -51,13 +51,47 @@ final class QueueTests: XCTestCase {
         let queue = queued.enumerated().flatMap { index, n in
             field(1, entry(100 + n) + field(2, "q\(index)"))
         }
+        // Autoplay: songs 51...53 from a radio context of their own, inside
+        // `AutoplayNode`, with nothing of it played yet.
+        let radio = autoplay.map { uri in
+            field(6, field(1, field(1, uri) + field(5, (51...53).flatMap { n in
+                                 field(4, field(1, []) + field(2, "a\(n)") + field(3, song(UInt8(n)))) }))
+                       + field(2, field(3, (51...53).flatMap { field(2, field(2, "a\($0)")) })))
+        }
+        // A `GlobalNode` first, as Spotify saves it from the second autoplay
+        // song on: the context must be found by name, not by place.
+        let autoplayNode = radio.map {
+            node("AutoplayNode", node("GlobalNode", field(2, field(1, "premium")))
+                                 + field(1, field(1, "spotify.player.proto.ContextNode") + field(2, $0)))
+        } ?? []
         // The nested autoplay context has no rows; it must not be taken.
-        let nodes = node("ContextNode", field(2, [])) + node("ContextNode", context) + node("PlayQueueNode", queue)
+        let nodes = autoplayNode + node("ContextNode", field(2, [])) + node("ContextNode", context) + node("PlayQueueNode", queue)
         let message = field(3, field(3, field(1, field(18, field(16, field(1, "player") + field(2, field(12, nodes)))))))
         return Array("1792115328087#".utf8) + message
     }
 
     // MARK: - The tests
+
+    /// A file saved before the song changed lists the song now playing first;
+    /// the page shows it moved on by one rather than waiting with nothing.
+    func testAStaleFileIsShownMovedOnByOne() {
+        let ids = (0..<12).map { "s\($0)" }
+        let state = SpotifyQueue.State(queued: [], upcoming: ids, context: nil)
+        XCTAssertEqual(QueueView.upNext(state, playing: "s0"), Array(ids[1...10]))
+        XCTAssertEqual(QueueView.upNext(state, playing: "elsewhere"), Array(ids[0..<10]))
+    }
+
+    func testAutoplayComesAfterTheContextRunsOut() {
+        let state = SpotifyQueue.parse(file(order: [1, 2], playing: 2, autoplay: "spotify:station:track:x"))
+        XCTAssertEqual(state?.upcoming, [id(51), id(52), id(53)], "one song from search: all that's next is autoplay")
+        XCTAssertEqual(SpotifyQueue.parse(file(playing: 4, autoplay: "spotify:station:track:x"))?.upcoming,
+                       [id(5), id(6), id(51), id(52), id(53)])
+    }
+
+    func testAutoplayPlayingIsNotListedTwice() {
+        let state = SpotifyQueue.parse(file(playing: 4, autoplay: "spotify:playlist:abc"))
+        XCTAssertEqual(state?.upcoming, [id(5), id(6)])
+    }
 
     func testALocalFileIsKeptInItsPlaceByItsURI() {
         let state = SpotifyQueue.parse(file(queued: [7], local: [3, 107]))
