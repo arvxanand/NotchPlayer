@@ -58,7 +58,12 @@ final class QueueTests: XCTestCase {
                                  field(4, field(1, []) + field(2, "a\(n)") + field(3, song(UInt8(n)))) }))
                        + field(2, field(3, (51...53).flatMap { field(2, field(2, "a\($0)")) })))
         }
-        let autoplayNode = radio.map { node("AutoplayNode", field(1, field(1, "spotify.player.proto.ContextNode") + field(2, $0))) } ?? []
+        // A `GlobalNode` first, as Spotify saves it from the second autoplay
+        // song on: the context must be found by name, not by place.
+        let autoplayNode = radio.map {
+            node("AutoplayNode", node("GlobalNode", field(2, field(1, "premium")))
+                                 + field(1, field(1, "spotify.player.proto.ContextNode") + field(2, $0)))
+        } ?? []
         // The nested autoplay context has no rows; it must not be taken.
         let nodes = autoplayNode + node("ContextNode", field(2, [])) + node("ContextNode", context) + node("PlayQueueNode", queue)
         let message = field(3, field(3, field(1, field(18, field(16, field(1, "player") + field(2, field(12, nodes)))))))

@@ -59,7 +59,7 @@ public enum SpotifyQueue {
         // "1792115328087#": milliseconds, then the message.
         guard let hash = file.prefix(32).firstIndex(of: UInt8(ascii: "#")) else { return nil }
         let nodes = Proto.path([3, 3, 1, 18, 16, 2, 12, 1], in: file[(hash + 1)...])
-        func state(_ name: String) -> [ArraySlice<UInt8>] {
+        func state(_ name: String, in nodes: [ArraySlice<UInt8>] = nodes) -> [ArraySlice<UInt8>] {
             nodes.filter { node in
                 Proto.field(1, in: node).map { String(decoding: $0, as: UTF8.self) } == "spotify.player.proto." + name
             }.compactMap { Proto.field(2, in: $0) }
@@ -74,12 +74,14 @@ public enum SpotifyQueue {
         let uri = Proto.path([6, 1, 1], in: context).first.map { String(decoding: $0, as: UTF8.self) }
         // **Then autoplay**, Spotify's radio picks for when the context runs
         // out: one song played from search, the end of an album. They are a
-        // second context inside `AutoplayNode` (field 1, a node like the top
-        // level's). Without them a single song read as "nothing after this"
-        // while Spotify's queue showed fifty (owner's file, 17 Oct 2026). Once
-        // an autoplay song plays, that context is the top-level one, so it is
-        // not added twice.
-        let autoplay = state("AutoplayNode").first.flatMap { Proto.field(1, in: $0) }.flatMap { Proto.field(2, in: $0) }
+        // second context inside `AutoplayNode`, among nodes like the top
+        // level's -- found by name, because a `GlobalNode` comes first in some
+        // saves and not others. Without them a single song read as "nothing
+        // after this" while Spotify's queue showed fifty (owner's file, 17 Oct
+        // 2026). If that context ever becomes the top-level one it is not
+        // added twice.
+        let autoplay = state("AutoplayNode").first
+            .flatMap { state("ContextNode", in: Proto.fields(1, in: $0)).first }
         let autoplayURI = autoplay.flatMap { Proto.path([6, 1, 1], in: $0).first }.map { String(decoding: $0, as: UTF8.self) }
         let more = autoplay.flatMap { autoplayURI != uri ? upcoming(in: $0) : nil } ?? []
         return State(queued: queued, upcoming: (upcoming(in: context) ?? []) + more, context: uri)
