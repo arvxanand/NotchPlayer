@@ -71,7 +71,23 @@ public enum SpotifyQueue {
         else { return nil }
 
         let queued = Proto.fields(1, in: queue).compactMap(song)
+        let uri = Proto.path([6, 1, 1], in: context).first.map { String(decoding: $0, as: UTF8.self) }
+        // **Then autoplay**, Spotify's radio picks for when the context runs
+        // out: one song played from search, the end of an album. They are a
+        // second context inside `AutoplayNode` (field 1, a node like the top
+        // level's). Without them a single song read as "nothing after this"
+        // while Spotify's queue showed fifty (owner's file, 17 Oct 2026). Once
+        // an autoplay song plays, that context is the top-level one, so it is
+        // not added twice.
+        let autoplay = state("AutoplayNode").first.flatMap { Proto.field(1, in: $0) }.flatMap { Proto.field(2, in: $0) }
+        let autoplayURI = autoplay.flatMap { Proto.path([6, 1, 1], in: $0).first }.map { String(decoding: $0, as: UTF8.self) }
+        let more = autoplay.flatMap { autoplayURI != uri ? upcoming(in: $0) : nil } ?? []
+        return State(queued: queued, upcoming: (upcoming(in: context) ?? []) + more, context: uri)
+    }
 
+    /// A context's songs after the one playing, in play order; nil when the
+    /// place in the order can't be found.
+    static func upcoming(in context: ArraySlice<UInt8>) -> [String]? {
         var songs: [String: String] = [:]
         for row in Proto.path([6, 1, 5, 4], in: context) {
             if let id = Proto.field(2, in: row), let song = song(in: row) {
@@ -87,9 +103,7 @@ public enum SpotifyQueue {
         // protobuf, so a missing place is the first row.
         let from = playing.map { order.firstIndex(of: $0).map { $0 + 1 } }
             ?? Proto.path([6], in: context).first.map { Int(Proto.varint(5, in: $0) ?? 0) }
-        let upcoming = from.map { order.dropFirst($0).compactMap { songs[$0] } } ?? []
-        let uri = Proto.path([6, 1, 1], in: context).first.map { String(decoding: $0, as: UTF8.self) }
-        return State(queued: queued, upcoming: upcoming, context: uri)
+        return from.map { order.dropFirst($0).compactMap { songs[$0] } }
     }
 
     /// A row's or queued entry's song: its id (3), or -- for a local file,
