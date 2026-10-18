@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.8",
+    "date": "2026-10-18",
+    "html": "<ul dir=\"auto\">\n<li><strong>Big cover:</strong> click the cover in the open notch and it fills the screen, drifting and leaning toward your pointer, with a colour glow and a spinning record. Click anywhere or press Esc to close it.</li>\n<li><strong>Up next now comes before your stats:</strong> one swipe from the player.</li>\n<li><strong>Up next shows more:</strong> local files, and the songs Spotify's autoplay picks when a playlist, album or single song runs out. It also appears straight away instead of after a pause.</li>\n<li>The waveform beside the notch is lighter on your Mac.</li>\n</ul>\n<p dir=\"auto\">After updating, the notch shows these once the first time you open it.</p>\n<p dir=\"auto\"><strong>Full changelog:</strong> <a class=\"commit-link\" href=\"https://github.com/arvxanand/NotchPlayer/compare/v0.7...v0.8\"><tt>v0.7...v0.8</tt></a></p>"
+  },
+  {
     "version": "0.7",
     "date": "2026-10-16",
     "html": "<ul dir=\"auto\">\n<li><strong>Up next:</strong> swipe left past your stats to see the next ten songs, with their covers and artists. Scroll down for more. Shuffle is included, and it works with Spotify full screen.</li>\n<li>It only shows the queue: add or remove songs in Spotify itself. A song you add appears when the next song starts, because that's when Spotify saves its queue.</li>\n<li>Spotify only for now; the page hides while Apple Music plays.</li>\n</ul>\n<p dir=\"auto\">After updating, the notch shows these once the first time you open it.</p>\n<p dir=\"auto\"><strong>Full changelog:</strong> <a class=\"commit-link\" href=\"https://github.com/arvxanand/NotchPlayer/compare/v0.6...v0.7\"><tt>v0.6...v0.7</tt></a></p>"
