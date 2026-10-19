@@ -2,7 +2,7 @@ export const config = {
   name: 'NotchPlayer',
   domain: 'https://notchplayer.pages.dev', // the site's address: canonical URL and link-preview image
   ctaLabel: 'Download for Mac',
-  version: '0.8', // bump on every release (CONTRIBUTING.md "Releasing a version")
+  version: '0.9', // bump on every release (CONTRIBUTING.md "Releasing a version")
   macosMin: '15',
   appleSiliconOnly: true,
   repoUrl: 'https://github.com/arvxanand/NotchPlayer',
