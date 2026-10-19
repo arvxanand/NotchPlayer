@@ -25,13 +25,14 @@ public final class Expansion: ObservableObject {
 
     /// Which page the open panel shows. Every open starts on the player, so
     /// leaving the others is just moving away.
-    public enum Page: Sendable { case player, queue, stats }
+    public enum Page: Sendable { case player, lyrics, queue, stats }
     @Published public private(set) var page = Page.player
 
-    /// The pages, left to right: what's next first, then the stats. The queue
-    /// is Spotify's alone (`SpotifyQueue`), so Music has two.
+    /// The pages, left to right: the lyrics beside the song they belong to,
+    /// then what's next, then the stats. The queue is Spotify's alone
+    /// (`SpotifyQueue`), so Music has three.
     public nonisolated static func pages(for source: Source) -> [Page] {
-        source == .spotify ? [.player, .queue, .stats] : [.player, .stats]
+        source == .spotify ? [.player, .lyrics, .queue, .stats] : [.player, .lyrics, .stats]
     }
 
     /// Whose pages a swipe steps through: the player playing right now.
@@ -70,7 +71,14 @@ public final class Expansion: ObservableObject {
     /// panel is an ordinary thing to do, and without this the watcher sees the
     /// pointer leave, collapses the panel, and takes the control out from
     /// under the hand holding it.
-    private var holding = false
+    private var scrubbing = false
+
+    /// **The lyrics hold the panel open too**, so they can be read along
+    /// with the song while the pointer is off doing something else. The
+    /// lyrics button (lit, on that page) or a swipe away lets it go. Only
+    /// while there is something to draw: an open panel with nothing in it is
+    /// an invisible window taking clicks.
+    private var holding: Bool { scrubbing || (page == .lyrics && hasContent()) }
 
     /// Optional rather than defaulted, because a default argument expression
     /// is evaluated nonisolated and `HoverWatcher` is main-actor bound.
@@ -99,7 +107,7 @@ public final class Expansion: ObservableObject {
     }
 
     public func stop() {
-        holding = false
+        scrubbing = false
         watcher.stop()
         bag.removeAll()
         collapse()
@@ -128,9 +136,18 @@ public final class Expansion: ObservableObject {
     /// drag there is no further event to act on -- releasing outside the panel
     /// would leave it open until the pointer went back in and out again.
     public func hold(_ on: Bool) {
-        guard on != holding else { return }
-        holding = on
+        guard on != scrubbing else { return }
+        scrubbing = on
         if !on { hover(watcher.inside) }
+    }
+
+    /// Re-decide now: what there is to draw has changed. The lyrics' hold
+    /// lapses when the song goes away, and with the pointer already gone
+    /// there would be no hover event to close the panel on.
+    /// Closing only: a song starting under a resting pointer does not open it.
+    public func recheck() {
+        guard expanded else { return }
+        hover(watcher.inside)
     }
 
     private func hover(_ inside: Bool) {
@@ -182,7 +199,10 @@ public final class Expansion: ObservableObject {
 
     public func show(_ page: Page) {
         guard expanded else { return }
+        let held = holding
         self.page = page
+        // Leaving the lyrics with the pointer elsewhere closes the panel.
+        if held, !holding { hover(watcher.inside) }
     }
 
     /// One trackpad gesture, added up from its first touch to its last.

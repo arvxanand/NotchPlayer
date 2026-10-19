@@ -236,6 +236,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
                              progress: preview.progress, holdBands: preview.bands,
                              probe: probing,
                              page: preview.page, plays: preview.plays ?? [], queue: preview.queue,
+                             lyrics: preview.lyrics,
                              showPage: { _ in }, whatsNew: preview.whatsNew)
                 }
             }
@@ -278,6 +279,9 @@ public final class AppController: NSObject, NSApplicationDelegate {
                     MainActor.assumeIsolated {
                         let playing = Players.playing(spotify: spotify.isPlaying, music: music.isPlaying)
                         self?.tap.follow(pid: playing.flatMap { AudioTap.pid(of: $0) })
+                        // The same moment the lyrics' hold may have lapsed. Next
+                        // turn: `$now` publishes before the new value is stored.
+                        DispatchQueue.main.async { self?.expansion.recheck() }
                     }
                 }
         }

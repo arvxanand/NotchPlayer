@@ -31,6 +31,8 @@ public struct PanelView: View {
     let openLink: (LinkTarget) -> Void
     /// Opens the stats page. Nil draws no button (previews of the player alone).
     let showStats: (() -> Void)?
+    /// Opens the lyrics page. Nil draws no button, as for the stats.
+    let showLyrics: (() -> Void)?
     /// Shows the cover filling the screen (`BigCover`). Nil: the cover opens
     /// the album, as the title does.
     let showCover: (() -> Void)?
@@ -46,11 +48,13 @@ public struct PanelView: View {
                 send: @escaping (Command) -> Void = { _ in },
                 setRepeat: @escaping (Modes.Repeat) -> Void = { _ in },
                 openLink: @escaping (LinkTarget) -> Void = { _ in },
-                showStats: (() -> Void)? = nil, showCover: (() -> Void)? = nil) {
+                showStats: (() -> Void)? = nil, showLyrics: (() -> Void)? = nil,
+                showCover: (() -> Void)? = nil) {
         self.geometry = geometry; self.track = track; self.progress = progress
         self.playing = playing; self.controllable = controllable; self.modes = modes
         self.onScrubbing = onScrubbing; self.send = send; self.setRepeat = setRepeat
-        self.openLink = openLink; self.showStats = showStats; self.showCover = showCover
+        self.openLink = openLink; self.showStats = showStats; self.showLyrics = showLyrics
+        self.showCover = showCover
     }
 
     public var body: some View {
@@ -83,17 +87,10 @@ public struct PanelView: View {
             // The note takes the row's exact height, so the panel is one size
             // in every state -- one `panelHeight`, one set of expected bounds
             // in the footprint check, and no second animation to tune.
-            Group {
-                if controllable {
-                    TransportRow(playing: playing, modes: modes, send: send, setRepeat: setRepeat)
-                        .frame(maxWidth: .infinity)
-                        .overlay(alignment: .trailing) { statsButton }
-                } else {
-                    PermissionNote(explanation: PermissionNote.explanation(for: track.source))
-                        .padding(.horizontal, Self.inset)
-                }
-            }
-            .padding(.top, Self.transportGap)
+            ControlRow(source: track.source, playing: playing, controllable: controllable, modes: modes,
+                       send: send, setRepeat: setRepeat, lyricsShowing: false,
+                       lyrics: showLyrics, showStats: showStats)
+                .padding(.top, Self.transportGap)
 
             Spacer(minLength: 0)
         }
@@ -218,25 +215,6 @@ public struct PanelView: View {
         .accessibilityLabel("Save the song")
     }
 
-    /// The way to the stats, at the right end of the transport line, out of
-    /// the row's own spacing so the five controls stay exactly where they were.
-    /// The trackpad swipe does the same; this is for a mouse.
-    @ViewBuilder
-    private var statsButton: some View {
-        if let showStats {
-            Button(action: showStats) {
-                Image(systemName: "chart.bar")
-                    .font(.system(size: Self.statsGlyph, weight: .regular))
-                    .foregroundStyle(Palette.secondary)
-                    .frame(width: NotchGeometry.minimumHitHeight, height: NotchGeometry.minimumHitHeight)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(.trailing, Self.statsInset)
-            .accessibilityLabel("Show your listening stats")
-        }
-    }
-
     /// Only a real Spotify track can be saved. A local file, an episode or an
     /// ad has no `spotify:track:` id, and a + that could do nothing is not
     /// drawn -- nor is one for Apple Music, which has no + yet.
@@ -356,6 +334,14 @@ public struct PanelView: View {
         }
     }
 
+    /// The lyrics button's target, same coordinates: the stats button's mirror.
+    public static func lyricsRect(_ geometry: NotchGeometry) -> CGRect {
+        let left = geometry.screenFrame.midX - geometry.openWidth / 2 + statsInset
+        let top = geometry.notchExclusionTop + topGap + artSide + transportGap
+        let side = NotchGeometry.minimumHitHeight
+        return CGRect(x: left, y: top, width: side, height: side)
+    }
+
     /// The stats button's target, same coordinates.
     public static func statsRect(_ geometry: NotchGeometry) -> CGRect {
         let side = NotchGeometry.minimumHitHeight
@@ -387,4 +373,61 @@ public struct PanelView: View {
     /// crushes the flexible sibling instead, and every automated check keeps
     /// agreeing all is well (matchnotch TRAPS #90).
     public static let detailsFixedHeight: CGFloat = 21 + 2 + 16 + 4 + ProgressLine.thickness + 14
+}
+
+/// The transport line, with the way to the lyrics at its left end and to the
+/// stats at its right, both out of the row's own spacing so the five controls
+/// stay exactly where they were. The trackpad swipe does the same; these are
+/// for a mouse.
+///
+/// **Shared by the player and the lyrics page**, at the same height on both,
+/// so turning to the lyrics changes the words above and nothing under the
+/// pointer -- and the lyrics button, lit there, is the way back.
+struct ControlRow: View {
+    let source: Source
+    let playing: Bool
+    let controllable: Bool
+    let modes: Modes?
+    let send: (Command) -> Void
+    let setRepeat: (Modes.Repeat) -> Void
+    /// Lit: this row is under the lyrics, and the button goes back.
+    let lyricsShowing: Bool
+    let lyrics: (() -> Void)?
+    let showStats: (() -> Void)?
+
+    var body: some View {
+        if controllable {
+            TransportRow(playing: playing, modes: modes, send: send, setRepeat: setRepeat)
+                .frame(maxWidth: .infinity)
+                .overlay(alignment: .leading) {
+                    lyrics.map {
+                        button("music.mic", lyricsShowing ? Palette.primary : Palette.secondary,
+                               lyricsShowing ? "Hide the lyrics" : "Show the lyrics", action: $0)
+                            .padding(.leading, PanelView.statsInset)
+                    }
+                }
+                .overlay(alignment: .trailing) {
+                    showStats.map {
+                        button("chart.bar", Palette.secondary, "Show your listening stats", action: $0)
+                            .padding(.trailing, PanelView.statsInset)
+                    }
+                }
+        } else {
+            PermissionNote(explanation: PermissionNote.explanation(for: source))
+                .padding(.horizontal, PanelView.inset)
+        }
+    }
+
+    private func button(_ symbol: String, _ colour: Color, _ label: String,
+                        action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: PanelView.statsGlyph, weight: .regular))
+                .foregroundStyle(colour)
+                .frame(width: NotchGeometry.minimumHitHeight, height: NotchGeometry.minimumHitHeight)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
 }
