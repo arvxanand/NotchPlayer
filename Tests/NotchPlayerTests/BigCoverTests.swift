@@ -75,4 +75,18 @@ final class BigCoverTests: XCTestCase {
         XCTAssertLessThan(abs(spin.angle(at: 7) - spin.angle(at: 6)), 0.1)
         XCTAssertGreaterThan(spin.angle(at: 6), spin.angle(at: 3), "it coasts before it stops")
     }
+
+    /// The cover and the lyrics beside it fit in the stage on a small, a
+    /// middling and a large screen, with room for lines of real length.
+    func testTheLyricsFitBesideTheCover() {
+        for size in [CGSize(width: 1440, height: 900), CGSize(width: 1512, height: 982),
+                     CGSize(width: 1920, height: 1243)] {
+            let screen = CGRect(origin: .zero, size: size)
+            let stage = BigCover.stageSize(on: screen)
+            let row = BigCover.side(on: screen) + BigCover.lyricsGap(on: screen) + BigCover.lyricsWidth(on: screen)
+            XCTAssertLessThanOrEqual(stage.width, size.width, "\(size)")
+            XCTAssertLessThanOrEqual(row + 2 * BigCover.margin(on: screen), stage.width + 0.5, "\(size)")
+            XCTAssertGreaterThanOrEqual(BigCover.lyricsWidth(on: screen), 500, "\(size)")
+        }
+    }
 }

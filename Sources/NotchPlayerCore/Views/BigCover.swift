@@ -77,10 +77,35 @@ public enum BigCover {
     static func side(on screen: CGRect) -> CGFloat { min(screen.height * 0.6, 640) }
 
     /// The small window the moving part lives in: the cover, the record slid
-    /// out beside it, the title, and room for the tilt.
+    /// out beside it, the title, and room for the tilt -- or, with the lyrics
+    /// on, the cover and the lyrics beside it. Sized for the lyrics either
+    /// way, so turning them on moves nothing but the drawing.
     static func stageSize(on screen: CGRect) -> CGSize {
         let side = side(on: screen)
-        return CGSize(width: min(screen.width, side * 1.9), height: min(screen.height, side * 1.5))
+        return CGSize(width: min(screen.width * 0.92, side * 2.3), height: min(screen.height, side * 1.5))
+    }
+
+    /// The Lyrics button's height: the minimum target.
+    static let pillHeight = NotchGeometry.minimumHitHeight
+
+    /// Remembered between opens; both windows read it.
+    static let lyricsKey = "bigCoverLyrics"
+    /// Between the cover and the lyrics.
+    static func lyricsGap(on screen: CGRect) -> CGFloat { side(on: screen) * 0.1 }
+    /// What the lyrics get beside the cover, inside the stage, with the
+    /// tilt's room (`margin`) kept clear at the edge.
+    static func lyricsWidth(on screen: CGRect) -> CGFloat {
+        stageSize(on: screen).width - side(on: screen) - lyricsGap(on: screen) - 2 * margin(on: screen)
+    }
+    static func margin(on screen: CGRect) -> CGFloat { side(on: screen) * 0.05 }
+
+    /// About seven lines on the cover's height, the lit one a little above
+    /// the middle so more of what's coming shows than what's gone.
+    static func lyricsStyle(on screen: CGRect) -> LyricsLines.Style {
+        let side = side(on: screen)
+        return LyricsLines.Style(font: Type.label((side * 0.05).rounded(), weight: .bold),
+                                 spacing: (side * 0.03).rounded(), anchor: 0.38,
+                                 note: Type.label((side * 0.035).rounded(), weight: .semibold))
     }
 
     /// Where the pointer is on `screen`, as `tilt` wants it.
@@ -191,19 +216,25 @@ struct BigCoverBackdrop: View {
     @ObservedObject private var memory = ArtMemory.shared
     @State private var glow: NSImage?
     @State private var glowFor: URL?
+    @AppStorage(BigCover.lyricsKey) private var lyrics = false
 
     var body: some View {
         let url = players.current.now.track?.artworkURL
         let glowing = glowFor == url && glow != nil
         ZStack {
             if let glow, glowing { swirl(glow).id(url).transition(.opacity) }
-            // A little lighter over the glow, so its colour comes through.
-            Color.black.opacity(glowing ? 0.45 : 0.55)
+            // A little lighter over the glow, so its colour comes through;
+            // darker under the lyrics, so the desktop does not read through
+            // the dimmed lines.
+            Color.black.opacity(lyrics ? 0.72 : glowing ? 0.45 : 0.55)
         }
         .ignoresSafeArea()
         .contentShape(Rectangle())
         .onTapGesture(perform: close)
+        // After the tap, so a click on it is not also a click on the dim.
+        .overlay(alignment: .bottomTrailing) { lyricsButton }
         .animation(.easeInOut(duration: 0.35 * Motion.slow), value: url)
+        .animation(.easeInOut(duration: 0.35 * Motion.slow), value: lyrics)
         // The small cover, usually already loaded for the notch: blurred once
         // when it is here, whichever comes first.
         .onChange(of: memory.image(for: url) != nil, initial: true) { _, loaded in
@@ -212,6 +243,23 @@ struct BigCoverBackdrop: View {
             glow = image; glowFor = url
         }
         .onAppear { url.map(memory.load) }
+    }
+
+    /// Here rather than on the stage, which takes no clicks; in the corner,
+    /// clear of the stage. A plain `Button`: it acts on mouse-up (TRAPS #37).
+    private var lyricsButton: some View {
+        Button { lyrics.toggle() } label: {
+            Label("Lyrics", systemImage: "music.mic")
+                .font(Type.label(14, weight: .semibold))
+                .foregroundStyle(lyrics ? Palette.background : Palette.primary)
+                .padding(.horizontal, 18)
+                .frame(height: BigCover.pillHeight)
+                .background(Capsule().fill(lyrics ? Palette.primary : Palette.pill))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .padding(28)
+        .accessibilityLabel(lyrics ? "Hide the lyrics" : "Show the lyrics")
     }
 
     /// The glow stretched over the screen, turning slowly. One layer: a
@@ -243,23 +291,41 @@ struct BigCoverStage: View {
     @State private var spin = BigCover.Spin()
     /// The record slides out from behind the cover just after opening.
     @State private var out = Motion.reduced
+    @AppStorage(BigCover.lyricsKey) private var lyrics = false
+    @ObservedObject private var store = LyricsStore.shared
 
     var body: some View {
         let track = players.current.now.track
         let url = track?.artworkURL
-        VStack(spacing: 18) {
-            stage(url, source: track?.source ?? .spotify)
-            if let track {
-                VStack(spacing: 3) {
-                    Text(track.name).font(Type.label(15, weight: .semibold)).foregroundStyle(Palette.primary)
-                    Text(track.artist).font(Type.label(13)).foregroundStyle(Palette.secondary)
+        let showing = lyrics && track != nil
+        HStack(alignment: .top, spacing: BigCover.lyricsGap(on: screen)) {
+            VStack(spacing: 18) {
+                stage(url, source: track?.source ?? .spotify, tucked: showing)
+                if let track {
+                    VStack(spacing: 3) {
+                        Text(track.name).font(Type.label(15, weight: .semibold)).foregroundStyle(Palette.primary)
+                        Text(track.artist).font(Type.label(13)).foregroundStyle(Palette.secondary)
+                    }
+                    .lineLimit(1)
+                    .frame(maxWidth: side)
                 }
-                .lineLimit(1)
-                .frame(maxWidth: side)
+            }
+            if showing, let track {
+                // Not clickable: the stage takes no clicks, so a click here
+                // closes the cover like anywhere else.
+                LyricsWords(content: store.content(for: track), progress: players.current.progress,
+                            duration: track.duration, live: playing,
+                            style: BigCover.lyricsStyle(on: screen), seek: nil)
+                    .frame(width: BigCover.lyricsWidth(on: screen), height: side)
+                    .transition(.opacity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.easeInOut(duration: 0.35 * Motion.slow), value: url)
+        .animation(Motion.reduced ? .easeInOut(duration: 0.2) : Motion.spring, value: showing)
+        .task(id: showing ? track?.id : nil) {
+            if showing, let track { store.load(track) }
+        }
         .onAppear {
             spin.set(playing: playing, at: Date.timeIntervalSinceReferenceDate)
             guard !out else { return }
@@ -307,8 +373,9 @@ struct BigCoverStage: View {
     /// frame: the time and the pointer are read directly, since hover events
     /// are unreliable in this app's windows (TRAPS #40). The pair shifts left
     /// as the record slides out, so the two stay centred.
-    private func stage(_ url: URL?, source: Source) -> some View {
-        let slide = out ? side * 0.45 : 0
+    /// `tucked`: the record stays behind the cover, the lyrics need the room.
+    private func stage(_ url: URL?, source: Source, tucked: Bool) -> some View {
+        let slide = out && !tucked ? side * 0.45 : 0
         return TimelineView(BigCover.schedule) { context in
             let now = context.date.timeIntervalSinceReferenceDate
             let angle = BigCover.tilt(time: now, pointer: BigCover.pointer(NSEvent.mouseLocation, on: screen),

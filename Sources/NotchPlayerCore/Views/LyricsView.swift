@@ -42,19 +42,12 @@ public struct LyricsPage: View {
         self.send = send; self.setRepeat = setRepeat; self.showPage = showPage; self.fixed = fixed
     }
 
-    private var content: Content {
-        if let fixed { return fixed }
-        switch store.state(for: track) {
-        case .loading: return .loading
-        case .failed: return .failed
-        case .ready(let lyrics): return .lyrics(lyrics)
-        }
-    }
-
     public var body: some View {
         VStack(spacing: 0) {
             Color.clear.frame(height: geometry.notchExclusionTop)
-            words
+            LyricsWords(content: fixed ?? store.content(for: track), progress: progress,
+                        duration: track.duration, live: showing && fixed == nil, style: Self.notch,
+                        seek: controllable && track.duration > 0 ? { send(.seek($0)) } : nil)
                 .padding(.horizontal, PanelView.inset)
                 .frame(height: Self.wordsHeight)
             ControlRow(source: track.source, playing: playing, controllable: controllable, modes: modes,
@@ -71,8 +64,26 @@ public struct LyricsPage: View {
         }
     }
 
-    @ViewBuilder
-    private var words: some View {
+    /// The room the cover row has on the player: the words end where the
+    /// transport line starts, on both pages.
+    static let wordsHeight = PanelView.topGap + PanelView.artSide
+
+    /// About four lines: one sung, the one being sung, two to come.
+    static let notch = LyricsLines.Style(font: Type.label(14, weight: .semibold), spacing: 6, anchor: 0.3,
+                                         note: Type.label(12))
+}
+
+/// What the lyrics area shows, in either place: the timed lines, the words
+/// alone, or a word on why there are none.
+struct LyricsWords: View {
+    let content: LyricsPage.Content
+    let progress: Interpolator?
+    let duration: TimeInterval
+    let live: Bool
+    let style: LyricsLines.Style
+    let seek: ((TimeInterval) -> Void)?
+
+    var body: some View {
         switch content {
         case .loading: note("Finding the lyrics…")
         case .failed: note("Can't reach the lyrics right now")
@@ -80,37 +91,28 @@ public struct LyricsPage: View {
         case .lyrics(.instrumental): note("Instrumental")
         case .lyrics(.plain(let lines)):
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: Self.notch.spacing) {
+                VStack(alignment: .leading, spacing: style.spacing) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                         Text(verbatim: line.isEmpty ? " " : line)
-                            .font(Self.notch.font)
+                            .font(style.font)
                             .foregroundStyle(Palette.secondary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, Self.notch.spacing)
+                .padding(.vertical, style.spacing)
             }
             .mask(LyricsLines.fade)
         case .lyrics(.synced(let lines)):
-            LyricsLines(lines: lines, progress: progress, duration: track.duration,
-                        live: showing && fixed == nil, style: Self.notch,
-                        seek: controllable && track.duration > 0 ? { send(.seek($0)) } : nil)
+            LyricsLines(lines: lines, progress: progress, duration: duration, live: live, style: style, seek: seek)
         }
     }
 
     private func note(_ text: String) -> some View {
         Text(text)
-            .font(Type.label(12))
+            .font(style.note)
             .foregroundStyle(Palette.secondary)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-
-    /// The room the cover row has on the player: the words end where the
-    /// transport line starts, on both pages.
-    static let wordsHeight = PanelView.topGap + PanelView.artSide
-
-    /// About four lines: one sung, the one being sung, two to come.
-    static let notch = LyricsLines.Style(font: Type.label(14, weight: .semibold), spacing: 6, anchor: 0.3)
 }
 
 /// Timed lines, the one being sung lit, scrolled so it sits at `style.anchor`.
@@ -130,6 +132,8 @@ struct LyricsLines: View {
         let spacing: CGFloat
         /// Where the lit line sits, from the top (0) to the bottom (1).
         let anchor: CGFloat
+        /// "No lyrics for this song" and the like.
+        let note: Font
     }
 
     let lines: [Lyrics.Line]

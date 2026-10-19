@@ -47,6 +47,7 @@ public enum AuditReport {
         target("plus", Int(plus), Int(plus))
         // The lyrics and stats buttons are framed at the same minimum.
         target("lyrics", hit, hit)
+        target("big-cover-lyrics", Int(BigCover.pillHeight), Int(BigCover.pillHeight))
 
         return "{\n  \"checks\": [\n    " + checks.joined(separator: ",\n    ") + "\n  ]\n}"
     }

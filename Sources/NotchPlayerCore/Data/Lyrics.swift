@@ -213,8 +213,6 @@ public enum Lyrics: Equatable, Sendable, Codable {
 public final class LyricsStore: ObservableObject {
     public static let shared = LyricsStore()
 
-    public enum State: Equatable, Sendable { case loading, ready(Lyrics), failed }
-
     /// ponytail: never emptied. A few KB a song, and only songs whose lyrics
     /// were shown; cap it like `ArtMemory` if that ever adds up.
     @Published private(set) var found: [String: Lyrics] = [:]
@@ -223,8 +221,8 @@ public final class LyricsStore: ObservableObject {
 
     public init() {}
 
-    public func state(for track: Track) -> State {
-        if let lyrics = found[track.id] { return .ready(lyrics) }
+    public func content(for track: Track) -> LyricsPage.Content {
+        if let lyrics = found[track.id] { return .lyrics(lyrics) }
         return failed.contains(track.id) ? .failed : .loading
     }
 
