@@ -213,7 +213,9 @@ for the permission. Here's what NotchPlayer actually does with it:
 - **Nothing is sent anywhere.** The app has no account, no analytics and no
   server. Its only network requests are the album cover, Spotify's public
   page for a song when you click its title or artist, Apple's public iTunes
-  Search for the cover of an Apple Music song that Music won't share, and a
+  Search for the cover of an Apple Music song that Music won't share,
+  [LRCLIB](https://lrclib.net) for a song's lyrics while you have the lyrics
+  open (it gets the song's name, artist, album and length, nothing else), and a
   daily check of
   this repo's GitHub releases for a newer NotchPlayer. That check sends
   nothing about you or your music, and **Check for updates** behind the gear
@@ -295,15 +297,26 @@ yourself (in Finder, **Go → Go to Folder…** and paste each path):
 
 ## Using it
 
-Point at the notch to open the panel; move the pointer away and it closes.
+Point at the notch to open the panel; move the pointer away and it closes
+(except while the lyrics are showing, below).
 Click the title or artist to open that thing in Spotify. The title opens the
 album with the song highlighted, without restarting it.
 
 **Click the cover** for fun: it fills the screen, drifting and tilting toward
 your pointer over a dimmed desktop. Click anywhere or press Esc to close it.
 
-**Your listening stats.** Swipe two fingers left on the open notch (twice
-with Spotify, where what's up next comes first), or click the chart button at
+**Lyrics.** Click the microphone at the left end of the controls, or swipe
+two fingers left on the open notch. The words scroll along with the song, the
+line being sung in white and the rest dimmed, like Spotify's lyrics. Click a
+line to jump there. The notch stays open while the lyrics show, so you can sing
+along while doing something else; click the microphone again to close them.
+They come from [LRCLIB](https://lrclib.net), a free lyrics site people add to,
+so popular songs nearly always have them and some smaller ones don't, or have
+the words without the timing. NotchPlayer only asks while the lyrics are open,
+once per song, and keeps them on your Mac after that. Works with Apple Music too.
+
+**Your listening stats.** Swipe two fingers left on the open notch (three times
+with Spotify, twice with Apple Music), or click the chart button at
 the end of the controls: time listened, songs played,
 and your top three artists or songs, for today, this week, this month or all
 time. Spotify and Apple Music both count. A song counts as played after 30
@@ -312,7 +325,7 @@ only while NotchPlayer is running. It's kept in one file on your Mac
 (`~/Library/Application Support/NotchPlayer/listening.json`) and never sent
 anywhere; delete that file to start over.
 
-**What's up next (Spotify).** Swipe two fingers left on the open notch to see the
+**What's up next (Spotify).** Swipe two fingers left on the open notch twice to see the
 next ten songs with their artists, shuffle included; scroll down for more than
 the first few. It only shows them: queue or remove songs in
 Spotify itself. A song you add appears when the next song starts, because
