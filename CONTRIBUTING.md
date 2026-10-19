@@ -61,7 +61,11 @@ swift build                            # the debug binary these use
 .build/debug/NotchPlayer --read --source music   # the same, for Apple Music
 .build/debug/NotchPlayer --watch 30    # every state change, stamped, no UI
 .build/debug/NotchPlayer --list-previews
+.build/debug/NotchPlayer --lyrics      # what the lyrics page finds for the playing song
 ```
+
+Lyrics come from LRCLIB and are kept in `~/Library/Caches/NotchPlayer/lyrics/`,
+one file per song; delete a song's file to make it ask again.
 
 The waveform is the exception: the audio tap needs macOS to launch the app, or
 TCC silently hands it nothing but zeros.
