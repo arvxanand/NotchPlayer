@@ -198,6 +198,8 @@ if args.contains("--hit-rects") {
     for (name, r) in PanelView.transportRects(geometry) {
         print("\(name) \(Int(r.midX)) \(Int(r.midY)) \(Int(r.width)) \(Int(r.height))")
     }
+    let lyrics = PanelView.lyricsRect(geometry)
+    print("lyrics \(Int(lyrics.midX)) \(Int(lyrics.midY)) \(Int(lyrics.width)) \(Int(lyrics.height))")
     let plus = PanelView.plusRect(geometry)
     print("plus \(Int(plus.midX)) \(Int(plus.midY)) \(Int(plus.width)) \(Int(plus.height))")
     let p = PanelView.progressRect(geometry)

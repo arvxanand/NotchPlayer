@@ -54,6 +54,20 @@ final class LyricsTests: XCTestCase {
         XCTAssertNil(Lyrics.index(of: [], at: 5))
     }
 
+    /// The page redraws only when a line starts: the schedule is exactly the
+    /// lines still to come, and nothing at all while paused.
+    func testThePageWakesOnlyWhenALineStarts() {
+        let lines = [Lyrics.Line(time: 10, text: "a"), Lyrics.Line(time: 20, text: "b"),
+                     Lyrics.Line(time: 30, text: "c")]
+        let now = Date(timeIntervalSinceReferenceDate: 0), clock = SuspendingClock.Instant.now
+        let playing = Interpolator(position: 15, stamped: clock, advancing: true)
+        let dates = LyricsLines.changes(lines, progress: playing, duration: 200, now: now, clock: clock)
+        XCTAssertEqual(dates.map(\.timeIntervalSinceReferenceDate), [5 - Lyrics.lead, 15 - Lyrics.lead])
+        let paused = Interpolator(position: 15, stamped: clock, advancing: false)
+        XCTAssertEqual(LyricsLines.changes(lines, progress: paused, duration: 200, now: now, clock: clock), [])
+        XCTAssertEqual(LyricsLines.changes(lines, progress: nil, duration: 200, now: now, clock: clock), [])
+    }
+
     // MARK: - LRCLIB replies
 
     func testAnExactMatchIsDecoded() throws {
