@@ -313,9 +313,9 @@ struct BigCoverStage: View {
             if showing, let track {
                 // Not clickable: the stage takes no clicks, so a click here
                 // closes the cover like anywhere else.
-                LyricsWords(content: store.content(for: track), progress: players.current.progress,
-                            duration: track.duration, live: playing,
-                            style: BigCover.lyricsStyle(on: screen), seek: nil)
+                OwnGraph(LyricsWords(content: store.content(for: track), progress: players.current.progress,
+                                     duration: track.duration, live: playing,
+                                     style: BigCover.lyricsStyle(on: screen), seek: nil))
                     .frame(width: BigCover.lyricsWidth(on: screen), height: side)
                     .transition(.opacity)
             }
@@ -449,4 +449,20 @@ private struct Grooves: View {
             }
         }
     }
+}
+
+/// `content` in a hosting view of its own, so it is a separate SwiftUI graph.
+///
+/// **Why the big lyrics are in one.** Beside the cover, which redraws thirty
+/// times a second, they cost the app two points of CPU even while paused and
+/// still -- every frame re-did their forty-odd lines. Measured on 19 Oct 2026,
+/// lyrics off then on, twice each: 6.1% → 8.1% in the shared graph, 6.9% →
+/// 7.5% in their own. Not the fade mask, not the scroll view, not raster
+/// (`drawingGroup` changed nothing), not the cover's frame: one short word
+/// in their place cost 0.4 (TRAPS #81).
+struct OwnGraph<Content: View>: NSViewRepresentable {
+    let content: Content
+    init(_ content: Content) { self.content = content }
+    func makeNSView(context: Context) -> NSHostingView<Content> { NSHostingView(rootView: content) }
+    func updateNSView(_ view: NSHostingView<Content>, context: Context) { view.rootView = content }
 }
