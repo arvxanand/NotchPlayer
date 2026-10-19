@@ -45,6 +45,8 @@ public enum AuditReport {
         }
         let plus = PanelView.plusGlyph + PanelView.plusOverhang * 2
         target("plus", Int(plus), Int(plus))
+        // The lyrics and stats buttons are framed at the same minimum.
+        target("lyrics", hit, hit)
 
         return "{\n  \"checks\": [\n    " + checks.joined(separator: ",\n    ") + "\n  ]\n}"
     }

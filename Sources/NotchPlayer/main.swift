@@ -198,6 +198,8 @@ if args.contains("--hit-rects") {
     for (name, r) in PanelView.transportRects(geometry) {
         print("\(name) \(Int(r.midX)) \(Int(r.midY)) \(Int(r.width)) \(Int(r.height))")
     }
+    let lyrics = PanelView.lyricsRect(geometry)
+    print("lyrics \(Int(lyrics.midX)) \(Int(lyrics.midY)) \(Int(lyrics.width)) \(Int(lyrics.height))")
     let plus = PanelView.plusRect(geometry)
     print("plus \(Int(plus.midX)) \(Int(plus.midY)) \(Int(plus.width)) \(Int(plus.height))")
     let p = PanelView.progressRect(geometry)
@@ -248,6 +250,32 @@ if args.contains("--queue") {
     print("queued \(state.queued.joined(separator: " "))")
     print("next \(state.next(5).joined(separator: " "))")
     exit(0)
+}
+
+/// What the lyrics page would show for the playing song: from the disk cache
+/// if it has been shown before, otherwise asked of LRCLIB (and then cached).
+if args.contains("--lyrics") {
+    MainActor.assumeIsolated {
+        guard case .success(.ok(let track, _, let position)) = PlayerBridge().read() else {
+            print("lyrics: nothing playing"); exit(1)
+        }
+        let cached = FileManager.default.fileExists(atPath: Lyrics.cacheFile(for: track).path)
+        print("lyrics: \(track.artist) - \(track.name) [\(track.album)] \(Int(track.duration))s, "
+              + (cached ? "cached" : "asking lrclib"))
+        Task {
+            switch await Lyrics.find(track) {
+            case nil: print("lyrics: couldn't reach lrclib")
+            case .none?: print("lyrics: none")
+            case .instrumental?: print("lyrics: instrumental")
+            case .plain(let lines)?: print("lyrics: plain, \(lines.count) lines")
+            case .synced(let lines)?:
+                let at = Lyrics.index(of: lines, at: position)
+                print("lyrics: synced, \(lines.count) lines, now line \(at.map { "\($0 + 1): \(lines[$0].text)" } ?? "none yet")")
+            }
+            exit(0)
+        }
+    }
+    RunLoop.main.run()
 }
 
 if args.contains("--audit") {

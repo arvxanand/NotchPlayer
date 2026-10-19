@@ -63,6 +63,7 @@ public struct CaptureStageView: View {
                  progress: stage.state.progress, holdBands: stage.state.bands,
                  probe: stage.probe,
                  page: stage.state.page, plays: stage.state.plays ?? [], queue: stage.state.queue,
+                 lyrics: stage.state.lyrics,
                  showPage: { _ in }, whatsNew: stage.state.whatsNew)
     }
 }

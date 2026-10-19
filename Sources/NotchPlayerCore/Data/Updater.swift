@@ -44,7 +44,7 @@ public enum Updater {
         }
     }
 
-    public static var current: String {
+    public nonisolated static var current: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1"
     }
 

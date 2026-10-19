@@ -24,7 +24,12 @@ public enum PreviewData {
         /// Set, the open panel shows the queue page with this.
         public var queue: QueueView.Content? = nil
 
-        public var page: Expansion.Page { queue != nil ? .queue : plays == nil ? .player : .stats }
+        /// Set, the open panel shows the lyrics page with this.
+        public var lyrics: LyricsPage.Content? = nil
+
+        public var page: Expansion.Page {
+            lyrics != nil ? .lyrics : queue != nil ? .queue : plays == nil ? .player : .stats
+        }
         /// Set, the open panel shows this note instead.
         public var whatsNew: WhatsNew.Note? = nil
 
@@ -137,6 +142,20 @@ public enum PreviewData {
         State(name: "queue-unreadable", now: .track(track(), state: .playing, position: 23.69),
               bands: nil, caption: "the queue page when Spotify's file has changed shape (TRAPS #78)",
               queue: .unreadable),
+        State(name: "lyrics", now: .track(track(), state: .playing, position: 23.69),
+              bands: nil, caption: "the lyrics page mid-song: one line sung, the one being sung lit, a long one wrapping",
+              lyrics: .lyrics(.synced(sampleLyrics))),
+        State(name: "lyrics-intro", now: .track(track(), state: .playing, position: 2),
+              bands: nil, caption: "the lyrics page before the singing starts: nothing lit yet",
+              lyrics: .lyrics(.synced(sampleLyrics))),
+        State(name: "lyrics-plain", now: .track(track(), state: .playing, position: 23.69),
+              bands: nil, caption: "the lyrics page with words but no timings: a list to scroll, nothing lit",
+              lyrics: .lyrics(.plain(sampleLyrics.map(\.text)))),
+        State(name: "lyrics-none", now: .track(track(), state: .playing, position: 23.69),
+              bands: nil, caption: "the lyrics page for a song LRCLIB has no words for",
+              lyrics: .lyrics(.none)),
+        State(name: "lyrics-loading", now: .track(track(), state: .playing, position: 23.69),
+              bands: nil, caption: "the lyrics page while LRCLIB is asked", lyrics: .loading),
         State(name: "whatsnew", now: .track(track(), state: .playing, position: 23.69),
               bands: nil, caption: "after an update: the newest version's note, once",
               whatsNew: WhatsNew.Note(version: "0.6", lines: WhatsNew.notes["0.6"] ?? [])),
@@ -144,6 +163,18 @@ public enum PreviewData {
               caption: "Spotify open, nothing loaded -- draws nothing"),
         State(name: "notrunning", now: .notRunning, bands: nil,
               caption: "Spotify not launched -- draws nothing"),
+    ]
+
+    /// Invented words, never a real song's: lyrics are someone's work. A gap
+    /// in the singing, and one line long enough to wrap.
+    static let sampleLyrics: [Lyrics.Line] = [
+        Lyrics.Line(time: 8, text: "Somewhere the radio is playing"),
+        Lyrics.Line(time: 13, text: "A song I almost know"),
+        Lyrics.Line(time: 18, text: ""),
+        Lyrics.Line(time: 22, text: "The streetlights hum along beside me"),
+        Lyrics.Line(time: 27, text: "and every window down the avenue is open to the night"),
+        Lyrics.Line(time: 33, text: "So I sing the parts I remember"),
+        Lyrics.Line(time: 38, text: "And hum the rest out loud"),
     ]
 
     /// Today, an hour ago and earlier: over two hours, a name long enough to

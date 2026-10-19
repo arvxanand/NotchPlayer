@@ -38,6 +38,8 @@ public struct RootView: View {
     let plays: [Play]
     /// Previews only: the queue page shows this instead of reading Spotify's file.
     let queue: QueueView.Content?
+    /// Previews only: the lyrics page shows this instead of asking LRCLIB.
+    let lyrics: LyricsPage.Content?
     /// Nil draws the player alone: no stats button, no dots.
     let showPage: ((Expansion.Page) -> Void)?
     /// Set, the open panel shows what's new instead, until dismissed.
@@ -49,6 +51,7 @@ public struct RootView: View {
                 progress: Interpolator? = nil, modes: Modes? = nil, holdBands: [Float]? = nil,
                 probe: Bool = false, concealed: Bool = false, source: Source = .spotify,
                 page: Expansion.Page = .player, plays: [Play] = [], queue: QueueView.Content? = nil,
+                lyrics: LyricsPage.Content? = nil,
                 showPage: ((Expansion.Page) -> Void)? = nil,
                 whatsNew: WhatsNew.Note? = nil, dismissWhatsNew: @escaping () -> Void = {},
                 onScrubbing: @escaping (Bool) -> Void = { _ in },
@@ -71,7 +74,8 @@ public struct RootView: View {
         self.setRepeat = setRepeat
         self.openLink = openLink
         self.showCover = showCover
-        self.page = page; self.plays = plays; self.queue = queue; self.showPage = showPage
+        self.page = page; self.plays = plays; self.queue = queue; self.lyrics = lyrics
+        self.showPage = showPage
         self.whatsNew = whatsNew; self.dismissWhatsNew = dismissWhatsNew
     }
 
@@ -171,8 +175,15 @@ public struct RootView: View {
                                    onScrubbing: onScrubbing, send: send, setRepeat: setRepeat,
                                    openLink: { openLink($0, track) },
                                    showStats: showPage.map { show in { show(.stats) } },
+                                   showLyrics: showPage.map { show in { show(.lyrics) } },
                                    showCover: showCover.map { show in { show(track) } }),
                          at(.player), at(current))
+                if pages.contains(.lyrics) {
+                    pageView(LyricsPage(geometry: geometry, track: track, progress: progress, playing: playing,
+                                        controllable: controllable, modes: modes, showing: current == .lyrics,
+                                        send: send, setRepeat: setRepeat, showPage: showPage, fixed: lyrics),
+                             at(.lyrics), at(current))
+                }
                 if pages.contains(.queue) {
                     pageView(QueueView(geometry: geometry, track: track, showing: current == .queue,
                                        fixed: queue),
