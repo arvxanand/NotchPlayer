@@ -116,11 +116,14 @@ public struct LyricsPage: View {
 /// Timed lines, the one being sung lit, scrolled so it sits at `style.anchor`.
 /// Shared by the notch's page and the big cover.
 ///
-/// **Redrawn when a line starts, not on a clock.** The schedule is the
-/// moments the coming lines start, worked out from the player's position; a
+/// **Redrawn when a line starts, not on a clock.** A task sleeps until the
+/// next line's start, worked out from the player's position, then redraws; a
 /// seek, a pause or the service's re-read of the position brings a new
-/// `progress`, and with it a new schedule. Paused, or hidden, it is empty and
-/// nothing redraws at all.
+/// `progress` and restarts it. Paused, or hidden, it does not run at all.
+///
+/// **Not `TimelineView(.explicit(...))`**, which this was first: in this
+/// panel it never woke on its dates, so the lines only moved when the
+/// position was re-read, every 5 seconds -- up to a line late (TRAPS #80).
 struct LyricsLines: View {
     struct Style {
         let font: Font
@@ -138,10 +141,27 @@ struct LyricsLines: View {
     /// A click on a line goes there. Nil: the lines are only words.
     let seek: ((TimeInterval) -> Void)?
 
+    /// Bumped when a line starts; read by `body` only so that it redraws.
+    @State private var wakes = 0
+
+    private struct Clock: Equatable {
+        let lines: [Lyrics.Line]
+        let progress: Interpolator?
+        let live: Bool
+    }
+
     var body: some View {
-        TimelineView(.explicit(live ? Self.changes(lines, progress: progress, duration: duration) : [])) { _ in
-            Lines(lines: lines, current: Lyrics.index(of: lines, at: position), style: style, seek: seek)
-        }
+        let _ = wakes
+        Lines(lines: lines, current: Lyrics.index(of: lines, at: position), style: style, seek: seek)
+            .task(id: Clock(lines: lines, progress: progress, live: live)) {
+                guard live else { return }
+                while let next = Self.changes(lines, progress: progress, duration: duration).first {
+                    // A hair past the start, so the redraw lands on the new line.
+                    try? await Task.sleep(for: .seconds(next.timeIntervalSinceNow + 0.02))
+                    guard !Task.isCancelled else { return }
+                    wakes &+= 1
+                }
+            }
     }
 
     private var position: TimeInterval { progress?.position(at: .now, duration: duration) ?? 0 }
