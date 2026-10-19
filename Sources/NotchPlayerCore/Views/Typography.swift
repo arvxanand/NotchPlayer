@@ -110,6 +110,10 @@ public enum Palette {
     public static let washLevel: Double = 0.07
     public static let hairline = Color.white.opacity(hairlineLevel)
     public static let wash = Color.white.opacity(washLevel)
+    /// Behind the big cover's Lyrics button while it is off. Its white label
+    /// carries the meaning; the fill only says "this is a button".
+    public static let pillLevel: Double = 0.16
+    public static let pill = Color.white.opacity(pillLevel)
 
     /// The levels that are under the floor on purpose.
     ///
@@ -122,6 +126,7 @@ public enum Palette {
     public static let decorationLevels: [(name: String, level: Double)] = [
         ("menu-divider", hairlineLevel),
         ("menu-row-wash", washLevel),
+        ("big-cover-pill", pillLevel),
     ]
 
     /// The only chromatic colour in the app. Allowed on the Spotify mark, and
