@@ -431,10 +431,13 @@ public final class PlayerService: ObservableObject {
         }
     }
 
-    /// A freshly started app can refuse the first command or two while it
-    /// loads; try twice a second for up to eight seconds.
+    /// **Ready is a loaded song, not a finished launch.** Spotify accepts
+    /// `play` before it has restored its last song and does nothing with it:
+    /// it stayed stopped (19 Nov 2026, 1.3.10). So it is asked for its song
+    /// twice a second, for up to eight seconds, and sent the command once
+    /// it has one -- once, so a next is never sent twice.
     private func sendWhenReady(_ command: Command, tries: Int) {
-        if case .success = bridge.send(command) {
+        if case .success(.ok) = bridge.read(), case .success = bridge.send(command) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
                 MainActor.assumeIsolated { self?.refresh() }
             }
