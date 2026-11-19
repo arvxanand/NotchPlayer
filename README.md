@@ -212,7 +212,9 @@ for the permission. Here's what NotchPlayer actually does with it:
   sound away. No audio ever goes to a file.
 - **Nothing is sent anywhere.** The app has no account, no analytics and no
   server. Its only network requests are the album cover, Spotify's public
-  page for a song when you click its title or artist, Apple's public iTunes
+  page for a song when you click its title or artist (or, while the
+  up-next page is open, for the songs on it and the playlist or album
+  playing), Apple's public iTunes
   Search for the cover of an Apple Music song that Music won't share,
   [LRCLIB](https://lrclib.net) for a song's lyrics while you have the lyrics
   open (it gets the song's name, artist, album and length, nothing else), and a
@@ -326,11 +328,15 @@ only while NotchPlayer is running. It's kept in one file on your Mac
 anywhere; delete that file to start over.
 
 **What's up next (Spotify).** Swipe two fingers left on the open notch twice to see the
-next ten songs with their artists, shuffle included; scroll down for more than
-the first few. It only shows them: queue or remove songs in
-Spotify itself. A song you add appears when the next song starts, because
-that's when Spotify saves its queue. The names and covers come from Spotify's
-public song pages, looked up only while this page is open.
+next ten songs with their artists; scroll down for more than the first few. It
+only shows them: queue or remove songs in Spotify itself. **On Spotify 1.3.10
+and later** the order comes from the playlist's or album's public Spotify page,
+so it works with shuffle off; with shuffle on the page says so, because that
+Spotify no longer saves its shuffled order anywhere NotchPlayer can read.
+Liked Songs and radio have no public page, and songs you queue by hand don't
+show yet. On older Spotify it reads Spotify's saved queue, shuffle included,
+and a song you add appears when the next song starts. The names and covers
+come from Spotify's public song pages, looked up only while this page is open.
 
 **Songs you added to Spotify from your own Mac** (Spotify's local files)
 show the cover saved inside the song file, like Spotify does. NotchPlayer
