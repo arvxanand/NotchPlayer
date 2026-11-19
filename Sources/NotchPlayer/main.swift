@@ -245,11 +245,15 @@ if args.contains("--local-cover") {
 
 /// What the queue page would show, as song ids, from Spotify's restore file.
 if args.contains("--queue") {
-    guard let state = SpotifyQueue.read() else { print("queue: can't read Spotify's file"); exit(1) }
-    print("context \(state.context ?? "none")")
-    print("queued \(state.queued.joined(separator: " "))")
-    print("next \(state.next(5).joined(separator: " "))")
-    exit(0)
+    Task {
+        guard let state = await SpotifyQueue.read() else { print("queue: can't read Spotify's file"); exit(1) }
+        print("context \(state.context ?? "none")")
+        if state.shuffled { print("shuffled: Spotify saves no order"); exit(0) }
+        print("queued \(state.queued.joined(separator: " "))")
+        print("next \(state.next(5).joined(separator: " "))")
+        exit(0)
+    }
+    RunLoop.main.run()
 }
 
 /// What the lyrics page would show for the playing song: from the disk cache
