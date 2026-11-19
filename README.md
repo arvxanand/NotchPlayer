@@ -49,6 +49,9 @@ The cover on one side of the camera, a waveform on the other. The bars move
 with the music you're hearing. They're worked out on your Mac as the song
 plays, and the sound is never saved or sent anywhere.
 
+Spotify closed? The notch keeps showing the last song. Press play and
+Spotify starts in the background and carries on where you left off.
+
 </td>
 </tr>
 <tr>
@@ -97,8 +100,8 @@ Songs is one item above it); a saved one gets Spotify's picker.
 
 A waveform icon in the menu bar is the only other control: what's playing,
 **Hide from the Notch** (turns it off without quitting), and Quit. The gear
-opens settings: launch at login, cover colour on the progress bar, the +, and
-checking for updates. On a MacBook without a notch, there's also a switch for
+opens settings: launch at login, cover colour on the progress bar, the +,
+the last song when Spotify is closed, and checking for updates. On a MacBook without a notch, there's also a switch for
 the notch NotchPlayer draws there.
 
 </td>

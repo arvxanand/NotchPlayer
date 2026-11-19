@@ -45,6 +45,10 @@ public struct RootView: View {
     /// Set, the open panel shows what's new instead, until dismissed.
     let whatsNew: WhatsNew.Note?
     let dismissWhatsNew: () -> Void
+    /// The app's last song while it is closed (`LastPlayed`), and whether a
+    /// press is starting it.
+    let last: Track?
+    let waking: Bool
 
     public init(geometry: NotchGeometry, now: Now, permission: Permission = .granted,
                 expanded: Bool = false,
@@ -58,8 +62,10 @@ public struct RootView: View {
                 send: @escaping (Command) -> Void = { _ in },
                 setRepeat: @escaping (Modes.Repeat) -> Void = { _ in },
                 openLink: @escaping (LinkTarget, Track) -> Void = { _, _ in },
-                showCover: ((Track) -> Void)? = nil) {
+                showCover: ((Track) -> Void)? = nil,
+                last: Track? = nil, waking: Bool = false) {
         self.geometry = geometry
+        self.last = last; self.waking = waking
         self.now = now
         self.permission = permission
         self.expanded = expanded
@@ -79,7 +85,7 @@ public struct RootView: View {
         self.whatsNew = whatsNew; self.dismissWhatsNew = dismissWhatsNew
     }
 
-    private var presentation: Presentation { .of(now: now, permission: permission) }
+    private var presentation: Presentation { .of(now: now, permission: permission, last: last, waking: waking) }
     private var open: Bool { expanded && presentation.draws }
 
     public var body: some View {
