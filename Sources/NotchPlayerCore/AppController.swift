@@ -237,7 +237,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
                              probe: probing,
                              page: preview.page, plays: preview.plays ?? [], queue: preview.queue,
                              lyrics: preview.lyrics,
-                             showPage: { _ in }, whatsNew: preview.whatsNew)
+                             showPage: { _ in }, whatsNew: preview.whatsNew, last: preview.last)
                 }
             }
         } else if probing {
@@ -261,7 +261,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
             expansion.hasContent = { [weak self] in
                 guard let self else { return false }
                 let service = players.current
-                return Presentation.of(now: service.now, permission: service.permission).draws
+                return service.presentation.draws
             }
             // See `Expansion.onOpen`: the position can be stale after a seek
             // made while paused, and opening the panel is when that shows.
@@ -311,7 +311,7 @@ public final class AppController: NSObject, NSApplicationDelegate {
             // still draws, so keying off `now.draws` reported a 37pt shell for
             // a 185pt panel and the bounds check failed for the wrong reason.
             let draws = preview.map {
-                Presentation.of(now: $0.now, permission: $0.permission).draws
+                Presentation.of(now: $0.now, permission: $0.permission, last: $0.last).draws
             } ?? false
             let open = previewExpanded && draws
             print("shell \(Int(open ? geometry.openWidth : geometry.collapsedWidth)),"
@@ -393,8 +393,8 @@ public final class AppController: NSObject, NSApplicationDelegate {
                         }
                         stage.show(parsed.state, expanded: parsed.expanded,
                                    probe: parsed.probe)
-                        let drawn = Presentation.of(now: parsed.state.now,
-                                                    permission: parsed.state.permission).draws
+                        let drawn = Presentation.of(now: parsed.state.now, permission: parsed.state.permission,
+                                                    last: parsed.state.last).draws
                         let open = parsed.expanded && drawn && !parsed.probe
                         let width = open ? geometry.openWidth : geometry.collapsedWidth
                         let height = open ? geometry.openHeight : geometry.collapsedHeight
@@ -460,6 +460,9 @@ private struct Live: View {
     @ObservedObject var expansion: Expansion
     @ObservedObject var listening: Listening
     let showCover: (Track) -> Void
+    /// Watched only so flipping the settings switch redraws the notch; the
+    /// services read the setting themselves.
+    @AppStorage(LastPlayed.enabledKey) private var showLast = true
 
     var body: some View {
         let service = players.current
@@ -475,7 +478,8 @@ private struct Live: View {
                  send: { service.send($0) },
                  setRepeat: { service.setRepeat($0) },
                  openLink: { SpotifyLinks.open($0, for: $1) },
-                 showCover: showCover)
+                 showCover: showCover,
+                 last: service.closedTrack, waking: service.waking)
     }
 }
 

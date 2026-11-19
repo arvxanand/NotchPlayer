@@ -37,6 +37,7 @@ public struct MenuPanel: View {
     let quit: () -> Void
     /// Read by `PanelView` too, which redraws the line when it changes.
     @AppStorage(Accent.enabledKey) private var coverAccent = true
+    @AppStorage(LastPlayed.enabledKey) private var showLast = true
 
     /// A switch macOS has a say in: launch at login (`SMAppService`), and the
     /// + pressing Spotify's button (Accessibility).
@@ -85,9 +86,10 @@ public struct MenuPanel: View {
     /// resized its window on every frame of the slide, which wobbled.
     /// `MenuPanelTests` fails if either page outgrows it -- the pages are
     /// `.clipped()`, so an extra row would not scroll, it would vanish.
-    /// 200 since the updater: settings has four rows, and the main page's
-    /// spare space holds the version footer, or the update row instead.
-    public static let height: CGFloat = 200
+    /// 200 since the updater: settings had four rows, and the main page's
+    /// spare space holds the version footer, or the update row instead. One
+    /// row more since the last song shows while the app is closed.
+    public static let height: CGFloat = 200 + rowStep
     /// One more row and its divider. Added only on a notchless Mac, which is
     /// the only one with the virtual-notch switch -- every other Mac keeps
     /// the 200 it was tuned at rather than gaining a blank band.
@@ -197,6 +199,8 @@ public struct MenuPanel: View {
             SwitchRow(title: "Cover colour on the progress bar", isOn: coverAccent) {
                 coverAccent.toggle()
             }
+            divider
+            SwitchRow(title: "Show last song when closed", isOn: showLast) { showLast.toggle() }
             divider
             plusRow
             if let on = checkUpdates {

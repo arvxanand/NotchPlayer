@@ -8,7 +8,7 @@ import Foundation
 /// vocabulary (`player position`, `player state`, `playpause`, `next track`,
 /// `previous track`), so only what is spelled differently lives below. Music's
 /// were read from `sdef /System/Applications/Music.app` (macOS 15.7.7).
-public enum Source: Equatable, Sendable, CaseIterable {
+public enum Source: Equatable, Sendable, CaseIterable, Codable {
     case spotify, appleMusic
 
     /// What the user knows it as.
