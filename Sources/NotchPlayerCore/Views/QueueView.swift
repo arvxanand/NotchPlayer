@@ -26,8 +26,8 @@ public struct QueueView: View {
         case loading
         /// The file is missing or not what it was (TRAPS #78).
         case unreadable
-        /// Spotify 1.3.10+ with shuffle on saves no order to read.
-        case shuffled
+        /// Spotify 1.3.10+ with no songs to show, and why.
+        case unshown(SpotifyQueue.Unshown)
         /// Nil while a song's page is on its way, or if it never answers.
         case songs([Song?])
     }
@@ -74,9 +74,9 @@ public struct QueueView: View {
         case .unreadable:
             header
             note("Can't read Spotify's queue right now.")
-        case .shuffled:
+        case .unshown(let why):
             header
-            note("Shuffle is on, and Spotify doesn't save its order.")
+            note(Self.text(why))
         case .songs(let songs) where songs.isEmpty:
             header
             note("Nothing after this song")
@@ -150,7 +150,7 @@ public struct QueueView: View {
         let playing = LocalCover.isLocal(track.id) ? track.id : track.id.split(separator: ":").last.map(String.init)
         let saved = SpotifyQueue.saved()
         guard let state = await SpotifyQueue.read() else { content = .unreadable; return }
-        guard !state.shuffled else { content = .shuffled; return }
+        if let why = state.unshown { content = .unshown(why); return }
         var ids = Self.upNext(state, playing: playing)
         var songs = ids.map(Self.known)
         content = .songs(songs)
@@ -160,7 +160,8 @@ public struct QueueView: View {
                 try? await Task.sleep(for: .milliseconds(250))
                 guard !Task.isCancelled else { return }
             }
-            if let fresh = await SpotifyQueue.read(), !fresh.shuffled {
+            if let fresh = await SpotifyQueue.read() {
+                if let why = fresh.unshown { content = .unshown(why); return }
                 ids = Self.upNext(fresh, playing: playing)
                 songs = ids.map(Self.known)
                 content = .songs(songs)
@@ -177,6 +178,17 @@ public struct QueueView: View {
                 songs[index] = song
                 content = .songs(songs)
             }
+        }
+    }
+
+    /// One line each; "shuffled" is the longest and has a preview.
+    public nonisolated static func text(_ why: SpotifyQueue.Unshown) -> String {
+        switch why {
+        case .shuffled: "Shuffle is on, and Spotify doesn't save its order."
+        case .picked: "Spotify picks these as it goes."
+        case .notShared: "Spotify doesn't share this list's order."
+        case .pastFirst100: "Spotify only shares a playlist's first 100 songs."
+        case .end: "Last song here. Autoplay may go on after it."
         }
     }
 

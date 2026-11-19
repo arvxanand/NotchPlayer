@@ -144,7 +144,7 @@ public enum PreviewData {
               queue: .unreadable),
         State(name: "queue-shuffled", now: .track(track(), state: .playing, position: 23.69),
               bands: nil, caption: "the queue page with shuffle on, which Spotify 1.3.10 saves no order for",
-              queue: .shuffled),
+              queue: .unshown(.shuffled)),
         State(name: "lyrics", now: .track(track(), state: .playing, position: 23.69),
               bands: nil, caption: "the lyrics page mid-song: one line sung, the one being sung lit, a long one wrapping",
               lyrics: .lyrics(.synced(sampleLyrics))),

@@ -10,8 +10,8 @@ import Foundation
 /// and, with shuffle on, only a seed (`stable:…`) the order is worked out
 /// from in memory. So with shuffle off the order is the context's own,
 /// read from its public embed page (`open.spotify.com/embed/…`, the first
-/// 100 songs, one ~100KB fetch); with shuffle on the page says it can't
-/// know. Songs queued by hand are not read yet.
+/// 100 songs, one ~100KB fetch); anything else the page says why in
+/// plain words (`Unshown`). Songs queued by hand are not read yet.
 ///
 /// **Before 1.3.10** it was `context_player_state_restore`: a timestamp,
 /// `#`, then a protobuf whose player nodes include
@@ -37,11 +37,11 @@ public enum SpotifyQueue {
         public var upcoming: [String]
         /// `spotify:playlist:…`, `spotify:album:…`; nil when none was saved.
         public var context: String?
-        /// Shuffle is on and Spotify saved no order (1.3.10+): nothing to show.
-        public var shuffled = false
+        /// Set when there are no songs to show and the page says why (1.3.10+).
+        public var unshown: Unshown?
 
-        public init(queued: [String], upcoming: [String], context: String?, shuffled: Bool = false) {
-            self.queued = queued; self.upcoming = upcoming; self.context = context; self.shuffled = shuffled
+        public init(queued: [String], upcoming: [String], context: String?, unshown: Unshown? = nil) {
+            self.queued = queued; self.upcoming = upcoming; self.context = context; self.unshown = unshown
         }
 
         /// The queued songs, then the rest, as many as the page shows.
@@ -50,16 +50,32 @@ public enum SpotifyQueue {
         }
     }
 
+    /// Why 1.3.10+ shows no songs, each checked on 19 Nov 2026 (TRAPS #78).
+    public enum Unshown: Equatable, Sendable {
+        /// Shuffle on: Spotify saves only a seed, the order is in memory.
+        case shuffled
+        /// Autoplay or radio: Spotify picks each song as it goes.
+        case picked
+        /// No public page: Liked Songs, a Jam, DJ and other personal mixes
+        /// (their embed page says 404), private playlists.
+        case notShared
+        /// The embed page lists a playlist's first 100 songs only.
+        case pastFirst100
+        /// The context's last song (or one song played from search). Autoplay
+        /// may follow, but whether it is on isn't saved on this Mac.
+        case end
+    }
+
     /// The newest save under any account; nil if there is none or it does
     /// not read. Asks Spotify's embed page when the save is 1.3.10's.
     public static func read(home: String = NSHomeDirectory()) async -> State? {
         guard let file = newest(home: home), let data = try? Data(contentsOf: file) else { return nil }
         guard file.lastPathComponent == request else { return parse([UInt8](data)) }
         guard let playing = playRequest([UInt8](data)) else { return nil }
-        if playing.shuffled { return State(queued: [], upcoming: [], context: playing.context, shuffled: true) }
+        if let why = unshown(playing) { return State(queued: [], upcoming: [], context: playing.context, unshown: why) }
         guard let url = embedURL(playing.context), let html = await fetch(url),
               let songs = embedSongs(html) else { return nil }
-        return upcoming(songs, after: playing.song).map { State(queued: [], upcoming: $0, context: playing.context) }
+        return state(playing, songs)
     }
 
     /// When Spotify last saved the file, to tell a fresh save from a stale one.
@@ -94,16 +110,45 @@ public enum SpotifyQueue {
 
     // MARK: - Pure, so a test can call them
 
+    struct Playing: Equatable {
+        var context: String, song: String, shuffled = false
+        /// Where the song came from: "context", "autoplay".
+        var from: String? = nil
+    }
+
     /// 1.3.10's `list_player_play_request`, plain protobuf: 1.1 the context,
-    /// 1.4.1.2 the song playing, 1.8.1.4 `stable:…` only while shuffle is on
-    /// (measured 19 Nov 2026: there within 3s of turning it on, the file
-    /// rewritten within a second of a song change).
-    static func playRequest(_ file: [UInt8]) -> (context: String, song: String, shuffled: Bool)? {
+    /// 1.4.1.2 the song playing, 1.4.1.4 where it came from, 1.8.1.4
+    /// `stable:…` only while shuffle is on (measured 19 Nov 2026: there within
+    /// 3s of turning it on, even paused; the file rewritten within a second of
+    /// a song change).
+    static func playRequest(_ file: [UInt8]) -> Playing? {
         func text(_ path: [UInt64]) -> String? {
             Proto.path(path, in: file[...]).first.map { String(decoding: $0, as: UTF8.self) }
         }
         guard let context = text([1, 1]), let song = text([1, 4, 1, 2]) else { return nil }
-        return (context, song, text([1, 8, 1, 4])?.hasPrefix("stable:") ?? false)
+        return Playing(context: context, song: song, shuffled: text([1, 8, 1, 4])?.hasPrefix("stable:") ?? false,
+                       from: text([1, 4, 1, 4]))
+    }
+
+    /// What needs no page to say.
+    static func unshown(_ playing: Playing) -> Unshown? {
+        if playing.from == "autoplay" || playing.context.hasPrefix("spotify:station:") { return .picked }
+        if playing.shuffled { return .shuffled }
+        if playing.context.hasPrefix("spotify:track:") { return .end }
+        return embedURL(playing.context) == nil ? .notShared : nil
+    }
+
+    /// The songs after the playing one, or why there are none. Nil if the
+    /// song isn't in a short list -- the playlist changed under it.
+    /// ponytail: the first copy of a song that is in the list twice.
+    static func state(_ playing: Playing, _ songs: [String]) -> State? {
+        func note(_ why: Unshown) -> State { State(queued: [], upcoming: [], context: playing.context, unshown: why) }
+        let capped = songs.count >= 100
+        if songs.isEmpty { return note(.notShared) }
+        guard let index = songs.firstIndex(of: playing.song) else { return capped ? note(.pastFirst100) : nil }
+        let after = songs[(index + 1)...].map { String($0.split(separator: ":").last ?? "") }
+        if after.isEmpty { return note(capped ? .pastFirst100 : .end) }
+        return State(queued: [], upcoming: after, context: playing.context)
     }
 
     /// `spotify:playlist:X` to its embed page; nil for what has none, like
@@ -117,21 +162,17 @@ public enum SpotifyQueue {
 
     /// The embed page's songs, in the context's order, from its
     /// `__NEXT_DATA__` JSON (`props.pageProps.state.data.entity.trackList`).
+    /// Empty when the page says 404 (`props.pageProps.status`, with HTTP
+    /// 200): DJ and the personal mixes, checked 19 Nov 2026.
     static func embedSongs(_ html: String) -> [String]? {
         guard let start = html.range(of: #"<script id="__NEXT_DATA__" type="application/json">"#),
               let end = html.range(of: "</script>", range: start.upperBound..<html.endIndex),
               let json = try? JSONSerialization.jsonObject(with: Data(html[start.upperBound..<end.lowerBound].utf8)),
-              let entity = ["props", "pageProps", "state", "data", "entity"]
-                .reduce(json as Any?, { ($0 as? [String: Any])?[$1] }) as? [String: Any],
-              let list = entity["trackList"] as? [[String: Any]] else { return nil }
-        return list.compactMap { $0["uri"] as? String }
-    }
-
-    /// Song ids after the one playing; nil if it isn't there (past the first
-    /// 100, a local file, or autoplay playing after the context ran out).
-    /// ponytail: the first copy of a song that is in the list twice.
-    static func upcoming(_ songs: [String], after playing: String) -> [String]? {
-        songs.firstIndex(of: playing).map { songs[($0 + 1)...].map { String($0.split(separator: ":").last ?? "") } }
+              let props = ["props", "pageProps"].reduce(json as Any?, { ($0 as? [String: Any])?[$1] }) as? [String: Any]
+        else { return nil }
+        if props["status"] as? Int == 404 { return [] }
+        let entity = ["state", "data", "entity"].reduce(props as Any?, { ($0 as? [String: Any])?[$1] }) as? [String: Any]
+        return (entity?["trackList"] as? [[String: Any]])?.compactMap { $0["uri"] as? String }
     }
 
     static func parse(_ file: [UInt8]) -> State? {
