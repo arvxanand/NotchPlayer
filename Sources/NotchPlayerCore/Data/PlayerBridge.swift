@@ -153,6 +153,9 @@ public final class PlayerBridge {
 
 public enum Command: Equatable, Sendable {
     case playpause, previous, next
+    /// Only after starting a closed app (`QuietLaunch`): a toggle sent to an
+    /// app still loading could land as a pause.
+    case play
     /// Seconds from the start of the track. `player position` has no
     /// `access="r"` in Spotify's dictionary -- it is writable, checked
     /// before anything was built on it.
@@ -171,6 +174,7 @@ public enum Command: Equatable, Sendable {
     public var name: String {
         switch self {
         case .playpause: return "playpause"
+        case .play: return "play"
         case .previous: return "previous"
         case .next: return "next"
         case .seek: return "seek"
@@ -186,6 +190,7 @@ public enum Command: Equatable, Sendable {
         // whatever the user was doing, and it is never necessary for a
         // command or a read.
         case .playpause: return app + "playpause"
+        case .play:      return app + "play"
         case .previous:  return app + "previous track"
         case .next:      return app + "next track"
         case .seek(let seconds):

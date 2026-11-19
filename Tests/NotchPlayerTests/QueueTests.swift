@@ -153,13 +153,143 @@ final class QueueTests: XCTestCase {
         XCTAssertNil(SpotifyQueue.base62([1, 2, 3][...]), "not an id")
     }
 
-    func testTheFileIsFoundUnderAnyAccount() throws {
+    func testTheFileIsFoundUnderAnyAccount() async throws {
         let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: home) }
-        XCTAssertNil(SpotifyQueue.read(home: home.path), "no Spotify")
+        let nothing = await SpotifyQueue.read(home: home.path)
+        XCTAssertNil(nothing, "no Spotify")
         let account = home.appendingPathComponent("Library/Application Support/Spotify/PersistentCache/Users/x-user")
         try FileManager.default.createDirectory(at: account, withIntermediateDirectories: true)
-        try Data(file(playing: 5)).write(to: account.appendingPathComponent("context_player_state_restore"))
-        XCTAssertEqual(SpotifyQueue.read(home: home.path)?.upcoming, [id(6)])
+        let old = account.appendingPathComponent("context_player_state_restore")
+        try Data(file(playing: 5)).write(to: old)
+        let before = await SpotifyQueue.read(home: home.path)
+        XCTAssertEqual(before?.upcoming, [id(6)])
+
+        // Spotify updated to 1.3.10, the old file left behind: the newer wins.
+        try FileManager.default.setAttributes([.modificationDate: Date.distantPast], ofItemAtPath: old.path)
+        try Data(request(shuffle: "stable:d00d")).write(to: account.appendingPathComponent("list_player_play_request"))
+        let after = await SpotifyQueue.read(home: home.path)
+        XCTAssertEqual(after?.unshown, .shuffled)
+        XCTAssertEqual(after?.context, "spotify:playlist:abc")
+    }
+
+    // MARK: - Spotify 1.3.10+
+
+    /// `list_player_play_request` as measured on 19 Nov 2026, invented values.
+    private func request(context: String = "spotify:playlist:abc", song: String = "spotify:track:B",
+                         from: String = "context", shuffle: String? = nil) -> [UInt8] {
+        field(1, field(1, context)
+                 + field(4, field(1, field(1, "0123456789abcdef") + field(2, song) + field(4, from)))
+                 + field(8, field(1, field(3, "0123456789abcdef") + (shuffle.map { field(4, $0) } ?? []))))
+    }
+
+    func testThePlayRequestSaysWhatPlaysAndWhetherShuffled() throws {
+        let plain = try XCTUnwrap(SpotifyQueue.playRequest(request()))
+        XCTAssertEqual(plain.context, "spotify:playlist:abc")
+        XCTAssertEqual(plain.song, "spotify:track:B")
+        XCTAssertFalse(plain.shuffled)
+        XCTAssertEqual(plain.from, "context")
+        XCTAssertEqual(SpotifyQueue.playRequest(request(shuffle: "stable:d4c95230(495d40f7.00000000)"))?.shuffled, true)
+        XCTAssertEqual(SpotifyQueue.playRequest(request(from: "autoplay"))?.from, "autoplay")
+        XCTAssertNil(SpotifyQueue.playRequest([0xFF, 0xFF]), "not protobuf")
+        XCTAssertNil(SpotifyQueue.playRequest(field(1, field(1, "spotify:playlist:abc"))), "no song")
+    }
+
+    func testOnlyAPlaylistAlbumOrArtistHasAnEmbedPage() {
+        XCTAssertEqual(SpotifyQueue.embedURL("spotify:album:X1")?.absoluteString, "https://open.spotify.com/embed/album/X1")
+        XCTAssertNil(SpotifyQueue.embedURL("spotify:user:someone:collection"), "Liked Songs")
+        XCTAssertNil(SpotifyQueue.embedURL("spotify:station:track:X1"))
+        XCTAssertNil(SpotifyQueue.embedURL("spotify:playlist:a/../b"))
+    }
+
+    func testTheEmbedPageListsTheSongsInOrder() {
+        let html = #"""
+            <html><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"state":{"data":
+            {"entity":{"uri":"spotify:playlist:abc","trackList":[{"uri":"spotify:track:A","title":"One"},
+            {"uri":"spotify:track:B"},{"uri":"spotify:track:C"},{"uri":"spotify:track:D"}]}}}}}}</script></html>
+            """#
+        XCTAssertEqual(SpotifyQueue.embedSongs(html),
+                       ["spotify:track:A", "spotify:track:B", "spotify:track:C", "spotify:track:D"])
+        XCTAssertNil(SpotifyQueue.embedSongs("<html>no data</html>"))
+        // DJ and personal mixes: a page that says 404 with HTTP 200.
+        let missing = #"<script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"status":404,"title":"Page not found"}}}</script>"#
+        XCTAssertEqual(SpotifyQueue.embedSongs(missing), [])
+    }
+
+    private func playing(_ song: String, from: String = "context", context: String = "spotify:playlist:abc",
+                         shuffled: Bool = false, repeating: Bool = false) -> SpotifyQueue.Playing {
+        SpotifyQueue.Playing(context: context, song: song, shuffled: shuffled, from: from, repeating: repeating)
+    }
+
+    /// `list_player_queue_operations` with these songs queued, as measured on
+    /// 19 Nov 2026 (invented ids): one field 1 per song, its URI in 1.2.
+    private func queueFile(_ uris: [String]) -> [UInt8] {
+        uris.flatMap { field(1, field(1, "q0123") + field(2, $0) + field(5, "someone")) }
+            + field(2, "eb4f") + field(3, field(1, "spotify:playlist:abc"))
+    }
+
+    func testSongsQueuedByHandComeFirstWithoutTheOnePlaying() {
+        let file = queueFile(["spotify:track:Q1", "spotify:track:Q2", localURI(9), "spotify:episode:E"])
+        XCTAssertEqual(SpotifyQueue.queue(file, playing: playing("spotify:track:B")), ["Q1", "Q2", localURI(9)],
+                       "an episode has no page and is left out")
+        XCTAssertEqual(SpotifyQueue.queue(file, playing: playing("spotify:track:Q1", from: "queue")), ["Q2", localURI(9)],
+                       "the queued song playing stays first in the file until the next starts")
+        XCTAssertEqual(SpotifyQueue.queue(field(3, field(1, "spotify:playlist:abc")), playing: playing("spotify:track:B")), [])
+    }
+
+    func testTheContextsPlaceComesFromHistoryWhileAQueuedSongPlays() {
+        func play(_ song: String, _ context: String, _ row: String) -> [UInt8] {
+            field(1, field(1, song) + field(2, context) + field(3, row))
+        }
+        let history = play("spotify:track:Q1", "spotify:playlist:abc", "q0123")
+            + play("spotify:track:LAST", "spotify:playlist:abc", "5594f349")
+            + play("spotify:track:ELSE", "spotify:playlist:xyz", "788ea869")
+            + play("spotify:track:OLD", "spotify:playlist:abc", "eb4f8d40")
+        XCTAssertEqual(SpotifyQueue.lastPlayed(history, in: "spotify:playlist:abc"), "spotify:track:LAST",
+                       "newest first, queued songs skipped")
+        XCTAssertNil(SpotifyQueue.lastPlayed(history, in: "spotify:album:none"))
+        XCTAssertEqual(SpotifyQueue.playRequest(request(from: "queue"))?.from, "queue")
+    }
+
+    func testRepeatGoesRoundFromTheTop() {
+        let four = ["A", "B", "C", "D"].map { "spotify:track:\($0)" }
+        XCTAssertEqual(SpotifyQueue.state(playing("spotify:track:D", repeating: true), four)?.upcoming, ["A", "B", "C", "D"])
+        XCTAssertEqual(SpotifyQueue.state(playing("spotify:track:B", repeating: true), four)?.upcoming, ["C", "D", "A", "B"])
+        let hundred = (0..<100).map { "spotify:track:s\($0)" }
+        XCTAssertEqual(SpotifyQueue.state(playing("spotify:track:s99", repeating: true), hundred)?.unshown, .pastFirst100,
+                       "the top isn't next when songs past 100 are unseen")
+    }
+
+    func testTheSongsAfterThePlayingOneOrWhyNot() {
+        let four = ["A", "B", "C", "D"].map { "spotify:track:\($0)" }
+        XCTAssertEqual(SpotifyQueue.state(playing("spotify:track:B"), four)?.upcoming, ["C", "D"])
+        XCTAssertEqual(SpotifyQueue.state(playing("spotify:track:D"), four)?.unshown, .end, "autoplay may follow")
+        XCTAssertNil(SpotifyQueue.state(playing("spotify:track:Z"), four), "the playlist changed under it")
+        XCTAssertEqual(SpotifyQueue.state(playing("spotify:track:B"), [])?.unshown, .notShared, "a 404 page")
+
+        let hundred = (0..<100).map { "spotify:track:s\($0)" }
+        XCTAssertEqual(SpotifyQueue.state(playing("spotify:track:far"), hundred)?.unshown, .pastFirst100)
+        XCTAssertEqual(SpotifyQueue.state(playing("spotify:track:s99"), hundred)?.unshown, .pastFirst100,
+                       "the 100th song: the 101st exists, unseen")
+        XCTAssertEqual(SpotifyQueue.state(playing("spotify:track:s97"), hundred)?.upcoming, ["s98", "s99"])
+    }
+
+    func testWhatNeedsNoPage() {
+        XCTAssertNil(SpotifyQueue.unshown(playing("spotify:track:B")), "a playlist: ask its page")
+        XCTAssertEqual(SpotifyQueue.unshown(playing("spotify:track:B", shuffled: true)), .shuffled)
+        XCTAssertEqual(SpotifyQueue.unshown(playing("spotify:track:X", from: "autoplay", shuffled: true)), .picked,
+                       "autoplay is picked, shuffle or not")
+        XCTAssertEqual(SpotifyQueue.unshown(playing("spotify:track:X", context: "spotify:station:artist:Y")), .picked)
+        XCTAssertEqual(SpotifyQueue.unshown(playing("spotify:track:X", context: "spotify:track:X")), .end,
+                       "one song from search")
+        XCTAssertEqual(SpotifyQueue.unshown(playing("spotify:track:X", context: "spotify:user:me:collection")), .notShared,
+                       "Liked Songs")
+        XCTAssertEqual(SpotifyQueue.unshown(playing("spotify:track:X", context: "spotify:list:jam-list:0d36")), .notShared)
+        XCTAssertEqual(SpotifyQueue.unshown(playing("spotify:track:X", context: "spotify:playlist:37i9dQZF1E4p4bejBWaLfX")),
+                       .notShared, "radio: its public page lists someone else's songs")
+        XCTAssertEqual(SpotifyQueue.unshown(playing("spotify:track:X", context: "spotify:playlist:37i9dQZEVXcGhaQsuhs662")),
+                       .notShared, "Discover Weekly")
+        XCTAssertNil(SpotifyQueue.unshown(playing("spotify:track:X", context: "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M")),
+                     "an editorial playlist is the same for everyone")
     }
 }

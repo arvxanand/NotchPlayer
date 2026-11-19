@@ -49,6 +49,9 @@ The cover on one side of the camera, a waveform on the other. The bars move
 with the music you're hearing. They're worked out on your Mac as the song
 plays, and the sound is never saved or sent anywhere.
 
+Spotify closed? The notch keeps showing the last song. Press play and
+Spotify starts in the background and carries on where you left off.
+
 </td>
 </tr>
 <tr>
@@ -97,8 +100,8 @@ Songs is one item above it); a saved one gets Spotify's picker.
 
 A waveform icon in the menu bar is the only other control: what's playing,
 **Hide from the Notch** (turns it off without quitting), and Quit. The gear
-opens settings: launch at login, cover colour on the progress bar, the +, and
-checking for updates. On a MacBook without a notch, there's also a switch for
+opens settings: launch at login, cover colour on the progress bar, the +,
+the last song when Spotify is closed, and checking for updates. On a MacBook without a notch, there's also a switch for
 the notch NotchPlayer draws there.
 
 </td>
@@ -212,7 +215,9 @@ for the permission. Here's what NotchPlayer actually does with it:
   sound away. No audio ever goes to a file.
 - **Nothing is sent anywhere.** The app has no account, no analytics and no
   server. Its only network requests are the album cover, Spotify's public
-  page for a song when you click its title or artist, Apple's public iTunes
+  page for a song when you click its title or artist (or, while the
+  up-next page is open, for the songs on it and the playlist or album
+  playing), Apple's public iTunes
   Search for the cover of an Apple Music song that Music won't share,
   [LRCLIB](https://lrclib.net) for a song's lyrics while you have the lyrics
   open (it gets the song's name, artist, album and length, nothing else), and a
@@ -326,11 +331,17 @@ only while NotchPlayer is running. It's kept in one file on your Mac
 anywhere; delete that file to start over.
 
 **What's up next (Spotify).** Swipe two fingers left on the open notch twice to see the
-next ten songs with their artists, shuffle included; scroll down for more than
-the first few. It only shows them: queue or remove songs in
-Spotify itself. A song you add appears when the next song starts, because
-that's when Spotify saves its queue. The names and covers come from Spotify's
-public song pages, looked up only while this page is open.
+next ten songs with their artists; scroll down for more than the first few. It
+only shows them: queue or remove songs in Spotify itself. Songs you queue show
+first, a few seconds after you add them. **On Spotify 1.3.10 and later** the
+rest comes from the playlist's or album's public Spotify page, so it shows with
+shuffle off (repeat included). Otherwise the page says why in one line: with
+shuffle on, Spotify no longer saves its order anywhere NotchPlayer can read;
+Liked Songs, private playlists, radio, Daily Mixes and DJ have no public list
+that matches yours; past a playlist's 100th song the public page stops; and
+on a playlist's last song, Spotify's autoplay may go on. On older Spotify it
+reads Spotify's saved queue, shuffle included. The names and covers come from
+Spotify's public song pages, looked up only while this page is open.
 
 **Songs you added to Spotify from your own Mac** (Spotify's local files)
 show the cover saved inside the song file, like Spotify does. NotchPlayer

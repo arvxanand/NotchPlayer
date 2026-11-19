@@ -32,6 +32,8 @@ public enum PreviewData {
         }
         /// Set, the open panel shows this note instead.
         public var whatsNew: WhatsNew.Note? = nil
+        /// The app's last song, drawn while it is closed (`LastPlayed`).
+        public var last: Track? = nil
 
         /// A stopped clock, so the panel's progress bar renders the same in
         /// every capture. `advancing: false` is what makes it reproducible.
@@ -137,11 +139,17 @@ public enum PreviewData {
                   QueueView.Song(name: "Kicking Up Dust", artist: "Panchiko", cover: nil),
                   QueueView.Song(name: "Portraits", artist: "Panchiko", cover: cover),
               ])),
+        State(name: "notrunning-last", now: .notRunning, bands: nil,
+              caption: "Spotify closed: the last song it played, paused, one press from playing",
+              last: track()),
         State(name: "queue-empty", now: .track(track(), state: .playing, position: 23.69),
               bands: nil, caption: "the queue page at the end of a playlist", queue: .songs([])),
         State(name: "queue-unreadable", now: .track(track(), state: .playing, position: 23.69),
               bands: nil, caption: "the queue page when Spotify's file has changed shape (TRAPS #78)",
               queue: .unreadable),
+        State(name: "queue-shuffled", now: .track(track(), state: .playing, position: 23.69),
+              bands: nil, caption: "the queue page with shuffle on, which Spotify 1.3.10 saves no order for",
+              queue: .unshown(.shuffled)),
         State(name: "lyrics", now: .track(track(), state: .playing, position: 23.69),
               bands: nil, caption: "the lyrics page mid-song: one line sung, the one being sung lit, a long one wrapping",
               lyrics: .lyrics(.synced(sampleLyrics))),
@@ -222,7 +230,7 @@ public enum PreviewData {
     /// and still draws, which is the whole point of that state -- keying this
     /// off `now.draws` would have quietly excluded it from every check.
     public static var drawing: [State] {
-        all.filter { Presentation.of(now: $0.now, permission: $0.permission).draws }
+        all.filter { Presentation.of(now: $0.now, permission: $0.permission, last: $0.last).draws }
     }
 
     /// What `tools/check_notch.sh` captures: every drawing state collapsed,

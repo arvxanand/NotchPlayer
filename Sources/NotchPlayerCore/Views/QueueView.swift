@@ -8,7 +8,7 @@ import SwiftUI
 /// removing stay in Spotify.
 ///
 /// Same frame and camera band as `StatsView`. The order comes from Spotify's
-/// restore file (`SpotifyQueue`), names and covers from each song's public
+/// files (`SpotifyQueue`), names and covers from each song's public
 /// page (`SpotifyLinks.page`), both asked only while this page shows. A
 /// sideways swipe still flips pages; only an up-and-down scroll moves the list.
 public struct QueueView: View {
@@ -26,6 +26,8 @@ public struct QueueView: View {
         case loading
         /// The file is missing or not what it was (TRAPS #78).
         case unreadable
+        /// Spotify 1.3.10+ with no songs to show, and why.
+        case unshown(SpotifyQueue.Unshown)
         /// Nil while a song's page is on its way, or if it never answers.
         case songs([Song?])
     }
@@ -72,6 +74,9 @@ public struct QueueView: View {
         case .unreadable:
             header
             note("Can't read Spotify's queue right now.")
+        case .unshown(let why):
+            header
+            note(Self.text(why))
         case .songs(let songs) where songs.isEmpty:
             header
             note("Nothing after this song")
@@ -144,7 +149,9 @@ public struct QueueView: View {
     private func load() async {
         let playing = LocalCover.isLocal(track.id) ? track.id : track.id.split(separator: ":").last.map(String.init)
         let saved = SpotifyQueue.saved()
-        guard let state = SpotifyQueue.read() else { content = .unreadable; return }
+        guard let state = await SpotifyQueue.read() else { content = .unreadable; return }
+        // Songs queued by hand are certain even when the rest isn't.
+        if let why = state.unshown, state.queued.isEmpty { content = .unshown(why); return }
         var ids = Self.upNext(state, playing: playing)
         var songs = ids.map(Self.known)
         content = .songs(songs)
@@ -154,7 +161,8 @@ public struct QueueView: View {
                 try? await Task.sleep(for: .milliseconds(250))
                 guard !Task.isCancelled else { return }
             }
-            if let fresh = SpotifyQueue.read() {
+            if let fresh = await SpotifyQueue.read() {
+                if let why = fresh.unshown, fresh.queued.isEmpty { content = .unshown(why); return }
                 ids = Self.upNext(fresh, playing: playing)
                 songs = ids.map(Self.known)
                 content = .songs(songs)
@@ -171,6 +179,17 @@ public struct QueueView: View {
                 songs[index] = song
                 content = .songs(songs)
             }
+        }
+    }
+
+    /// One line each; "shuffled" is the longest and has a preview.
+    public nonisolated static func text(_ why: SpotifyQueue.Unshown) -> String {
+        switch why {
+        case .shuffled: "Shuffle is on, and Spotify doesn't save its order."
+        case .picked: "Spotify picks these as it goes."
+        case .notShared: "Spotify doesn't share this list's order."
+        case .pastFirst100: "Spotify only shares a playlist's first 100 songs."
+        case .end: "Last song here. Autoplay may go on after it."
         }
     }
 

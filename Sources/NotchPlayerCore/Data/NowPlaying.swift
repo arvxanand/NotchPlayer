@@ -5,7 +5,7 @@ import Foundation
 /// its AppleScript dictionary describes the field as "the length of the track
 /// in seconds", and mixing the two is a 1000x timing bug that looks like a
 /// clock problem.
-public struct Track: Equatable, Sendable {
+public struct Track: Equatable, Sendable, Codable {
     public let id: String
     public let name: String
     public let artist: String
@@ -277,9 +277,16 @@ public enum Presentation: Equatable, Sendable {
     /// the app is silently dead and the user has no way to find out why.
     case permissionNeeded
 
-    public static func of(now: Now, permission: Permission) -> Presentation {
+    /// `last` is the song the app played before it was closed (`LastPlayed`):
+    /// shown, paused, only while the app is not running. `waking` shows it
+    /// playing while the press that starts the app is under way.
+    public static func of(now: Now, permission: Permission, last: Track? = nil,
+                          waking: Bool = false) -> Presentation {
         if let track = now.track {
             return .track(track, playing: now.isPlaying, controllable: permission != .denied)
+        }
+        if case .notRunning = now, let last {
+            return .track(last, playing: waking, controllable: true)
         }
         // Only a *refusal* draws. A read that failed for some other reason
         // retries on its own clock, and a permanent error strip for a

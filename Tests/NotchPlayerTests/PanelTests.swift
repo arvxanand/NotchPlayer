@@ -151,8 +151,9 @@ final class CheckSpecTests: XCTestCase {
         // Capturing one would photograph the desktop through a transparent
         // window and fail for a reason that has nothing to do with the panel.
         for state in PreviewData.all
-        where !Presentation.of(now: state.now, permission: state.permission).draws {
-            XCTAssertFalse(PreviewData.checkSpecs.contains { $0.contains(state.name) },
+        where !Presentation.of(now: state.now, permission: state.permission, last: state.last).draws {
+            // By word: "notrunning" is inside "notrunning-last", which draws.
+            XCTAssertFalse(PreviewData.checkSpecs.contains { $0.split(separator: " ").contains(Substring(state.name)) },
                            "\(state.name) draws nothing and must not be captured")
         }
     }

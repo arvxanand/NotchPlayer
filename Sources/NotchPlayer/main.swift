@@ -243,13 +243,53 @@ if args.contains("--local-cover") {
     RunLoop.main.run()
 }
 
+/// Play pressed with Spotify closed, as the notch does it (`PlayerService.wake`),
+/// in this bundle's own process: every 0.1s for 6s, what is in front, whether
+/// Spotify shows a window, and its state. Launch it like `--trusted`.
+if args.contains("--wake") {
+    MainActor.assumeIsolated {
+        let service = PlayerService(source: .spotify)
+        service.start()
+        // Spotify open: only let the service read and remember its song.
+        if PlayerBridge().isRunning {
+            Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { _ in
+                MainActor.assumeIsolated {
+                    print("wake: Spotify is open; remembered \(service.last?.name ?? "nothing"). Quit it and run again.")
+                    exit(0)
+                }
+            }
+            return
+        }
+        guard service.closedTrack != nil else { print("wake: no last song saved, or the switch is off"); exit(1) }
+        let start = Date()
+        service.send(.playpause)
+        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            MainActor.assumeIsolated {
+                let t = Date().timeIntervalSince(start)
+                let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?"
+                let pid = NSRunningApplication.runningApplications(withBundleIdentifier: Source.spotify.bundleID).first?.processIdentifier
+                let windows = (CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? [])
+                    .filter { $0[kCGWindowOwnerPID as String] as? pid_t == pid && $0[kCGWindowLayer as String] as? Int == 0 }
+                print(String(format: "%.1fs front %@ window %@ %@", t, front, windows.isEmpty ? "no" : "YES",
+                             String(describing: service.now)))
+                if t > 6 { exit(0) }
+            }
+        }
+    }
+    RunLoop.main.run()
+}
+
 /// What the queue page would show, as song ids, from Spotify's restore file.
 if args.contains("--queue") {
-    guard let state = SpotifyQueue.read() else { print("queue: can't read Spotify's file"); exit(1) }
-    print("context \(state.context ?? "none")")
-    print("queued \(state.queued.joined(separator: " "))")
-    print("next \(state.next(5).joined(separator: " "))")
-    exit(0)
+    Task {
+        guard let state = await SpotifyQueue.read() else { print("queue: can't read Spotify's file"); exit(1) }
+        print("context \(state.context ?? "none")")
+        print("queued \(state.queued.joined(separator: " "))")
+        if let why = state.unshown { print("then: \(why) -- \(QueueView.text(why))"); exit(0) }
+        print("next \(state.next(5).joined(separator: " "))")
+        exit(0)
+    }
+    RunLoop.main.run()
 }
 
 /// What the lyrics page would show for the playing song: from the disk cache

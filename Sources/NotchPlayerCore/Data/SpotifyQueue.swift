@@ -1,12 +1,20 @@
 import Foundation
 
-/// What Spotify plays next, read from the file it keeps to resume after a
-/// restart: `PersistentCache/Users/<id>-user/context_player_state_restore`.
+/// What Spotify plays next.
 ///
 /// **Spotify's dictionary has no queue, and its window shows it only while
-/// on screen** (TRAPS #49), so this file is the one way to see it with
-/// Spotify in full screen on another Space. Undocumented (TRAPS #78): a
-/// timestamp, `#`, then a protobuf whose player nodes include
+/// on screen** (TRAPS #49), so this reads Spotify's own files instead.
+///
+/// **Spotify 1.3.10 and later** (TRAPS #78) save no play order at all:
+/// `list_player_play_request` holds the playlist or album playing, the song
+/// and, with shuffle on, only a seed (`stable:…`) the order is worked out
+/// from in memory. So with shuffle off the order is the context's own,
+/// read from its public embed page (`open.spotify.com/embed/…`, the first
+/// 100 songs, one ~100KB fetch); anything else the page says why in
+/// plain words (`Unshown`). Songs queued by hand come first either way.
+///
+/// **Before 1.3.10** it was `context_player_state_restore`: a timestamp,
+/// `#`, then a protobuf whose player nodes include
 ///
 /// - `PlayQueueNode`: field 1, the songs queued by hand, next first; field 2,
 ///   the queued song playing now.
@@ -17,8 +25,10 @@ import Foundation
 ///
 /// **Rewritten when the song changes or shuffle flips, not when a song is
 /// queued**, so a song queued mid-song shows up when the next one starts.
-/// Read-only, and anything unexpected is nil: the page then says it can't read
-/// the queue rather than showing the wrong songs.
+/// Whichever of the two files is newer is read, so an old one left behind
+/// by an update is not taken. Read-only, and anything unexpected is nil:
+/// the page then says it can't read the queue rather than showing the
+/// wrong songs.
 public enum SpotifyQueue {
     public struct State: Equatable, Sendable {
         /// Song ids, base62, in the order they play. A local file has no id
@@ -27,9 +37,11 @@ public enum SpotifyQueue {
         public var upcoming: [String]
         /// `spotify:playlist:…`, `spotify:album:…`; nil when none was saved.
         public var context: String?
+        /// Set when there are no songs to show and the page says why (1.3.10+).
+        public var unshown: Unshown?
 
-        public init(queued: [String], upcoming: [String], context: String?) {
-            self.queued = queued; self.upcoming = upcoming; self.context = context
+        public init(queued: [String], upcoming: [String], context: String?, unshown: Unshown? = nil) {
+            self.queued = queued; self.upcoming = upcoming; self.context = context; self.unshown = unshown
         }
 
         /// The queued songs, then the rest, as many as the page shows.
@@ -38,10 +50,44 @@ public enum SpotifyQueue {
         }
     }
 
-    /// The newest restore file under any account; nil if there is none or it
-    /// does not read.
-    public static func read(home: String = NSHomeDirectory()) -> State? {
-        newest(home: home).flatMap { try? Data(contentsOf: $0) }.flatMap { parse([UInt8]($0)) }
+    /// Why 1.3.10+ shows no songs, each checked on 19 Nov 2026 (TRAPS #78).
+    public enum Unshown: Equatable, Sendable {
+        /// Shuffle on: Spotify saves only a seed, the order is in memory.
+        case shuffled
+        /// Autoplay or radio: Spotify picks each song as it goes.
+        case picked
+        /// No true public list: private playlists and Liked Songs (a
+        /// `37i9dQZF1F…` playlist on 1.3.10) answer 404; DJ, Daily Mixes and
+        /// radio are made per listener, so their public page lists other songs.
+        case notShared
+        /// The embed page lists a playlist's first 100 songs only.
+        case pastFirst100
+        /// The context's last song with repeat off (or one song played from
+        /// search). Autoplay may follow; whether it is on isn't saved here.
+        case end
+    }
+
+    /// The newest save under any account; nil if there is none or it does
+    /// not read. Asks Spotify's embed page when the save is 1.3.10's.
+    public static func read(home: String = NSHomeDirectory()) async -> State? {
+        guard let file = newest(home: home), let data = try? Data(contentsOf: file) else { return nil }
+        guard file.lastPathComponent == request else { return parse([UInt8](data)) }
+        func sibling(_ name: String) -> [UInt8] {
+            (try? Data(contentsOf: file.deletingLastPathComponent().appendingPathComponent(name))).map { [UInt8]($0) } ?? []
+        }
+        guard var playing = playRequest([UInt8](data)) else { return nil }
+        playing.repeating = Proto.varint(5, in: sibling("list_player_playback_settings")[...]) == 1
+        let queued = queue(sibling("list_player_queue_operations"), playing: playing)
+        // A queued song is on: the context goes on from its own place.
+        if playing.from == "queue" {
+            guard let song = lastPlayed(sibling("list_player_play_history"), in: playing.context) else { return nil }
+            playing.song = song
+        }
+        func adding(_ state: State?) -> State? { state.map { var state = $0; state.queued = queued; return state } }
+        if let why = unshown(playing) { return adding(State(queued: [], upcoming: [], context: playing.context, unshown: why)) }
+        guard let url = embedURL(playing.context), let html = await fetch(url),
+              let songs = embedSongs(html) else { return nil }
+        return adding(state(playing, songs))
     }
 
     /// When Spotify last saved the file, to tell a fresh save from a stale one.
@@ -53,8 +99,21 @@ public enum SpotifyQueue {
         let users = URL(fileURLWithPath: home)
             .appendingPathComponent("Library/Application Support/Spotify/PersistentCache/Users")
         let files = ((try? FileManager.default.contentsOfDirectory(at: users, includingPropertiesForKeys: nil)) ?? [])
-            .map { $0.appendingPathComponent("context_player_state_restore") }
-        return files.max { modified($0) < modified($1) }
+            .flatMap { [$0.appendingPathComponent("context_player_state_restore"), $0.appendingPathComponent(request)] }
+        return files.filter { FileManager.default.fileExists(atPath: $0.path) }.max { modified($0) < modified($1) }
+    }
+
+    private static let request = "list_player_play_request"
+
+    /// Ephemeral, as for song pages: no cookies, nothing cached on disk.
+    private static let session = URLSession(configuration: .ephemeral)
+
+    private static func fetch(_ url: URL) async -> String? {
+        var request = URLRequest(url: url, timeoutInterval: 4)
+        request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        guard let (data, response) = try? await session.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 
     private static func modified(_ url: URL) -> Date {
@@ -62,6 +121,107 @@ public enum SpotifyQueue {
     }
 
     // MARK: - Pure, so a test can call them
+
+    struct Playing: Equatable {
+        var context: String, song: String, shuffled = false
+        /// Where the song came from: "context", "queue", "autoplay".
+        var from: String? = nil
+        var repeating = false
+    }
+
+    /// 1.3.10's `list_player_play_request`, plain protobuf: 1.1 the context,
+    /// 1.4.1.2 the song playing, 1.4.1.4 where it came from, 1.8.1.4
+    /// `stable:…` only while shuffle is on (measured 19 Nov 2026: there within
+    /// 3s of turning it on, even paused; the file rewritten within a second of
+    /// a song change).
+    static func playRequest(_ file: [UInt8]) -> Playing? {
+        func text(_ path: [UInt64]) -> String? {
+            Proto.path(path, in: file[...]).first.map { String(decoding: $0, as: UTF8.self) }
+        }
+        guard let context = text([1, 1]), let song = text([1, 4, 1, 2]) else { return nil }
+        return Playing(context: context, song: song, shuffled: text([1, 8, 1, 4])?.hasPrefix("stable:") ?? false,
+                       from: text([1, 4, 1, 4]))
+    }
+
+    /// Songs queued by hand, next first, from `list_player_queue_operations`:
+    /// field 1 per song, 1.2 its URI. Saved within ~3s of queueing; the
+    /// queued song playing stays first until the next one starts, so it is
+    /// dropped here (measured 19 Nov 2026 against Spotify's queue panel).
+    static func queue(_ file: [UInt8], playing: Playing) -> [String] {
+        var uris = Proto.fields(1, in: file[...]).compactMap { Proto.field(2, in: $0) }
+            .map { String(decoding: $0, as: UTF8.self) }
+        if playing.from == "queue", uris.first == playing.song { uris.removeFirst() }
+        return uris.compactMap { uri in
+            LocalCover.isLocal(uri) ? uri : uri.hasPrefix("spotify:track:") ? String(uri.dropFirst(14)) : nil
+        }
+    }
+
+    /// The context's own song played last, which it goes on from after the
+    /// queued ones: `list_player_play_history` is newest first, field 1 per
+    /// play, 1.1 the song, 1.2 the context, 1.3 the row -- "q…" for a queued
+    /// song. (1.4.13 in the play request looked like it, but is the row the
+    /// context was started from: wrong after the first song, 19 Nov 2026.)
+    static func lastPlayed(_ file: [UInt8], in context: String) -> String? {
+        func text(_ number: UInt64, _ entry: ArraySlice<UInt8>) -> String? {
+            Proto.field(number, in: entry).map { String(decoding: $0, as: UTF8.self) }
+        }
+        return Proto.fields(1, in: file[...])
+            .first { text(2, $0) == context && !(text(3, $0)?.hasPrefix("q") ?? true) }
+            .flatMap { text(1, $0) }
+    }
+
+    /// What needs no page to say.
+    static func unshown(_ playing: Playing) -> Unshown? {
+        if playing.from == "autoplay" || playing.context.hasPrefix("spotify:station:") { return .picked }
+        if playing.shuffled { return .shuffled }
+        if playing.context.hasPrefix("spotify:track:") { return .end }
+        // ponytail: Spotify's per-listener playlists by id prefix (Daily
+        // Mixes, radio, DJ, Discover Weekly); an editorial one (37i9dQZF1DX…)
+        // is the same for everyone and is read.
+        if ["spotify:playlist:37i9dQZF1E", "spotify:playlist:37i9dQZEVX"].contains(where: playing.context.hasPrefix) {
+            return .notShared
+        }
+        return embedURL(playing.context) == nil ? .notShared : nil
+    }
+
+    /// The songs after the playing one, or why there are none. Nil if the
+    /// song isn't in a short list -- the playlist changed under it.
+    /// ponytail: the first copy of a song that is in the list twice.
+    static func state(_ playing: Playing, _ songs: [String]) -> State? {
+        func note(_ why: Unshown) -> State { State(queued: [], upcoming: [], context: playing.context, unshown: why) }
+        let capped = songs.count >= 100
+        if songs.isEmpty { return note(.notShared) }
+        guard let index = songs.firstIndex(of: playing.song) else { return capped ? note(.pastFirst100) : nil }
+        // Repeat on: round again from the top (Spotify did, 19 Nov 2026).
+        let order = songs[(index + 1)...] + (playing.repeating && !capped ? songs[...index] : [])
+        let after = order.map { String($0.split(separator: ":").last ?? "") }
+        if after.isEmpty { return note(capped ? .pastFirst100 : .end) }
+        return State(queued: [], upcoming: after, context: playing.context)
+    }
+
+    /// `spotify:playlist:X` to its embed page; nil for what has none, like
+    /// Liked Songs (`spotify:user:…:collection`) or a radio station.
+    static func embedURL(_ context: String) -> URL? {
+        let parts = context.split(separator: ":")
+        guard parts.count == 3, parts[0] == "spotify", ["playlist", "album", "artist"].contains(parts[1]),
+              parts[2].allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) else { return nil }
+        return URL(string: "https://open.spotify.com/embed/\(parts[1])/\(parts[2])")
+    }
+
+    /// The embed page's songs, in the context's order, from its
+    /// `__NEXT_DATA__` JSON (`props.pageProps.state.data.entity.trackList`).
+    /// Empty when the page says 404 (`props.pageProps.status`, with HTTP
+    /// 200): DJ and the personal mixes, checked 19 Nov 2026.
+    static func embedSongs(_ html: String) -> [String]? {
+        guard let start = html.range(of: #"<script id="__NEXT_DATA__" type="application/json">"#),
+              let end = html.range(of: "</script>", range: start.upperBound..<html.endIndex),
+              let json = try? JSONSerialization.jsonObject(with: Data(html[start.upperBound..<end.lowerBound].utf8)),
+              let props = ["props", "pageProps"].reduce(json as Any?, { ($0 as? [String: Any])?[$1] }) as? [String: Any]
+        else { return nil }
+        if props["status"] as? Int == 404 { return [] }
+        let entity = ["state", "data", "entity"].reduce(props as Any?, { ($0 as? [String: Any])?[$1] }) as? [String: Any]
+        return (entity?["trackList"] as? [[String: Any]])?.compactMap { $0["uri"] as? String }
+    }
 
     static func parse(_ file: [UInt8]) -> State? {
         // "1792115328087#": milliseconds, then the message.

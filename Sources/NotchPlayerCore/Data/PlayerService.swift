@@ -29,6 +29,14 @@ public final class PlayerService: ObservableObject {
     }
     private var loop: Timer?
 
+    /// The last song this app played (`LastPlayed`), drawn while it is
+    /// closed. Saved whenever a song shows up.
+    @Published public private(set) var last: Track?
+    /// A press is starting the closed app (`QuietLaunch`); the button shows
+    /// it as playing until the app answers, or gives up after a while.
+    @Published public private(set) var waking = false
+    private var remember: AnyCancellable?
+
     public let source: Source
     private let bridge: PlayerBridge
     private var reconcile: Timer?
@@ -44,6 +52,23 @@ public final class PlayerService: ObservableObject {
     public init(source: Source = .spotify) {
         self.source = source
         bridge = PlayerBridge(source: source)
+        last = LastPlayed.load(source)
+        remember = $now.sink { [weak self] now in
+            guard let self else { return }
+            if now.isPlaying { waking = false }
+            if let track = now.track, track != last {
+                last = track
+                LastPlayed.save(track)
+            }
+        }
+    }
+
+    /// The last song, if the settings switch shows it.
+    public var closedTrack: Track? { LastPlayed.enabled ? last : nil }
+
+    /// What the notch draws for this app.
+    public var presentation: Presentation {
+        Presentation.of(now: now, permission: permission, last: closedTrack, waking: waking)
     }
 
     // MARK: - Lifecycle
@@ -355,6 +380,16 @@ public final class PlayerService: ObservableObject {
     }
 
     public func send(_ command: Command) {
+        // Closed, with its last song showing: start it quietly, then send.
+        // Seeking and the modes wait until it is open.
+        if case .notRunning = now, closedTrack != nil, !bridge.isRunning {
+            switch command {
+            case .playpause, .play: wake(then: .play)
+            case .next, .previous: wake(then: command)
+            default: break
+            }
+            return
+        }
         switch bridge.send(command) {
         case .success:
             permission = .granted
@@ -382,6 +417,35 @@ public final class PlayerService: ObservableObject {
             permission = .denied
         case .failure(let other):
             NSLog("NotchPlayer: %@ failed: %@", command.name, String(describing: other))
+        }
+    }
+
+    // MARK: - Starting a closed app
+
+    private func wake(then command: Command) {
+        guard !waking else { return }
+        waking = true
+        QuietLaunch.open(source) { [weak self] in self?.sendWhenReady(command, tries: 16) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + QuietLaunch.watchFor) { [weak self] in
+            MainActor.assumeIsolated { self?.waking = false }
+        }
+    }
+
+    /// **Ready is a loaded song, not a finished launch.** Spotify accepts
+    /// `play` before it has restored its last song and does nothing with it:
+    /// it stayed stopped (19 Nov 2026, 1.3.10). So it is asked for its song
+    /// twice a second, for up to eight seconds, and sent the command once
+    /// it has one -- once, so a next is never sent twice.
+    private func sendWhenReady(_ command: Command, tries: Int) {
+        if case .success(.ok) = bridge.read(), case .success = bridge.send(command) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                MainActor.assumeIsolated { self?.refresh() }
+            }
+            return
+        }
+        guard tries > 0 else { waking = false; return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            MainActor.assumeIsolated { self?.sendWhenReady(command, tries: tries - 1) }
         }
     }
 }

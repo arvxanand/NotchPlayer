@@ -9,7 +9,9 @@ import Foundation
 public final class Players: ObservableObject {
     public let spotify = PlayerService(source: .spotify)
     public let music = PlayerService(source: .appleMusic)
-    private var last = Source.spotify
+    /// Who played last; kept across restarts so the right app's last song
+    /// shows while both are closed (`LastPlayed`).
+    private var last = LastPlayed.lastSource() ?? .spotify
     private var bag: [AnyCancellable] = []
 
     public init() {
@@ -18,7 +20,10 @@ public final class Players: ObservableObject {
         for service in [spotify, music] {
             let source = service.source
             bag.append(service.$now.sink { [weak self] now in
-                if now.isPlaying { self?.last = source }
+                if now.isPlaying, self?.last != source || LastPlayed.lastSource() != source {
+                    self?.last = source
+                    LastPlayed.setLastSource(source)
+                }
             })
         }
     }
@@ -32,7 +37,7 @@ public final class Players: ObservableObject {
     public var current: PlayerService {
         let draws = Set(Source.allCases.filter { source in
             let service = source == .spotify ? spotify : music
-            return Presentation.of(now: service.now, permission: service.permission).draws
+            return service.presentation.draws
         })
         let source = Self.pick(last: last, playing: Self.playing(spotify: spotify.now.isPlaying,
                                                                  music: music.now.isPlaying),
