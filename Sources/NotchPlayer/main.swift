@@ -248,8 +248,8 @@ if args.contains("--queue") {
     Task {
         guard let state = await SpotifyQueue.read() else { print("queue: can't read Spotify's file"); exit(1) }
         print("context \(state.context ?? "none")")
-        if let why = state.unshown { print("no songs: \(why) -- \(QueueView.text(why))"); exit(0) }
         print("queued \(state.queued.joined(separator: " "))")
+        if let why = state.unshown { print("then: \(why) -- \(QueueView.text(why))"); exit(0) }
         print("next \(state.next(5).joined(separator: " "))")
         exit(0)
     }

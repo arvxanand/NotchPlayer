@@ -217,8 +217,47 @@ final class QueueTests: XCTestCase {
     }
 
     private func playing(_ song: String, from: String = "context", context: String = "spotify:playlist:abc",
-                         shuffled: Bool = false) -> SpotifyQueue.Playing {
-        SpotifyQueue.Playing(context: context, song: song, shuffled: shuffled, from: from)
+                         shuffled: Bool = false, repeating: Bool = false) -> SpotifyQueue.Playing {
+        SpotifyQueue.Playing(context: context, song: song, shuffled: shuffled, from: from, repeating: repeating)
+    }
+
+    /// `list_player_queue_operations` with these songs queued, as measured on
+    /// 19 Nov 2026 (invented ids): one field 1 per song, its URI in 1.2.
+    private func queueFile(_ uris: [String]) -> [UInt8] {
+        uris.flatMap { field(1, field(1, "q0123") + field(2, $0) + field(5, "someone")) }
+            + field(2, "eb4f") + field(3, field(1, "spotify:playlist:abc"))
+    }
+
+    func testSongsQueuedByHandComeFirstWithoutTheOnePlaying() {
+        let file = queueFile(["spotify:track:Q1", "spotify:track:Q2", localURI(9), "spotify:episode:E"])
+        XCTAssertEqual(SpotifyQueue.queue(file, playing: playing("spotify:track:B")), ["Q1", "Q2", localURI(9)],
+                       "an episode has no page and is left out")
+        XCTAssertEqual(SpotifyQueue.queue(file, playing: playing("spotify:track:Q1", from: "queue")), ["Q2", localURI(9)],
+                       "the queued song playing stays first in the file until the next starts")
+        XCTAssertEqual(SpotifyQueue.queue(field(3, field(1, "spotify:playlist:abc")), playing: playing("spotify:track:B")), [])
+    }
+
+    func testTheContextsPlaceComesFromHistoryWhileAQueuedSongPlays() {
+        func play(_ song: String, _ context: String, _ row: String) -> [UInt8] {
+            field(1, field(1, song) + field(2, context) + field(3, row))
+        }
+        let history = play("spotify:track:Q1", "spotify:playlist:abc", "q0123")
+            + play("spotify:track:LAST", "spotify:playlist:abc", "5594f349")
+            + play("spotify:track:ELSE", "spotify:playlist:xyz", "788ea869")
+            + play("spotify:track:OLD", "spotify:playlist:abc", "eb4f8d40")
+        XCTAssertEqual(SpotifyQueue.lastPlayed(history, in: "spotify:playlist:abc"), "spotify:track:LAST",
+                       "newest first, queued songs skipped")
+        XCTAssertNil(SpotifyQueue.lastPlayed(history, in: "spotify:album:none"))
+        XCTAssertEqual(SpotifyQueue.playRequest(request(from: "queue"))?.from, "queue")
+    }
+
+    func testRepeatGoesRoundFromTheTop() {
+        let four = ["A", "B", "C", "D"].map { "spotify:track:\($0)" }
+        XCTAssertEqual(SpotifyQueue.state(playing("spotify:track:D", repeating: true), four)?.upcoming, ["A", "B", "C", "D"])
+        XCTAssertEqual(SpotifyQueue.state(playing("spotify:track:B", repeating: true), four)?.upcoming, ["C", "D", "A", "B"])
+        let hundred = (0..<100).map { "spotify:track:s\($0)" }
+        XCTAssertEqual(SpotifyQueue.state(playing("spotify:track:s99", repeating: true), hundred)?.unshown, .pastFirst100,
+                       "the top isn't next when songs past 100 are unseen")
     }
 
     func testTheSongsAfterThePlayingOneOrWhyNot() {
@@ -246,5 +285,11 @@ final class QueueTests: XCTestCase {
         XCTAssertEqual(SpotifyQueue.unshown(playing("spotify:track:X", context: "spotify:user:me:collection")), .notShared,
                        "Liked Songs")
         XCTAssertEqual(SpotifyQueue.unshown(playing("spotify:track:X", context: "spotify:list:jam-list:0d36")), .notShared)
+        XCTAssertEqual(SpotifyQueue.unshown(playing("spotify:track:X", context: "spotify:playlist:37i9dQZF1E4p4bejBWaLfX")),
+                       .notShared, "radio: its public page lists someone else's songs")
+        XCTAssertEqual(SpotifyQueue.unshown(playing("spotify:track:X", context: "spotify:playlist:37i9dQZEVXcGhaQsuhs662")),
+                       .notShared, "Discover Weekly")
+        XCTAssertNil(SpotifyQueue.unshown(playing("spotify:track:X", context: "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M")),
+                     "an editorial playlist is the same for everyone")
     }
 }

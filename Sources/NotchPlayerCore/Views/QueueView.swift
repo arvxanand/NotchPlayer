@@ -150,7 +150,8 @@ public struct QueueView: View {
         let playing = LocalCover.isLocal(track.id) ? track.id : track.id.split(separator: ":").last.map(String.init)
         let saved = SpotifyQueue.saved()
         guard let state = await SpotifyQueue.read() else { content = .unreadable; return }
-        if let why = state.unshown { content = .unshown(why); return }
+        // Songs queued by hand are certain even when the rest isn't.
+        if let why = state.unshown, state.queued.isEmpty { content = .unshown(why); return }
         var ids = Self.upNext(state, playing: playing)
         var songs = ids.map(Self.known)
         content = .songs(songs)
@@ -161,7 +162,7 @@ public struct QueueView: View {
                 guard !Task.isCancelled else { return }
             }
             if let fresh = await SpotifyQueue.read() {
-                if let why = fresh.unshown { content = .unshown(why); return }
+                if let why = fresh.unshown, fresh.queued.isEmpty { content = .unshown(why); return }
                 ids = Self.upNext(fresh, playing: playing)
                 songs = ids.map(Self.known)
                 content = .songs(songs)
