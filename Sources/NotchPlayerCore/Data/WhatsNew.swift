@@ -18,6 +18,11 @@ public enum WhatsNew {
 
     /// Short enough for one line each in the panel (`WhatsNewTests`).
     static let notes: [String: [String]] = [
+        "1.0": [
+            "Up next works again on the newest Spotify",
+            "Songs you queue show first in Up next",
+            "Press play to start Spotify when it's closed",
+        ],
         "0.9": [
             "Lyrics: click the mic beside the controls",
             "The line being sung lights up as it plays",
