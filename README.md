@@ -329,14 +329,16 @@ anywhere; delete that file to start over.
 
 **What's up next (Spotify).** Swipe two fingers left on the open notch twice to see the
 next ten songs with their artists; scroll down for more than the first few. It
-only shows them: queue or remove songs in Spotify itself. **On Spotify 1.3.10
-and later** the order comes from the playlist's or album's public Spotify page,
-so it works with shuffle off; with shuffle on the page says so, because that
-Spotify no longer saves its shuffled order anywhere NotchPlayer can read.
-Liked Songs and radio have no public page, and songs you queue by hand don't
-show yet. On older Spotify it reads Spotify's saved queue, shuffle included,
-and a song you add appears when the next song starts. The names and covers
-come from Spotify's public song pages, looked up only while this page is open.
+only shows them: queue or remove songs in Spotify itself. Songs you queue show
+first, a few seconds after you add them. **On Spotify 1.3.10 and later** the
+rest comes from the playlist's or album's public Spotify page, so it shows with
+shuffle off (repeat included). Otherwise the page says why in one line: with
+shuffle on, Spotify no longer saves its order anywhere NotchPlayer can read;
+Liked Songs, private playlists, radio, Daily Mixes and DJ have no public list
+that matches yours; past a playlist's 100th song the public page stops; and
+on a playlist's last song, Spotify's autoplay may go on. On older Spotify it
+reads Spotify's saved queue, shuffle included. The names and covers come from
+Spotify's public song pages, looked up only while this page is open.
 
 **Songs you added to Spotify from your own Mac** (Spotify's local files)
 show the cover saved inside the song file, like Spotify does. NotchPlayer
